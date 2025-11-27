@@ -5,17 +5,17 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
   Alert,
   ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import * as z from 'zod';
 import { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { signup } from '../../store/slices/authSlice';
@@ -164,7 +164,7 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
                   <TextInput
                     style={[styles.input, errors.password && styles.inputError]}
                     placeholder="Create a password"
-                    secureTextEntry
+                    secureTextEntry={true}
                     onBlur={onBlur}
                     onChangeText={onChange}
                     value={value}
@@ -183,7 +183,7 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
                   <TextInput
                     style={[styles.input, errors.confirmPassword && styles.inputError]}
                     placeholder="Confirm your password"
-                    secureTextEntry
+                    secureTextEntry={true}
                     onBlur={onBlur}
                     onChangeText={onChange}
                     value={value}

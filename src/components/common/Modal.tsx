@@ -28,7 +28,7 @@ const Modal: React.FC<ModalProps> = ({
   return (
     <RNModal
       visible={visible}
-      transparent
+      transparent={true}
       animationType="fade"
       onRequestClose={onClose}
       testID={testID}

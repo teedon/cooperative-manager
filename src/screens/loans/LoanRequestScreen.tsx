@@ -9,10 +9,10 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
-import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import * as z from 'zod';
 import { HomeStackParamList } from '../../navigation/MainNavigator';
 import { useAppDispatch } from '../../store/hooks';
 import { requestLoan } from '../../store/slices/loanSlice';
@@ -115,7 +115,7 @@ const LoanRequestScreen: React.FC<Props> = ({ route, navigation }) => {
               <TextInput
                 style={[styles.input, styles.textArea, errors.purpose && styles.inputError]}
                 placeholder="Describe the purpose of this loan..."
-                multiline
+                multiline={true}
                 numberOfLines={4}
                 onBlur={onBlur}
                 onChangeText={onChange}

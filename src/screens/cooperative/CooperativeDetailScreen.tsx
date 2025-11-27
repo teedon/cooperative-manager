@@ -65,7 +65,7 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   ];
 
   const renderTabs = () => (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabContainer}>
+    <ScrollView horizontal={true} showsHorizontalScrollIndicator={false} style={styles.tabContainer}>
       {tabs.map((tab) => (
         <TouchableOpacity
           key={tab.key}

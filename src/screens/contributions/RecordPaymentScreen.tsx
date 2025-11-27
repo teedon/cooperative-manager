@@ -13,7 +13,7 @@ import {
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import * as z from 'zod';
 import * as ImagePicker from 'expo-image-picker';
 import { HomeStackParamList } from '../../navigation/MainNavigator';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
@@ -227,7 +227,7 @@ const RecordPaymentScreen: React.FC<Props> = ({ route, navigation }) => {
               <TextInput
                 style={[styles.input, styles.textArea]}
                 placeholder="Any additional notes..."
-                multiline
+                multiline={true}
                 numberOfLines={3}
                 onBlur={onBlur}
                 onChangeText={onChange}

@@ -1,20 +1,29 @@
 import { VirtualBalance, LedgerEntry, LedgerEntryType } from '../../src/models';
 
 describe('Virtual Balance Calculation', () => {
+  let entryCounter = 0;
+
   const createEntry = (
     type: LedgerEntryType,
     amount: number,
     balanceAfter: number
-  ): LedgerEntry => ({
-    id: `ledger-${Date.now()}`,
-    cooperativeId: 'coop-1',
-    memberId: 'member-1',
-    type,
-    amount,
-    balanceAfter,
-    description: `Test ${type}`,
-    createdBy: 'system',
-    createdAt: new Date().toISOString(),
+  ): LedgerEntry => {
+    entryCounter += 1;
+    return {
+      id: `ledger-test-${entryCounter}`,
+      cooperativeId: 'coop-1',
+      memberId: 'member-1',
+      type,
+      amount,
+      balanceAfter,
+      description: `Test ${type}`,
+      createdBy: 'system',
+      createdAt: '2024-01-01T00:00:00Z',
+    };
+  };
+
+  beforeEach(() => {
+    entryCounter = 0;
   });
 
   const calculateBalance = (entries: LedgerEntry[]): VirtualBalance => {
@@ -60,7 +69,7 @@ describe('Virtual Balance Calculation', () => {
       totalGroupBuyRepayments,
       manualAdjustments,
       currentBalance,
-      lastUpdated: new Date().toISOString(),
+      lastUpdated: '2024-01-01T00:00:00Z',
     };
   };
 

@@ -14,8 +14,9 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "test:e2e": "echo 'E2E tests placeholder - configure Detox or Playwright'",
-    "mock-server": "ts-node mock-server/server.ts",
+    "test:e2e": "./e2e/api-test.sh",
+    "mock-server": "npx tsc mock-server/server.ts --outDir mock-server/dist --esModuleInterop --resolveJsonModule --skipLibCheck && node mock-server/dist/server.js",
+    "mock-server:dev": "npx tsx mock-server/server.ts",
     "build-storybook": "echo 'Storybook build placeholder'",
     "prepare": "husky install"
   },
@@ -72,6 +73,7 @@
     "prettier": "^3.7.0",
     "ts-jest": "^29.4.5",
     "ts-node": "^10.9.2",
+    "tsx": "^4.19.4",
     "typescript": "~5.9.2"
   },
   "private": true

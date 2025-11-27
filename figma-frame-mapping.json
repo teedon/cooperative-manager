@@ -1,0 +1,165 @@
+{
+  "version": "1.0.0",
+  "description": "Figma frame mapping for Cooperative Manager screens",
+  "frames": [
+    {
+      "frame_id": "auth-login",
+      "screen_title": "Login",
+      "screen_path": "src/screens/auth/LoginScreen.tsx",
+      "description": "User authentication screen with email and password fields"
+    },
+    {
+      "frame_id": "auth-signup",
+      "screen_title": "Signup",
+      "screen_path": "src/screens/auth/SignupScreen.tsx",
+      "description": "User registration screen"
+    },
+    {
+      "frame_id": "home-dashboard",
+      "screen_title": "Home Dashboard",
+      "screen_path": "src/screens/home/HomeScreen.tsx",
+      "description": "Main home screen with cooperative list and quick actions"
+    },
+    {
+      "frame_id": "home-profile",
+      "screen_title": "Profile",
+      "screen_path": "src/screens/home/ProfileScreen.tsx",
+      "description": "User profile and settings"
+    },
+    {
+      "frame_id": "coop-detail",
+      "screen_title": "Cooperative Page",
+      "screen_path": "src/screens/cooperative/CooperativeDetailScreen.tsx",
+      "description": "Cooperative detail view with tabbed navigation"
+    },
+    {
+      "frame_id": "coop-member-dashboard",
+      "screen_title": "Member Dashboard",
+      "screen_path": "src/screens/cooperative/MemberDashboardScreen.tsx",
+      "description": "Individual member's cooperative dashboard with personal obligations"
+    },
+    {
+      "frame_id": "contribution-plan",
+      "screen_title": "Contribution Plan",
+      "screen_path": "src/screens/contributions/ContributionPlanScreen.tsx",
+      "description": "Contribution plan details with periods list"
+    },
+    {
+      "frame_id": "contribution-period",
+      "screen_title": "Contribution Period",
+      "screen_path": "src/screens/contributions/ContributionPeriodScreen.tsx",
+      "description": "Single contribution period with member payments"
+    },
+    {
+      "frame_id": "contribution-record-payment",
+      "screen_title": "Record Payment",
+      "screen_path": "src/screens/contributions/RecordPaymentScreen.tsx",
+      "description": "Payment recording form with receipt upload"
+    },
+    {
+      "frame_id": "contribution-verification",
+      "screen_title": "Payment Verification Queue",
+      "screen_path": "src/screens/contributions/PaymentVerificationScreen.tsx",
+      "description": "Admin payment verification queue"
+    },
+    {
+      "frame_id": "groupbuy-list",
+      "screen_title": "Group Buy Marketplace",
+      "screen_path": "src/screens/groupbuys/GroupBuyListScreen.tsx",
+      "description": "List of available group buys"
+    },
+    {
+      "frame_id": "groupbuy-detail",
+      "screen_title": "Group Buy Detail",
+      "screen_path": "src/screens/groupbuys/GroupBuyDetailScreen.tsx",
+      "description": "Group buy details with interest indication"
+    },
+    {
+      "frame_id": "groupbuy-management",
+      "screen_title": "Group Buy Management",
+      "screen_path": "src/screens/groupbuys/GroupBuyManagementScreen.tsx",
+      "description": "Admin group buy creation and management"
+    },
+    {
+      "frame_id": "loan-request",
+      "screen_title": "Loan Request",
+      "screen_path": "src/screens/loans/LoanRequestScreen.tsx",
+      "description": "Loan request form with repayment calculator"
+    },
+    {
+      "frame_id": "loan-detail",
+      "screen_title": "Loan Detail",
+      "screen_path": "src/screens/loans/LoanDetailScreen.tsx",
+      "description": "Loan details with repayment schedule"
+    },
+    {
+      "frame_id": "loan-decision",
+      "screen_title": "Loan Admin Decision",
+      "screen_path": "src/screens/loans/LoanDecisionScreen.tsx",
+      "description": "Admin loan approval/rejection screen"
+    },
+    {
+      "frame_id": "ledger",
+      "screen_title": "Ledger & Reports",
+      "screen_path": "src/screens/ledger/LedgerScreen.tsx",
+      "description": "Financial ledger with transaction history"
+    }
+  ],
+  "components": [
+    {
+      "frame_id": "component-button",
+      "component_name": "Button",
+      "component_path": "src/components/common/Button.tsx",
+      "variants": ["primary", "secondary", "danger", "outline"],
+      "sizes": ["small", "medium", "large"]
+    },
+    {
+      "frame_id": "component-card",
+      "component_name": "Card",
+      "component_path": "src/components/common/Card.tsx",
+      "description": "Generic card container"
+    },
+    {
+      "frame_id": "component-badge",
+      "component_name": "Badge",
+      "component_path": "src/components/common/Badge.tsx",
+      "variants": ["default", "success", "warning", "error", "info"]
+    },
+    {
+      "frame_id": "component-modal",
+      "component_name": "Modal",
+      "component_path": "src/components/common/Modal.tsx",
+      "description": "Modal dialog component"
+    },
+    {
+      "frame_id": "component-cooperative-card",
+      "component_name": "CooperativeCard",
+      "component_path": "src/components/cooperative/CooperativeCard.tsx",
+      "description": "Cooperative summary card"
+    },
+    {
+      "frame_id": "component-period-card",
+      "component_name": "PeriodCard",
+      "component_path": "src/components/contributions/PeriodCard.tsx",
+      "description": "Contribution period card with progress"
+    },
+    {
+      "frame_id": "component-listing-card",
+      "component_name": "ListingCard",
+      "component_path": "src/components/groupbuys/ListingCard.tsx",
+      "description": "Group buy listing card"
+    },
+    {
+      "frame_id": "component-ledger-row",
+      "component_name": "LedgerRow",
+      "component_path": "src/components/ledger/LedgerRow.tsx",
+      "description": "Ledger transaction row"
+    },
+    {
+      "frame_id": "component-loan-card",
+      "component_name": "LoanCard",
+      "component_path": "src/components/loans/LoanCard.tsx",
+      "description": "Loan summary card"
+    }
+  ]
+}

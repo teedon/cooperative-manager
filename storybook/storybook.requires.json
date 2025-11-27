@@ -1,0 +1,4 @@
+{
+  "mainConfigFile": "./.storybook/main.ts",
+  "addons": ["@storybook/addon-essentials"]
+}

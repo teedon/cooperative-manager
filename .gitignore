@@ -39,3 +39,9 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Mock server compiled files
+mock-server/dist/
+
+# Coverage
+coverage/

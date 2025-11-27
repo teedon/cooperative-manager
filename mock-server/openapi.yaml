@@ -1,0 +1,1227 @@
+openapi: 3.0.3
+info:
+  title: Cooperative Manager API
+  description: API for managing community cooperatives, contributions, group buys, and loans
+  version: 1.0.0
+  contact:
+    name: API Support
+servers:
+  - url: http://localhost:3001/api
+    description: Local mock server
+
+tags:
+  - name: Auth
+    description: Authentication endpoints
+  - name: Cooperatives
+    description: Cooperative management
+  - name: Members
+    description: Cooperative membership
+  - name: Contributions
+    description: Contribution plans, periods, and records
+  - name: GroupBuys
+    description: Group buy management
+  - name: Loans
+    description: Loan requests and management
+  - name: Ledger
+    description: Financial ledger and balances
+
+paths:
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: User login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+
+  /auth/signup:
+    post:
+      tags: [Auth]
+      summary: User registration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignupRequest'
+      responses:
+        '201':
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Get current user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current user data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+
+  /cooperatives:
+    get:
+      tags: [Cooperatives]
+      summary: List all cooperatives for current user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of cooperatives
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Cooperative'
+    post:
+      tags: [Cooperatives]
+      summary: Create a new cooperative
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCooperativeRequest'
+      responses:
+        '201':
+          description: Cooperative created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CooperativeResponse'
+
+  /cooperatives/{id}:
+    get:
+      tags: [Cooperatives]
+      summary: Get cooperative by ID
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Cooperative details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CooperativeResponse'
+
+  /cooperatives/{cooperativeId}/members:
+    get:
+      tags: [Members]
+      summary: List members of a cooperative
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: cooperativeId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of members
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CooperativeMember'
+
+  /cooperatives/{cooperativeId}/contribution-plans:
+    get:
+      tags: [Contributions]
+      summary: List contribution plans
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: cooperativeId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of contribution plans
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ContributionPlan'
+    post:
+      tags: [Contributions]
+      summary: Create a contribution plan
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: cooperativeId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateContributionPlanRequest'
+      responses:
+        '201':
+          description: Plan created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContributionPlanResponse'
+
+  /contribution-plans/{planId}/periods:
+    get:
+      tags: [Contributions]
+      summary: List periods for a contribution plan
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: planId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of periods
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ContributionPeriod'
+
+  /contribution-periods/{periodId}/records:
+    get:
+      tags: [Contributions]
+      summary: List payment records for a period
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: periodId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of records
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ContributionRecord'
+    post:
+      tags: [Contributions]
+      summary: Record a payment
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: periodId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecordPaymentRequest'
+      responses:
+        '201':
+          description: Payment recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContributionRecordResponse'
+
+  /contribution-records/{recordId}/verify:
+    post:
+      tags: [Contributions]
+      summary: Verify a payment record (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: recordId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/VerifyPaymentRequest'
+      responses:
+        '200':
+          description: Payment verified
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ContributionRecordResponse'
+
+  /cooperatives/{cooperativeId}/group-buys:
+    get:
+      tags: [GroupBuys]
+      summary: List group buys
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: cooperativeId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of group buys
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GroupBuy'
+    post:
+      tags: [GroupBuys]
+      summary: Create a group buy (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: cooperativeId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGroupBuyRequest'
+      responses:
+        '201':
+          description: Group buy created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupBuyResponse'
+
+  /group-buys/{groupBuyId}/orders:
+    get:
+      tags: [GroupBuys]
+      summary: List orders for a group buy
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: groupBuyId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of orders
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GroupBuyOrder'
+    post:
+      tags: [GroupBuys]
+      summary: Indicate interest (place order)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: groupBuyId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                quantity:
+                  type: integer
+              required:
+                - quantity
+      responses:
+        '201':
+          description: Order placed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupBuyOrderResponse'
+
+  /group-buys/{groupBuyId}/finalize:
+    post:
+      tags: [GroupBuys]
+      summary: Finalize a group buy (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: groupBuyId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Group buy finalized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupBuyResponse'
+
+  /cooperatives/{cooperativeId}/loans:
+    get:
+      tags: [Loans]
+      summary: List loans
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: cooperativeId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of loans
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/LoanRequest'
+    post:
+      tags: [Loans]
+      summary: Request a loan
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: cooperativeId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLoanRequest'
+      responses:
+        '201':
+          description: Loan request created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoanRequestResponse'
+
+  /loans/{loanId}/review:
+    post:
+      tags: [Loans]
+      summary: Review loan request (admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: loanId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewLoanRequest'
+      responses:
+        '200':
+          description: Loan reviewed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoanRequestResponse'
+
+  /cooperatives/{cooperativeId}/ledger:
+    get:
+      tags: [Ledger]
+      summary: Get ledger entries
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: cooperativeId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: memberId
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Ledger entries
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/LedgerEntry'
+
+  /cooperatives/{cooperativeId}/members/{memberId}/balance:
+    get:
+      tags: [Ledger]
+      summary: Get member virtual balance
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: cooperativeId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: memberId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Virtual balance
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/VirtualBalanceResponse'
+
+  /media/upload:
+    post:
+      tags: [Media]
+      summary: Upload a receipt image
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '201':
+          description: File uploaded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      url:
+                        type: string
+                      filename:
+                        type: string
+
+  /health:
+    get:
+      tags: [System]
+      summary: Health check
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        phone:
+          type: string
+        avatarUrl:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    SignupRequest:
+      type: object
+      required:
+        - email
+        - password
+        - firstName
+        - lastName
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        phone:
+          type: string
+
+    AuthResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            user:
+              $ref: '#/components/schemas/User'
+            token:
+              type: string
+
+    UserResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/User'
+
+    Cooperative:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        imageUrl:
+          type: string
+        status:
+          type: string
+          enum: [active, inactive, suspended]
+        memberCount:
+          type: integer
+        totalContributions:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateCooperativeRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        imageUrl:
+          type: string
+
+    CooperativeResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/Cooperative'
+
+    CooperativeMember:
+      type: object
+      properties:
+        id:
+          type: string
+        cooperativeId:
+          type: string
+        userId:
+          type: string
+        user:
+          $ref: '#/components/schemas/User'
+        role:
+          type: string
+          enum: [admin, moderator, member]
+        joinedAt:
+          type: string
+          format: date-time
+        virtualBalance:
+          type: number
+        status:
+          type: string
+          enum: [active, suspended, removed]
+
+    ContributionPlan:
+      type: object
+      properties:
+        id:
+          type: string
+        cooperativeId:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+          enum: [fixed, variable]
+        amount:
+          type: number
+        minAmount:
+          type: number
+        maxAmount:
+          type: number
+        frequency:
+          type: string
+          enum: [weekly, biweekly, monthly, quarterly, annually]
+        duration:
+          type: string
+          enum: [continuous, fixed_period]
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        totalPeriods:
+          type: integer
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateContributionPlanRequest:
+      type: object
+      required:
+        - name
+        - type
+        - frequency
+        - duration
+        - startDate
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+          enum: [fixed, variable]
+        amount:
+          type: number
+        minAmount:
+          type: number
+        maxAmount:
+          type: number
+        frequency:
+          type: string
+          enum: [weekly, biweekly, monthly, quarterly, annually]
+        duration:
+          type: string
+          enum: [continuous, fixed_period]
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+
+    ContributionPlanResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/ContributionPlan'
+
+    ContributionPeriod:
+      type: object
+      properties:
+        id:
+          type: string
+        planId:
+          type: string
+        periodNumber:
+          type: integer
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        dueDate:
+          type: string
+          format: date
+        expectedAmount:
+          type: number
+        collectedAmount:
+          type: number
+        status:
+          type: string
+          enum: [upcoming, active, completed, overdue]
+
+    ContributionRecord:
+      type: object
+      properties:
+        id:
+          type: string
+        periodId:
+          type: string
+        memberId:
+          type: string
+        member:
+          $ref: '#/components/schemas/CooperativeMember'
+        amount:
+          type: number
+        paymentDate:
+          type: string
+          format: date
+        paymentReference:
+          type: string
+        receiptUrl:
+          type: string
+        notes:
+          type: string
+        status:
+          type: string
+          enum: [pending, verified, rejected]
+        verifiedBy:
+          type: string
+        verifiedAt:
+          type: string
+          format: date-time
+        rejectionReason:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    RecordPaymentRequest:
+      type: object
+      required:
+        - amount
+        - paymentDate
+      properties:
+        amount:
+          type: number
+        paymentDate:
+          type: string
+          format: date
+        paymentReference:
+          type: string
+        receiptUrl:
+          type: string
+        notes:
+          type: string
+
+    VerifyPaymentRequest:
+      type: object
+      required:
+        - approved
+      properties:
+        approved:
+          type: boolean
+        reason:
+          type: string
+
+    ContributionRecordResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/ContributionRecord'
+
+    GroupBuy:
+      type: object
+      properties:
+        id:
+          type: string
+        cooperativeId:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        imageUrl:
+          type: string
+        unitPrice:
+          type: number
+        totalUnits:
+          type: integer
+        availableUnits:
+          type: integer
+        minUnitsPerMember:
+          type: integer
+        maxUnitsPerMember:
+          type: integer
+        interestRate:
+          type: number
+        allocationMethod:
+          type: string
+          enum: [first_come, proportional, admin_override]
+        deadline:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [draft, open, closed, finalized, completed, cancelled]
+        createdBy:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateGroupBuyRequest:
+      type: object
+      required:
+        - title
+        - unitPrice
+        - totalUnits
+        - deadline
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        imageUrl:
+          type: string
+        unitPrice:
+          type: number
+        totalUnits:
+          type: integer
+        minUnitsPerMember:
+          type: integer
+        maxUnitsPerMember:
+          type: integer
+        interestRate:
+          type: number
+        allocationMethod:
+          type: string
+          enum: [first_come, proportional, admin_override]
+        deadline:
+          type: string
+          format: date-time
+
+    GroupBuyResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/GroupBuy'
+
+    GroupBuyOrder:
+      type: object
+      properties:
+        id:
+          type: string
+        groupBuyId:
+          type: string
+        memberId:
+          type: string
+        member:
+          $ref: '#/components/schemas/CooperativeMember'
+        requestedQuantity:
+          type: integer
+        allocatedQuantity:
+          type: integer
+        unitPrice:
+          type: number
+        interestAmount:
+          type: number
+        totalLiability:
+          type: number
+        status:
+          type: string
+          enum: [pending, confirmed, allocated, paid, cancelled]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    GroupBuyOrderResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/GroupBuyOrder'
+
+    LoanRequest:
+      type: object
+      properties:
+        id:
+          type: string
+        cooperativeId:
+          type: string
+        memberId:
+          type: string
+        member:
+          $ref: '#/components/schemas/CooperativeMember'
+        amount:
+          type: number
+        purpose:
+          type: string
+        duration:
+          type: integer
+        interestRate:
+          type: number
+        monthlyRepayment:
+          type: number
+        totalRepayment:
+          type: number
+        status:
+          type: string
+          enum: [pending, approved, rejected, disbursed, repaying, completed, defaulted]
+        requestedAt:
+          type: string
+          format: date-time
+        reviewedBy:
+          type: string
+        reviewedAt:
+          type: string
+          format: date-time
+        rejectionReason:
+          type: string
+        disbursedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateLoanRequest:
+      type: object
+      required:
+        - amount
+        - purpose
+        - duration
+      properties:
+        amount:
+          type: number
+        purpose:
+          type: string
+        duration:
+          type: integer
+
+    ReviewLoanRequest:
+      type: object
+      required:
+        - approved
+      properties:
+        approved:
+          type: boolean
+        reason:
+          type: string
+
+    LoanRequestResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/LoanRequest'
+
+    LedgerEntry:
+      type: object
+      properties:
+        id:
+          type: string
+        cooperativeId:
+          type: string
+        memberId:
+          type: string
+        type:
+          type: string
+          enum: [contribution_in, loan_disbursement, loan_repayment, groupbuy_outlay, groupbuy_repayment, manual_credit, manual_debit]
+        amount:
+          type: number
+        balanceAfter:
+          type: number
+        referenceId:
+          type: string
+        referenceType:
+          type: string
+          enum: [contribution, loan, groupbuy]
+        description:
+          type: string
+        createdBy:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    VirtualBalance:
+      type: object
+      properties:
+        memberId:
+          type: string
+        cooperativeId:
+          type: string
+        totalContributions:
+          type: number
+        totalLoanDisbursements:
+          type: number
+        totalLoanRepayments:
+          type: number
+        totalGroupBuyOutlays:
+          type: number
+        totalGroupBuyRepayments:
+          type: number
+        manualAdjustments:
+          type: number
+        currentBalance:
+          type: number
+        lastUpdated:
+          type: string
+          format: date-time
+
+    VirtualBalanceResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/VirtualBalance'

@@ -10,58 +10,71 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useForm, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
 import { HomeStackParamList } from '../../navigation/MainNavigator';
 import { useAppDispatch } from '../../store/hooks';
 import { requestLoan } from '../../store/slices/loanSlice';
+import { validateRequired, validateMinLength } from '../../utils/validation';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'LoanRequest'>;
 
-const loanSchema = z.object({
-  amount: z.string().min(1, 'Amount is required'),
-  purpose: z.string().min(10, 'Please provide a detailed purpose (at least 10 characters)'),
-  duration: z.string().min(1, 'Duration is required'),
-});
+interface LoanFormData {
+  amount: string;
+  purpose: string;
+  duration: string;
+}
 
-type LoanFormData = z.infer<typeof loanSchema>;
+interface FormErrors {
+  amount?: string;
+  purpose?: string;
+  duration?: string;
+}
 
 const LoanRequestScreen: React.FC<Props> = ({ route, navigation }) => {
   const { cooperativeId } = route.params;
   const dispatch = useAppDispatch();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const {
-    control,
-    handleSubmit,
-    watch,
-    formState: { errors },
-  } = useForm<LoanFormData>({
-    resolver: zodResolver(loanSchema),
-    defaultValues: {
-      amount: '',
-      purpose: '',
-      duration: '6',
-    },
+  const [formData, setFormData] = useState<LoanFormData>({
+    amount: '',
+    purpose: '',
+    duration: '6',
   });
+  const [errors, setErrors] = useState<FormErrors>({});
 
-  const amount = parseFloat(watch('amount') || '0');
-  const duration = parseInt(watch('duration') || '6');
+  const validateForm = (): boolean => {
+    const newErrors: FormErrors = {};
+    
+    const amountError = validateRequired(formData.amount, 'Amount');
+    if (amountError) newErrors.amount = amountError;
+    
+    const purposeError = validateMinLength(formData.purpose, 10, 'Purpose');
+    if (purposeError) newErrors.purpose = purposeError;
+    
+    const durationError = validateRequired(formData.duration, 'Duration');
+    if (durationError) newErrors.duration = durationError;
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const amount = parseFloat(formData.amount || '0');
+  const duration = parseInt(formData.duration || '6');
   const interestRate = 5; // Default 5%
   const totalRepayment = amount * (1 + interestRate / 100);
   const monthlyRepayment = duration > 0 ? totalRepayment / duration : 0;
 
-  const onSubmit = async (data: LoanFormData) => {
+  const onSubmit = async () => {
+    if (!validateForm()) return;
+    
     setIsSubmitting(true);
     try {
       await dispatch(
         requestLoan({
           cooperativeId,
           loan: {
-            amount: Number(data.amount),
-            purpose: data.purpose,
-            duration: Number(data.duration),
+            amount: Number(formData.amount),
+            purpose: formData.purpose,
+            duration: Number(formData.duration),
           },
         })
       ).unwrap();
@@ -86,75 +99,55 @@ const LoanRequestScreen: React.FC<Props> = ({ route, navigation }) => {
       <View style={styles.form}>
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Loan Amount *</Text>
-          <Controller
-            control={control}
-            name="amount"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <View style={styles.amountInputContainer}>
-                <Text style={styles.currencyPrefix}>$</Text>
-                <TextInput
-                  style={[styles.amountInput, errors.amount && styles.inputError]}
-                  placeholder="0.00"
-                  keyboardType="numeric"
-                  onBlur={onBlur}
-                  onChangeText={onChange}
-                  value={value}
-                />
-              </View>
-            )}
-          />
-          {errors.amount && <Text style={styles.errorText}>{errors.amount.message}</Text>}
+          <View style={styles.amountInputContainer}>
+            <Text style={styles.currencyPrefix}>$</Text>
+            <TextInput
+              style={[styles.amountInput, errors.amount && styles.inputError]}
+              placeholder="0.00"
+              keyboardType="numeric"
+              onChangeText={(text) => setFormData({ ...formData, amount: text })}
+              value={formData.amount}
+            />
+          </View>
+          {errors.amount && <Text style={styles.errorText}>{errors.amount}</Text>}
         </View>
 
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Purpose *</Text>
-          <Controller
-            control={control}
-            name="purpose"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <TextInput
-                style={[styles.input, styles.textArea, errors.purpose && styles.inputError]}
-                placeholder="Describe the purpose of this loan..."
-                multiline={true}
-                numberOfLines={4}
-                onBlur={onBlur}
-                onChangeText={onChange}
-                value={value}
-              />
-            )}
+          <TextInput
+            style={[styles.input, styles.textArea, errors.purpose && styles.inputError]}
+            placeholder="Describe the purpose of this loan..."
+            multiline={true}
+            numberOfLines={4}
+            onChangeText={(text) => setFormData({ ...formData, purpose: text })}
+            value={formData.purpose}
           />
-          {errors.purpose && <Text style={styles.errorText}>{errors.purpose.message}</Text>}
+          {errors.purpose && <Text style={styles.errorText}>{errors.purpose}</Text>}
         </View>
 
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Repayment Duration (months) *</Text>
-          <Controller
-            control={control}
-            name="duration"
-            render={({ field: { onChange, value } }) => (
-              <View style={styles.durationOptions}>
-                {[3, 6, 12, 18, 24].map((months) => (
-                  <TouchableOpacity
-                    key={months}
-                    style={[
-                      styles.durationOption,
-                      value === String(months) && styles.durationOptionActive,
-                    ]}
-                    onPress={() => onChange(String(months))}
-                  >
-                    <Text
-                      style={[
-                        styles.durationOptionText,
-                        value === String(months) && styles.durationOptionTextActive,
-                      ]}
-                    >
-                      {months}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-          />
+          <View style={styles.durationOptions}>
+            {[3, 6, 12, 18, 24].map((months) => (
+              <TouchableOpacity
+                key={months}
+                style={[
+                  styles.durationOption,
+                  formData.duration === String(months) && styles.durationOptionActive,
+                ]}
+                onPress={() => setFormData({ ...formData, duration: String(months) })}
+              >
+                <Text
+                  style={[
+                    styles.durationOptionText,
+                    formData.duration === String(months) && styles.durationOptionTextActive,
+                  ]}
+                >
+                  {months}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
         {amount > 0 && (
@@ -185,7 +178,7 @@ const LoanRequestScreen: React.FC<Props> = ({ route, navigation }) => {
 
         <TouchableOpacity
           style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
-          onPress={handleSubmit(onSubmit)}
+          onPress={onSubmit}
           disabled={isSubmitting}
         >
           {isSubmitting ? (

@@ -1,7 +1,19 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig, AxiosResponse } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
-const API_BASE_URL = process.env.API_BASE_URL || 'http://localhost:3001/api';
+// For Android emulator, localhost on the host machine is accessible at 10.0.2.2
+const getApiBaseUrl = () => {
+  const envUrl = process.env.API_BASE_URL || 'http://localhost:3001/api';
+  
+  if (Platform.OS === 'android' && envUrl.includes('localhost')) {
+    return envUrl.replace('localhost', '10.0.2.2');
+  }
+  
+  return envUrl;
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 const apiClient: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,

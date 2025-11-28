@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -13,12 +13,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useForm, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
 import { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { signup } from '../../store/slices/authSlice';
+import { validateEmail, validatePassword, validateMinLength, validatePasswordMatch } from '../../utils/validation';
 
 type SignupScreenNavigationProp = NativeStackNavigationProp<AuthStackParamList, 'Signup'>;
 
@@ -26,37 +24,60 @@ interface Props {
   navigation: SignupScreenNavigationProp;
 }
 
-const signupSchema = z
-  .object({
-    firstName: z.string().min(2, 'First name must be at least 2 characters'),
-    lastName: z.string().min(2, 'Last name must be at least 2 characters'),
-    email: z.string().email('Please enter a valid email'),
-    phone: z.string().optional(),
-    password: z.string().min(6, 'Password must be at least 6 characters'),
-    confirmPassword: z.string(),
-  })
-  .refine((data) => data.password === data.confirmPassword, {
-    message: "Passwords don't match",
-    path: ['confirmPassword'],
-  });
+interface SignupFormData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone?: string;
+  password: string;
+  confirmPassword: string;
+}
 
-type SignupFormData = z.infer<typeof signupSchema>;
+interface FormErrors {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  password?: string;
+  confirmPassword?: string;
+}
 
 const SignupScreen: React.FC<Props> = ({ navigation }) => {
   const dispatch = useAppDispatch();
   const { isLoading, error } = useAppSelector((state) => state.auth);
 
-  const {
-    control,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<SignupFormData>({
-    resolver: zodResolver(signupSchema),
+  const [formData, setFormData] = useState<SignupFormData>({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    password: '',
+    confirmPassword: '',
   });
 
-  const onSubmit = async (data: SignupFormData) => {
+  const [errors, setErrors] = useState<FormErrors>({});
+
+  const validateForm = (): boolean => {
+    const newErrors: FormErrors = {};
+    
+    newErrors.firstName = validateMinLength(formData.firstName, 2, 'First name');
+    newErrors.lastName = validateMinLength(formData.lastName, 2, 'Last name');
+    newErrors.email = validateEmail(formData.email);
+    newErrors.password = validatePassword(formData.password);
+    newErrors.confirmPassword = validatePasswordMatch(formData.password, formData.confirmPassword);
+    
+    const filteredErrors = Object.fromEntries(
+      Object.entries(newErrors).filter(([_, v]) => v !== undefined)
+    );
+    
+    setErrors(filteredErrors);
+    return Object.keys(filteredErrors).length === 0;
+  };
+
+  const handleSubmit = async () => {
+    if (!validateForm()) return;
+    
     try {
-      const { confirmPassword, ...signupData } = data;
+      const { confirmPassword, ...signupData } = formData;
       await dispatch(signup(signupData)).unwrap();
     } catch (err) {
       Alert.alert('Signup Failed', 'Please try again.');
@@ -80,118 +101,76 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
             <View style={styles.row}>
               <View style={[styles.inputContainer, styles.halfWidth]}>
                 <Text style={styles.label}>First Name</Text>
-                <Controller
-                  control={control}
-                  name="firstName"
-                  render={({ field: { onChange, onBlur, value } }) => (
-                    <TextInput
-                      style={[styles.input, errors.firstName && styles.inputError]}
-                      placeholder="First name"
-                      onBlur={onBlur}
-                      onChangeText={onChange}
-                      value={value}
-                    />
-                  )}
+                <TextInput
+                  style={[styles.input, errors.firstName && styles.inputError]}
+                  placeholder="First name"
+                  onChangeText={(text) => setFormData({ ...formData, firstName: text })}
+                  value={formData.firstName}
                 />
                 {errors.firstName && (
-                  <Text style={styles.errorText}>{errors.firstName.message}</Text>
+                  <Text style={styles.errorText}>{errors.firstName}</Text>
                 )}
               </View>
 
               <View style={[styles.inputContainer, styles.halfWidth]}>
                 <Text style={styles.label}>Last Name</Text>
-                <Controller
-                  control={control}
-                  name="lastName"
-                  render={({ field: { onChange, onBlur, value } }) => (
-                    <TextInput
-                      style={[styles.input, errors.lastName && styles.inputError]}
-                      placeholder="Last name"
-                      onBlur={onBlur}
-                      onChangeText={onChange}
-                      value={value}
-                    />
-                  )}
+                <TextInput
+                  style={[styles.input, errors.lastName && styles.inputError]}
+                  placeholder="Last name"
+                  onChangeText={(text) => setFormData({ ...formData, lastName: text })}
+                  value={formData.lastName}
                 />
-                {errors.lastName && <Text style={styles.errorText}>{errors.lastName.message}</Text>}
+                {errors.lastName && <Text style={styles.errorText}>{errors.lastName}</Text>}
               </View>
             </View>
 
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Email</Text>
-              <Controller
-                control={control}
-                name="email"
-                render={({ field: { onChange, onBlur, value } }) => (
-                  <TextInput
-                    style={[styles.input, errors.email && styles.inputError]}
-                    placeholder="Enter your email"
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    onBlur={onBlur}
-                    onChangeText={onChange}
-                    value={value}
-                  />
-                )}
+              <TextInput
+                style={[styles.input, errors.email && styles.inputError]}
+                placeholder="Enter your email"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                onChangeText={(text) => setFormData({ ...formData, email: text })}
+                value={formData.email}
               />
-              {errors.email && <Text style={styles.errorText}>{errors.email.message}</Text>}
+              {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
             </View>
 
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Phone (Optional)</Text>
-              <Controller
-                control={control}
-                name="phone"
-                render={({ field: { onChange, onBlur, value } }) => (
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Enter your phone number"
-                    keyboardType="phone-pad"
-                    onBlur={onBlur}
-                    onChangeText={onChange}
-                    value={value}
-                  />
-                )}
+              <TextInput
+                style={styles.input}
+                placeholder="Enter your phone number"
+                keyboardType="phone-pad"
+                onChangeText={(text) => setFormData({ ...formData, phone: text })}
+                value={formData.phone}
               />
             </View>
 
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Password</Text>
-              <Controller
-                control={control}
-                name="password"
-                render={({ field: { onChange, onBlur, value } }) => (
-                  <TextInput
-                    style={[styles.input, errors.password && styles.inputError]}
-                    placeholder="Create a password"
-                    secureTextEntry={true}
-                    onBlur={onBlur}
-                    onChangeText={onChange}
-                    value={value}
-                  />
-                )}
+              <TextInput
+                style={[styles.input, errors.password && styles.inputError]}
+                placeholder="Create a password"
+                secureTextEntry={true}
+                onChangeText={(text) => setFormData({ ...formData, password: text })}
+                value={formData.password}
               />
-              {errors.password && <Text style={styles.errorText}>{errors.password.message}</Text>}
+              {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
             </View>
 
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Confirm Password</Text>
-              <Controller
-                control={control}
-                name="confirmPassword"
-                render={({ field: { onChange, onBlur, value } }) => (
-                  <TextInput
-                    style={[styles.input, errors.confirmPassword && styles.inputError]}
-                    placeholder="Confirm your password"
-                    secureTextEntry={true}
-                    onBlur={onBlur}
-                    onChangeText={onChange}
-                    value={value}
-                  />
-                )}
+              <TextInput
+                style={[styles.input, errors.confirmPassword && styles.inputError]}
+                placeholder="Confirm your password"
+                secureTextEntry={true}
+                onChangeText={(text) => setFormData({ ...formData, confirmPassword: text })}
+                value={formData.confirmPassword}
               />
               {errors.confirmPassword && (
-                <Text style={styles.errorText}>{errors.confirmPassword.message}</Text>
+                <Text style={styles.errorText}>{errors.confirmPassword}</Text>
               )}
             </View>
 
@@ -199,7 +178,7 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
 
             <TouchableOpacity
               style={[styles.button, isLoading && styles.buttonDisabled]}
-              onPress={handleSubmit(onSubmit)}
+              onPress={handleSignup}
               disabled={isLoading}
             >
               {isLoading ? (

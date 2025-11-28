@@ -12,9 +12,6 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useForm, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
 import { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { login } from '../../store/slices/authSlice';
@@ -25,32 +22,53 @@ interface Props {
   navigation: LoginScreenNavigationProp;
 }
 
-const loginSchema = z.object({
-  email: z.string().email('Please enter a valid email'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
-});
+interface LoginFormData {
+  email: string;
+  password: string;
+}
 
-type LoginFormData = z.infer<typeof loginSchema>;
+interface FormErrors {
+  email?: string;
+  password?: string;
+}
 
 const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const dispatch = useAppDispatch();
   const { isLoading, error } = useAppSelector((state) => state.auth);
-
-  const {
-    control,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<LoginFormData>({
-    resolver: zodResolver(loginSchema),
-    defaultValues: {
-      email: 'john.doe@example.com',
-      password: 'password123',
-    },
+  
+  const [formData, setFormData] = useState<LoginFormData>({
+    email: 'john.doe@example.com',
+    password: 'password123',
   });
+  
+  const [errors, setErrors] = useState<FormErrors>({});
 
-  const onSubmit = async (data: LoginFormData) => {
+  const validateForm = (): boolean => {
+    const newErrors: FormErrors = {};
+    
+    // Email validation
+    if (!formData.email) {
+      newErrors.email = 'Email is required';
+    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
+      newErrors.email = 'Please enter a valid email';
+    }
+    
+    // Password validation
+    if (!formData.password) {
+      newErrors.password = 'Password is required';
+    } else if (formData.password.length < 6) {
+      newErrors.password = 'Password must be at least 6 characters';
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async () => {
+    if (!validateForm()) return;
+    
     try {
-      await dispatch(login(data)).unwrap();
+      await dispatch(login(formData)).unwrap();
     } catch (err) {
       Alert.alert('Login Failed', 'Please check your credentials and try again.');
     }
@@ -72,48 +90,34 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
           <View style={styles.form}>
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Email</Text>
-              <Controller
-                control={control}
-                name="email"
-                render={({ field: { onChange, onBlur, value } }) => (
-                  <TextInput
-                    style={[styles.input, errors.email && styles.inputError]}
-                    placeholder="Enter your email"
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                    onBlur={onBlur}
-                    onChangeText={onChange}
-                    value={value}
-                  />
-                )}
+              <TextInput
+                style={[styles.input, errors.email && styles.inputError]}
+                placeholder="Enter your email"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                onChangeText={(text) => setFormData({ ...formData, email: text })}
+                value={formData.email}
               />
-              {errors.email && <Text style={styles.errorText}>{errors.email.message}</Text>}
+              {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
             </View>
 
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Password</Text>
-              <Controller
-                control={control}
-                name="password"
-                render={({ field: { onChange, onBlur, value } }) => (
-                  <TextInput
-                    style={[styles.input, errors.password && styles.inputError]}
-                    placeholder="Enter your password"
-                    secureTextEntry={true}
-                    onBlur={onBlur}
-                    onChangeText={onChange}
-                    value={value}
-                  />
-                )}
+              <TextInput
+                style={[styles.input, errors.password && styles.inputError]}
+                placeholder="Enter your password"
+                secureTextEntry={true}
+                onChangeText={(text) => setFormData({ ...formData, password: text })}
+                value={formData.password}
               />
-              {errors.password && <Text style={styles.errorText}>{errors.password.message}</Text>}
+              {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
             </View>
 
             {error && <Text style={styles.apiError}>{error}</Text>}
 
             <TouchableOpacity
               style={[styles.button, isLoading && styles.buttonDisabled]}
-              onPress={handleSubmit(onSubmit)}
+              onPress={handleSubmit}
               disabled={isLoading}
             >
               {isLoading ? (

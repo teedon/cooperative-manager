@@ -9,26 +9,28 @@ import {
   Alert,
   ActivityIndicator,
   Image,
+  Platform,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useForm, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
-import * as ImagePicker from 'expo-image-picker';
+import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import { HomeStackParamList } from '../../navigation/MainNavigator';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { recordPayment } from '../../store/slices/contributionSlice';
+import { validateRequired } from '../../utils/validation';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'RecordPayment'>;
 
-const paymentSchema = z.object({
-  amount: z.string().min(1, 'Amount is required'),
-  paymentDate: z.string().min(1, 'Payment date is required'),
-  paymentReference: z.string().optional(),
-  notes: z.string().optional(),
-});
+interface PaymentFormData {
+  amount: string;
+  paymentDate: string;
+  paymentReference: string;
+  notes: string;
+}
 
-type PaymentFormData = z.infer<typeof paymentSchema>;
+interface FormErrors {
+  amount?: string;
+  paymentDate?: string;
+}
 
 const RecordPaymentScreen: React.FC<Props> = ({ route, navigation }) => {
   const { periodId } = route.params;
@@ -39,69 +41,80 @@ const RecordPaymentScreen: React.FC<Props> = ({ route, navigation }) => {
   const { periods, currentPlan } = useAppSelector((state) => state.contribution);
   const period = periods.find((p) => p.id === periodId);
 
-  const {
-    control,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<PaymentFormData>({
-    resolver: zodResolver(paymentSchema),
-    defaultValues: {
-      amount: currentPlan?.type === 'fixed' ? String(currentPlan.amount) : '',
-      paymentDate: new Date().toISOString().split('T')[0],
-      paymentReference: '',
-      notes: '',
-    },
+  const [formData, setFormData] = useState<PaymentFormData>({
+    amount: currentPlan?.type === 'fixed' ? String(currentPlan.amount) : '',
+    paymentDate: new Date().toISOString().split('T')[0],
+    paymentReference: '',
+    notes: '',
   });
+  const [errors, setErrors] = useState<FormErrors>({});
+
+  const validateForm = (): boolean => {
+    const newErrors: FormErrors = {};
+    
+    const amountError = validateRequired(formData.amount, 'Amount');
+    if (amountError) newErrors.amount = amountError;
+    
+    const dateError = validateRequired(formData.paymentDate, 'Payment date');
+    if (dateError) newErrors.paymentDate = dateError;
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const pickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert(
-        'Permission Required',
-        'Please grant camera roll permissions to upload receipts.'
-      );
+    const result = await launchImageLibrary({
+      mediaType: 'photo',
+      quality: 0.8,
+      selectionLimit: 1,
+    });
+
+    if (result.didCancel) {
       return;
     }
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.8,
-    });
+    if (result.errorCode) {
+      Alert.alert('Error', result.errorMessage || 'Failed to pick image');
+      return;
+    }
 
-    if (!result.canceled && result.assets[0]) {
-      setReceiptImage(result.assets[0].uri);
+    if (result.assets && result.assets[0]) {
+      setReceiptImage(result.assets[0].uri || null);
     }
   };
 
   const takePhoto = async () => {
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('Permission Required', 'Please grant camera permissions to take photos.');
+    const result = await launchCamera({
+      mediaType: 'photo',
+      quality: 0.8,
+      saveToPhotos: true,
+    });
+
+    if (result.didCancel) {
       return;
     }
 
-    const result = await ImagePicker.launchCameraAsync({
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.8,
-    });
+    if (result.errorCode) {
+      Alert.alert('Error', result.errorMessage || 'Failed to take photo');
+      return;
+    }
 
-    if (!result.canceled && result.assets[0]) {
-      setReceiptImage(result.assets[0].uri);
+    if (result.assets && result.assets[0]) {
+      setReceiptImage(result.assets[0].uri || null);
     }
   };
 
-  const onSubmit = async (data: PaymentFormData) => {
+  const handleSubmit = async () => {
+    if (!validateForm()) return;
+    
     setIsSubmitting(true);
     try {
       await dispatch(
         recordPayment({
           periodId,
           record: {
-            ...data,
-            amount: Number(data.amount),
+            ...formData,
+            amount: Number(formData.amount),
             receiptUrl: receiptImage || undefined,
           },
         })
@@ -137,57 +150,38 @@ const RecordPaymentScreen: React.FC<Props> = ({ route, navigation }) => {
       <View style={styles.form}>
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Amount *</Text>
-          <Controller
-            control={control}
-            name="amount"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <View style={styles.amountInputContainer}>
-                <Text style={styles.currencyPrefix}>$</Text>
-                <TextInput
-                  style={[styles.amountInput, errors.amount && styles.inputError]}
-                  placeholder="0.00"
-                  keyboardType="numeric"
-                  onBlur={onBlur}
-                  onChangeText={onChange}
-                  value={value}
-                />
-              </View>
-            )}
-          />
-          {errors.amount && <Text style={styles.errorText}>{errors.amount.message}</Text>}
+          <View style={styles.amountInputContainer}>
+            <Text style={styles.currencyPrefix}>$</Text>
+            <TextInput
+              style={[styles.amountInput, errors.amount && styles.inputError]}
+              placeholder="0.00"
+              keyboardType="numeric"
+              onChangeText={(text) => setFormData({ ...formData, amount: text })}
+              value={formData.amount}
+            />
+          </View>
+          {errors.amount && <Text style={styles.errorText}>{errors.amount}</Text>}
         </View>
 
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Payment Date *</Text>
-          <Controller
-            control={control}
-            name="paymentDate"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <TextInput
-                style={[styles.input, errors.paymentDate && styles.inputError]}
-                placeholder="YYYY-MM-DD"
-                onBlur={onBlur}
-                onChangeText={onChange}
-                value={value}
-              />
-            )}
+          <TextInput
+            style={[styles.input, errors.paymentDate && styles.inputError]}
+            placeholder="YYYY-MM-DD"
+            onChangeText={(text) => setFormData({ ...formData, paymentDate: text })}
+            value={formData.paymentDate}
           />
-          {errors.paymentDate && <Text style={styles.errorText}>{errors.paymentDate.message}</Text>}
+          {errors.paymentDate && <Text style={styles.errorText}>{errors.paymentDate}</Text>}
         </View>
 
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Payment Reference</Text>
-          <Controller
-            control={control}
-            name="paymentReference"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <TextInput
-                style={styles.input}
-                placeholder="Transaction ID or reference number"
-                onBlur={onBlur}
-                onChangeText={onChange}
-                value={value}
-              />
+          <TextInput
+            style={styles.input}
+            placeholder="Transaction ID or reference number"
+            onChangeText={(text) => setFormData({ ...formData, paymentReference: text })}
+            value={formData.paymentReference}
+          />
             )}
           />
         </View>
@@ -220,26 +214,19 @@ const RecordPaymentScreen: React.FC<Props> = ({ route, navigation }) => {
 
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Notes</Text>
-          <Controller
-            control={control}
-            name="notes"
-            render={({ field: { onChange, onBlur, value } }) => (
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                placeholder="Any additional notes..."
-                multiline={true}
-                numberOfLines={3}
-                onBlur={onBlur}
-                onChangeText={onChange}
-                value={value}
-              />
-            )}
+          <TextInput
+            style={[styles.input, styles.textArea]}
+            placeholder="Any additional notes..."
+            multiline={true}
+            numberOfLines={3}
+            onChangeText={(text) => setFormData({ ...formData, notes: text })}
+            value={formData.notes}
           />
         </View>
 
         <TouchableOpacity
           style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
-          onPress={handleSubmit(onSubmit)}
+          onPress={handleSubmit}
           disabled={isSubmitting}
         >
           {isSubmitting ? (

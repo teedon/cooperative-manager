@@ -1,5 +1,5 @@
 import React from 'react';
-import { StatusBar } from 'expo-status-bar';
+import { StatusBar } from 'react-native';
 import { Provider } from 'react-redux';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { store } from './src/store';
@@ -9,7 +9,7 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <Provider store={store}>
-        <StatusBar style="auto" />
+        <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
         <RootNavigator />
       </Provider>
     </SafeAreaProvider>

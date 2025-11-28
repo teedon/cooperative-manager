@@ -16,7 +16,12 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { signup } from '../../store/slices/authSlice';
-import { validateEmail, validatePassword, validateMinLength, validatePasswordMatch } from '../../utils/validation';
+import {
+  validateEmail,
+  validatePassword,
+  validateMinLength,
+  validatePasswordMatch,
+} from '../../utils/validation';
 
 type SignupScreenNavigationProp = NativeStackNavigationProp<AuthStackParamList, 'Signup'>;
 
@@ -58,24 +63,24 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
-    
+
     newErrors.firstName = validateMinLength(formData.firstName, 2, 'First name');
     newErrors.lastName = validateMinLength(formData.lastName, 2, 'Last name');
     newErrors.email = validateEmail(formData.email);
     newErrors.password = validatePassword(formData.password);
     newErrors.confirmPassword = validatePasswordMatch(formData.password, formData.confirmPassword);
-    
+
     const filteredErrors = Object.fromEntries(
       Object.entries(newErrors).filter(([_, v]) => v !== undefined)
     );
-    
+
     setErrors(filteredErrors);
     return Object.keys(filteredErrors).length === 0;
   };
 
   const handleSubmit = async () => {
     if (!validateForm()) return;
-    
+
     try {
       const { confirmPassword, ...signupData } = formData;
       await dispatch(signup(signupData)).unwrap();
@@ -107,9 +112,7 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
                   onChangeText={(text) => setFormData({ ...formData, firstName: text })}
                   value={formData.firstName}
                 />
-                {errors.firstName && (
-                  <Text style={styles.errorText}>{errors.firstName}</Text>
-                )}
+                {errors.firstName && <Text style={styles.errorText}>{errors.firstName}</Text>}
               </View>
 
               <View style={[styles.inputContainer, styles.halfWidth]}>

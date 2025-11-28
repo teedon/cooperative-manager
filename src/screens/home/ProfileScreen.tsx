@@ -1,16 +1,9 @@
 import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Image,
-  ScrollView,
-  Alert,
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { logout } from '../../store/slices/authSlice';
+import { colors, spacing, borderRadius, shadows } from '../../theme';
 
 const ProfileScreen: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -96,55 +89,51 @@ const ProfileScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.background.default,
   },
   header: {
-    padding: 16,
-    backgroundColor: '#0ea5e9',
-    paddingTop: 24,
+    padding: spacing.lg,
+    backgroundColor: colors.primary.main,
+    paddingTop: spacing['2xl'],
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#fff',
+    color: colors.primary.contrast,
   },
   profileSection: {
     alignItems: 'center',
-    paddingVertical: 24,
-    backgroundColor: '#fff',
+    paddingVertical: spacing['2xl'],
+    backgroundColor: colors.background.paper,
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: colors.border.light,
   },
   avatar: {
     width: 96,
     height: 96,
     borderRadius: 48,
-    marginBottom: 16,
-    backgroundColor: '#e2e8f0',
+    marginBottom: spacing.lg,
+    backgroundColor: colors.secondary.dark,
   },
   name: {
     fontSize: 24,
     fontWeight: '600',
-    color: '#0f172a',
-    marginBottom: 4,
+    color: colors.text.primary,
+    marginBottom: spacing.xs,
   },
   email: {
     fontSize: 14,
-    color: '#64748b',
+    color: colors.text.secondary,
   },
   statsSection: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
-    paddingVertical: 20,
-    paddingHorizontal: 16,
-    marginTop: 16,
-    marginHorizontal: 16,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    backgroundColor: colors.background.paper,
+    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.lg,
+    marginTop: spacing.lg,
+    marginHorizontal: spacing.lg,
+    borderRadius: borderRadius.lg,
+    ...shadows.md,
   },
   statItem: {
     flex: 1,
@@ -153,36 +142,32 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#0f172a',
+    color: colors.text.primary,
   },
   statLabel: {
     fontSize: 12,
-    color: '#64748b',
-    marginTop: 4,
+    color: colors.text.secondary,
+    marginTop: spacing.xs,
   },
   statDivider: {
     width: 1,
-    backgroundColor: '#e2e8f0',
+    backgroundColor: colors.border.light,
   },
   menuSection: {
-    backgroundColor: '#fff',
-    marginTop: 16,
-    marginHorizontal: 16,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    backgroundColor: colors.background.paper,
+    marginTop: spacing.lg,
+    marginHorizontal: spacing.lg,
+    borderRadius: borderRadius.lg,
+    ...shadows.md,
   },
   menuItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 16,
-    paddingHorizontal: 16,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    borderBottomColor: colors.secondary.main,
   },
   menuItemLeft: {
     flexDirection: 'row',
@@ -190,41 +175,41 @@ const styles = StyleSheet.create({
   },
   menuIcon: {
     fontSize: 20,
-    marginRight: 12,
+    marginRight: spacing.md,
   },
   menuLabel: {
     fontSize: 16,
-    color: '#0f172a',
+    color: colors.text.primary,
   },
   menuArrow: {
     fontSize: 16,
-    color: '#94a3b8',
+    color: colors.text.disabled,
   },
   logoutButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fef2f2',
-    marginTop: 24,
-    marginHorizontal: 16,
+    backgroundColor: colors.error.light,
+    marginTop: spacing['2xl'],
+    marginHorizontal: spacing.lg,
     paddingVertical: 14,
-    borderRadius: 12,
+    borderRadius: borderRadius.lg,
   },
   logoutIcon: {
     fontSize: 20,
-    marginRight: 8,
+    marginRight: spacing.sm,
   },
   logoutText: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#dc2626',
+    color: colors.error.text,
   },
   version: {
     textAlign: 'center',
-    color: '#94a3b8',
+    color: colors.text.disabled,
     fontSize: 12,
-    marginTop: 24,
-    marginBottom: 32,
+    marginTop: spacing['2xl'],
+    marginBottom: spacing['3xl'],
   },
 });
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -8,12 +8,17 @@ import {
   RefreshControl,
   ActivityIndicator,
   Image,
+  TextInput,
+  Alert,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { HomeStackParamList } from '../../navigation/MainNavigator';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { fetchCooperatives } from '../../store/slices/cooperativeSlice';
+import { fetchCooperatives, joinCooperativeByCode } from '../../store/slices/cooperativeSlice';
 import { Cooperative } from '../../models';
+import { colors, spacing, borderRadius, shadows } from '../../theme';
+import Modal from '../../components/common/Modal';
+import Button from '../../components/common/Button';
 
 type HomeScreenNavigationProp = NativeStackNavigationProp<HomeStackParamList, 'Home'>;
 
@@ -35,7 +40,11 @@ const CooperativeCard: React.FC<{
       <View style={styles.cardHeader}>
         <Text style={styles.cardTitle}>{cooperative.name}</Text>
         <View style={[styles.statusBadge, cooperative.status === 'active' && styles.statusActive]}>
-          <Text style={styles.statusText}>{cooperative.status}</Text>
+          <Text
+            style={[styles.statusText, cooperative.status === 'active' && styles.statusTextActive]}
+          >
+            {cooperative.status}
+          </Text>
         </View>
       </View>
       {cooperative.description && (
@@ -63,7 +72,7 @@ const QuickAction: React.FC<{
   label: string;
   onPress: () => void;
   color?: string;
-}> = ({ icon, label, onPress, color = '#0ea5e9' }) => (
+}> = ({ icon, label, onPress, color = colors.primary.main }) => (
   <TouchableOpacity style={styles.quickAction} onPress={onPress}>
     <View style={[styles.quickActionIcon, { backgroundColor: color + '20' }]}>
       <Text style={styles.quickActionEmoji}>{icon}</Text>
@@ -76,6 +85,9 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const dispatch = useAppDispatch();
   const { cooperatives, isLoading } = useAppSelector((state) => state.cooperative);
   const { user } = useAppSelector((state) => state.auth);
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [cooperativeCode, setCooperativeCode] = useState('');
+  const [isJoining, setIsJoining] = useState(false);
 
   const loadCooperatives = useCallback(() => {
     dispatch(fetchCooperatives());
@@ -85,12 +97,46 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     loadCooperatives();
   }, [loadCooperatives]);
 
+  const handleJoinCooperative = async () => {
+    if (!cooperativeCode.trim()) {
+      Alert.alert('Error', 'Please enter a cooperative code');
+      return;
+    }
+
+    setIsJoining(true);
+    try {
+      await dispatch(joinCooperativeByCode(cooperativeCode.trim())).unwrap();
+      setShowJoinModal(false);
+      setCooperativeCode('');
+      Alert.alert('Success', 'You have successfully joined the cooperative!');
+      loadCooperatives();
+    } catch {
+      Alert.alert('Error', 'Invalid cooperative code or you are already a member');
+    } finally {
+      setIsJoining(false);
+    }
+  };
+
   const renderHeader = () => (
     <View style={styles.headerSection}>
       <View style={styles.greeting}>
         <Text style={styles.greetingText}>Welcome back,</Text>
         <Text style={styles.userName}>{user?.firstName || 'User'} 👋</Text>
       </View>
+
+      {/* Join Cooperative Section */}
+      <TouchableOpacity style={styles.joinCooperativeCard} onPress={() => setShowJoinModal(true)}>
+        <View style={styles.joinCooperativeContent}>
+          <Text style={styles.joinCooperativeIcon}>🔑</Text>
+          <View style={styles.joinCooperativeText}>
+            <Text style={styles.joinCooperativeTitle}>Join a Cooperative</Text>
+            <Text style={styles.joinCooperativeSubtitle}>
+              Enter a code to join an existing cooperative
+            </Text>
+          </View>
+        </View>
+        <Text style={styles.joinCooperativeArrow}>→</Text>
+      </TouchableOpacity>
 
       <View style={styles.quickActions}>
         <QuickAction
@@ -101,7 +147,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
               navigation.navigate('CooperativeDetail', { cooperativeId: cooperatives[0].id });
             }
           }}
-          color="#22c55e"
+          color={colors.success.main}
         />
         <QuickAction
           icon="🛒"
@@ -111,7 +157,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
               navigation.navigate('GroupBuyList', { cooperativeId: cooperatives[0].id });
             }
           }}
-          color="#f59e0b"
+          color={colors.warning.main}
         />
         <QuickAction
           icon="💳"
@@ -121,7 +167,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
               navigation.navigate('LoanRequest', { cooperativeId: cooperatives[0].id });
             }
           }}
-          color="#8b5cf6"
+          color={colors.accent.main}
         />
         <QuickAction
           icon="📊"
@@ -131,7 +177,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
               navigation.navigate('Ledger', { cooperativeId: cooperatives[0].id });
             }
           }}
-          color="#0ea5e9"
+          color={colors.primary.main}
         />
       </View>
 
@@ -144,9 +190,12 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       <Text style={styles.emptyIcon}>🏠</Text>
       <Text style={styles.emptyTitle}>No Cooperatives Yet</Text>
       <Text style={styles.emptyText}>
-        You haven&apos;t joined any cooperatives yet. Create one or ask to be invited to an existing
-        cooperative.
+        You haven&apos;t joined any cooperatives yet. Join one using a cooperative code or create a
+        new one.
       </Text>
+      <TouchableOpacity style={styles.joinButton} onPress={() => setShowJoinModal(true)}>
+        <Text style={styles.joinButtonText}>Join with Code</Text>
+      </TouchableOpacity>
       <TouchableOpacity style={styles.createButton}>
         <Text style={styles.createButtonText}>Create Cooperative</Text>
       </TouchableOpacity>
@@ -156,7 +205,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   if (isLoading && cooperatives.length === 0) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#0ea5e9" />
+        <ActivityIndicator size="large" color={colors.primary.main} />
         <Text style={styles.loadingText}>Loading cooperatives...</Text>
       </View>
     );
@@ -178,9 +227,54 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={isLoading} onRefresh={loadCooperatives} tintColor="#0ea5e9" />
+          <RefreshControl
+            refreshing={isLoading}
+            onRefresh={loadCooperatives}
+            tintColor={colors.primary.main}
+          />
         }
       />
+
+      {/* Join Cooperative Modal */}
+      <Modal
+        visible={showJoinModal}
+        onClose={() => {
+          setShowJoinModal(false);
+          setCooperativeCode('');
+        }}
+        title="Join Cooperative"
+      >
+        <Text style={styles.modalDescription}>
+          Enter the cooperative code provided by the cooperative administrator to join.
+        </Text>
+        <TextInput
+          style={styles.codeInput}
+          placeholder="Enter cooperative code"
+          placeholderTextColor={colors.text.disabled}
+          value={cooperativeCode}
+          onChangeText={setCooperativeCode}
+          autoCapitalize="characters"
+          autoCorrect={false}
+        />
+        <View style={styles.modalButtons}>
+          <Button
+            title="Cancel"
+            variant="outline"
+            onPress={() => {
+              setShowJoinModal(false);
+              setCooperativeCode('');
+            }}
+            style={styles.modalButton}
+          />
+          <Button
+            title="Join"
+            onPress={handleJoinCooperative}
+            loading={isJoining}
+            disabled={!cooperativeCode.trim()}
+            style={styles.modalButton}
+          />
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -188,42 +282,81 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.background.default,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.background.default,
   },
   loadingText: {
-    marginTop: 12,
-    color: '#64748b',
+    marginTop: spacing.md,
+    color: colors.text.secondary,
     fontSize: 14,
   },
   listContent: {
-    paddingBottom: 24,
+    paddingBottom: spacing['2xl'],
   },
   headerSection: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
   },
   greeting: {
-    marginBottom: 24,
+    marginBottom: spacing['2xl'],
   },
   greetingText: {
     fontSize: 14,
-    color: '#64748b',
+    color: colors.text.secondary,
   },
   userName: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#0f172a',
+    color: colors.text.primary,
+  },
+  // Join Cooperative Card
+  joinCooperativeCard: {
+    backgroundColor: colors.accent.light,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing['2xl'],
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderWidth: 1,
+    borderColor: colors.accent.main,
+  },
+  joinCooperativeContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  joinCooperativeIcon: {
+    fontSize: 32,
+    marginRight: spacing.md,
+  },
+  joinCooperativeText: {
+    flex: 1,
+  },
+  joinCooperativeTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.accent.dark,
+    marginBottom: 2,
+  },
+  joinCooperativeSubtitle: {
+    fontSize: 12,
+    color: colors.accent.dark,
+    opacity: 0.8,
+  },
+  joinCooperativeArrow: {
+    fontSize: 20,
+    color: colors.accent.dark,
   },
   quickActions: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 24,
+    marginBottom: spacing['2xl'],
   },
   quickAction: {
     alignItems: 'center',
@@ -232,76 +365,75 @@ const styles = StyleSheet.create({
   quickActionIcon: {
     width: 56,
     height: 56,
-    borderRadius: 16,
+    borderRadius: borderRadius.xl,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   quickActionEmoji: {
     fontSize: 24,
   },
   quickActionLabel: {
     fontSize: 12,
-    color: '#64748b',
+    color: colors.text.secondary,
     textAlign: 'center',
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#0f172a',
-    marginBottom: 16,
+    color: colors.text.primary,
+    marginBottom: spacing.lg,
   },
   card: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    marginHorizontal: 16,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
+    backgroundColor: colors.background.paper,
+    borderRadius: borderRadius.xl,
+    marginHorizontal: spacing.lg,
+    marginBottom: spacing.lg,
+    ...shadows.md,
     overflow: 'hidden',
   },
   cardImage: {
     width: '100%',
     height: 120,
-    backgroundColor: '#e2e8f0',
+    backgroundColor: colors.secondary.dark,
   },
   cardContent: {
-    padding: 16,
+    padding: spacing.lg,
   },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   cardTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#0f172a',
+    color: colors.text.primary,
     flex: 1,
   },
   statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    backgroundColor: '#f1f5f9',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.lg,
+    backgroundColor: colors.secondary.main,
   },
   statusActive: {
-    backgroundColor: '#dcfce7',
+    backgroundColor: colors.success.light,
   },
   statusText: {
     fontSize: 12,
     fontWeight: '500',
-    color: '#16a34a',
+    color: colors.text.secondary,
     textTransform: 'capitalize',
+  },
+  statusTextActive: {
+    color: colors.success.text,
   },
   cardDescription: {
     fontSize: 14,
-    color: '#64748b',
-    marginBottom: 16,
+    color: colors.text.secondary,
+    marginBottom: spacing.lg,
     lineHeight: 20,
   },
   cardStats: {
@@ -314,51 +446,95 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#0f172a',
+    color: colors.text.primary,
   },
   statLabel: {
     fontSize: 12,
-    color: '#94a3b8',
+    color: colors.text.disabled,
     marginTop: 2,
   },
   statDivider: {
     width: 1,
     height: 32,
-    backgroundColor: '#e2e8f0',
-    marginHorizontal: 16,
+    backgroundColor: colors.border.light,
+    marginHorizontal: spacing.lg,
   },
   emptyState: {
     alignItems: 'center',
-    paddingHorizontal: 32,
-    paddingTop: 48,
+    paddingHorizontal: spacing['3xl'],
+    paddingTop: spacing['5xl'],
   },
   emptyIcon: {
     fontSize: 64,
-    marginBottom: 16,
+    marginBottom: spacing.lg,
   },
   emptyTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#0f172a',
-    marginBottom: 8,
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
   },
   emptyText: {
     fontSize: 14,
-    color: '#64748b',
+    color: colors.text.secondary,
     textAlign: 'center',
     lineHeight: 20,
-    marginBottom: 24,
+    marginBottom: spacing['2xl'],
   },
-  createButton: {
-    backgroundColor: '#0ea5e9',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
+  joinButton: {
+    backgroundColor: colors.accent.main,
+    paddingHorizontal: spacing['2xl'],
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.md,
+    width: '100%',
+    alignItems: 'center',
   },
-  createButtonText: {
-    color: '#fff',
+  joinButtonText: {
+    color: colors.accent.contrast,
     fontSize: 16,
     fontWeight: '600',
+  },
+  createButton: {
+    backgroundColor: colors.primary.main,
+    paddingHorizontal: spacing['2xl'],
+    paddingVertical: spacing.md,
+    borderRadius: borderRadius.md,
+    width: '100%',
+    alignItems: 'center',
+  },
+  createButtonText: {
+    color: colors.primary.contrast,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  // Modal styles
+  modalDescription: {
+    fontSize: 14,
+    color: colors.text.secondary,
+    marginBottom: spacing.lg,
+    lineHeight: 20,
+  },
+  codeInput: {
+    borderWidth: 1,
+    borderColor: colors.border.main,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    fontSize: 18,
+    fontWeight: '600',
+    textAlign: 'center',
+    letterSpacing: 2,
+    backgroundColor: colors.secondary.light,
+    color: colors.text.primary,
+    marginBottom: spacing.lg,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  modalButton: {
+    flex: 1,
   },
 });
 

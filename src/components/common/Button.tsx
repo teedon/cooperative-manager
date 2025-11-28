@@ -7,11 +7,12 @@ import {
   ViewStyle,
   TextStyle,
 } from 'react-native';
+import { colors, borderRadius, spacing } from '../../theme';
 
 export interface ButtonProps {
   title: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'danger' | 'outline';
+  variant?: 'primary' | 'secondary' | 'danger' | 'outline' | 'accent';
   size?: 'small' | 'medium' | 'large';
   disabled?: boolean;
   loading?: boolean;
@@ -32,8 +33,21 @@ const Button: React.FC<ButtonProps> = ({
   testID,
 }) => {
   const getButtonStyle = (): ViewStyle[] => {
-    const baseStyles: ViewStyle[] = [styles.button, styles[size]];
+    const baseStyles: ViewStyle[] = [styles.button];
 
+    // Size styles
+    switch (size) {
+      case 'small':
+        baseStyles.push(styles.sizeSmall);
+        break;
+      case 'large':
+        baseStyles.push(styles.sizeLarge);
+        break;
+      default:
+        baseStyles.push(styles.sizeMedium);
+    }
+
+    // Variant styles
     switch (variant) {
       case 'secondary':
         baseStyles.push(styles.secondary);
@@ -43,6 +57,9 @@ const Button: React.FC<ButtonProps> = ({
         break;
       case 'outline':
         baseStyles.push(styles.outline);
+        break;
+      case 'accent':
+        baseStyles.push(styles.accent);
         break;
       default:
         baseStyles.push(styles.primary);
@@ -56,8 +73,21 @@ const Button: React.FC<ButtonProps> = ({
   };
 
   const getTextStyle = (): TextStyle[] => {
-    const baseStyles: TextStyle[] = [styles.text, styles[`${size}Text`]];
+    const baseStyles: TextStyle[] = [styles.text];
 
+    // Size text styles
+    switch (size) {
+      case 'small':
+        baseStyles.push(styles.textSmall);
+        break;
+      case 'large':
+        baseStyles.push(styles.textLarge);
+        break;
+      default:
+        baseStyles.push(styles.textMedium);
+    }
+
+    // Variant text styles
     if (variant === 'outline') {
       baseStyles.push(styles.outlineText);
     } else if (variant === 'secondary') {
@@ -69,6 +99,12 @@ const Button: React.FC<ButtonProps> = ({
     return baseStyles;
   };
 
+  const getLoaderColor = (): string => {
+    if (variant === 'outline') return colors.primary.main;
+    if (variant === 'secondary') return colors.text.primary;
+    return colors.primary.contrast;
+  };
+
   return (
     <TouchableOpacity
       style={[...getButtonStyle(), style]}
@@ -78,7 +114,7 @@ const Button: React.FC<ButtonProps> = ({
       testID={testID}
     >
       {loading ? (
-        <ActivityIndicator color={variant === 'outline' ? '#0ea5e9' : '#fff'} />
+        <ActivityIndicator color={getLoaderColor()} />
       ) : (
         <Text style={[...getTextStyle(), textStyle]}>{title}</Text>
       )}
@@ -88,35 +124,38 @@ const Button: React.FC<ButtonProps> = ({
 
 const styles = StyleSheet.create({
   button: {
-    borderRadius: 8,
+    borderRadius: borderRadius.md,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  small: {
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+  sizeSmall: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
   },
-  medium: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+  sizeMedium: {
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
   },
-  large: {
-    paddingVertical: 16,
-    paddingHorizontal: 24,
+  sizeLarge: {
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing['2xl'],
   },
   primary: {
-    backgroundColor: '#0ea5e9',
+    backgroundColor: colors.primary.main,
   },
   secondary: {
-    backgroundColor: '#f1f5f9',
+    backgroundColor: colors.secondary.main,
   },
   danger: {
-    backgroundColor: '#ef4444',
+    backgroundColor: colors.error.main,
   },
   outline: {
     backgroundColor: 'transparent',
     borderWidth: 1,
-    borderColor: '#0ea5e9',
+    borderColor: colors.primary.main,
+  },
+  accent: {
+    backgroundColor: colors.accent.main,
   },
   disabled: {
     opacity: 0.6,
@@ -124,23 +163,23 @@ const styles = StyleSheet.create({
   text: {
     fontWeight: '600',
   },
-  smallText: {
+  textSmall: {
     fontSize: 12,
   },
-  mediumText: {
+  textMedium: {
     fontSize: 14,
   },
-  largeText: {
+  textLarge: {
     fontSize: 16,
   },
   primaryText: {
-    color: '#fff',
+    color: colors.primary.contrast,
   },
   secondaryText: {
-    color: '#0f172a',
+    color: colors.text.primary,
   },
   outlineText: {
-    color: '#0ea5e9',
+    color: colors.primary.main,
   },
 });
 

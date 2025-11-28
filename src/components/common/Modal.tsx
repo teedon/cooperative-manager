@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   TouchableWithoutFeedback,
 } from 'react-native';
+import { colors, borderRadius, spacing, shadows } from '../../theme';
 
 export interface ModalProps {
   visible: boolean;
@@ -59,48 +60,44 @@ const Modal: React.FC<ModalProps> = ({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 24,
+    padding: spacing['2xl'],
   },
   modal: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
+    backgroundColor: colors.background.paper,
+    borderRadius: borderRadius.xl,
     width: '100%',
     maxWidth: 400,
     maxHeight: '80%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
+    ...shadows.xl,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 12,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    borderBottomColor: colors.border.light,
   },
   title: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#0f172a',
+    color: colors.text.primary,
     flex: 1,
   },
   closeButton: {
-    padding: 4,
+    padding: spacing.xs,
   },
   closeText: {
     fontSize: 20,
-    color: '#94a3b8',
+    color: colors.text.disabled,
   },
   content: {
-    padding: 20,
+    padding: spacing.xl,
   },
 });
 

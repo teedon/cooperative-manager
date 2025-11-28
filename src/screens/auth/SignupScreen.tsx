@@ -178,7 +178,7 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
 
             <TouchableOpacity
               style={[styles.button, isLoading && styles.buttonDisabled]}
-              onPress={handleSignup}
+              onPress={handleSubmit}
               disabled={isLoading}
             >
               {isLoading ? (

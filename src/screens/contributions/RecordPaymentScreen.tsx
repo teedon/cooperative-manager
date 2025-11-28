@@ -182,8 +182,6 @@ const RecordPaymentScreen: React.FC<Props> = ({ route, navigation }) => {
             onChangeText={(text) => setFormData({ ...formData, paymentReference: text })}
             value={formData.paymentReference}
           />
-            )}
-          />
         </View>
 
         <View style={styles.inputGroup}>

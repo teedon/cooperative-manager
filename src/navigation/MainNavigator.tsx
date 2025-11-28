@@ -1,7 +1,8 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Text, View } from 'react-native';
+import { Text, View, StyleSheet } from 'react-native';
+import { colors, spacing } from '../theme';
 
 import HomeScreen from '../screens/home/HomeScreen';
 import CooperativeDetailScreen from '../screens/cooperative/CooperativeDetailScreen';
@@ -46,34 +47,39 @@ const HomeStack = createNativeStackNavigator<HomeStackParamList>();
 
 // Tab bar icon component
 const TabIcon: React.FC<{ name: string; focused: boolean }> = ({ name, focused }) => (
-  <View
-    style={{
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingTop: 8,
-    }}
-  >
-    <Text style={{ fontSize: 20 }}>{name === 'Home' ? '🏠' : '👤'}</Text>
-    <Text
-      style={{
-        fontSize: 10,
-        color: focused ? '#0ea5e9' : '#64748b',
-        marginTop: 2,
-      }}
-    >
-      {name}
-    </Text>
+  <View style={tabIconStyles.container}>
+    <Text style={tabIconStyles.emoji}>{name === 'Home' ? '🏠' : '👤'}</Text>
+    <Text style={[tabIconStyles.label, focused && tabIconStyles.labelFocused]}>{name}</Text>
   </View>
 );
+
+const tabIconStyles = StyleSheet.create({
+  container: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: spacing.sm,
+  },
+  emoji: {
+    fontSize: 20,
+  },
+  label: {
+    fontSize: 10,
+    color: colors.text.secondary,
+    marginTop: 2,
+  },
+  labelFocused: {
+    color: colors.primary.main,
+  },
+});
 
 const HomeStackNavigator: React.FC = () => {
   return (
     <HomeStack.Navigator
       screenOptions={{
         headerStyle: {
-          backgroundColor: '#0ea5e9',
+          backgroundColor: colors.primary.main,
         },
-        headerTintColor: '#fff',
+        headerTintColor: colors.primary.contrast,
         headerTitleStyle: {
           fontWeight: 'bold',
         },
@@ -153,10 +159,10 @@ const MainNavigator: React.FC = () => {
         tabBarShowLabel: false,
         tabBarStyle: {
           height: 60,
-          paddingBottom: 8,
-          backgroundColor: '#fff',
+          paddingBottom: spacing.sm,
+          backgroundColor: colors.background.paper,
           borderTopWidth: 1,
-          borderTopColor: '#e2e8f0',
+          borderTopColor: colors.border.light,
         },
       }}
     >

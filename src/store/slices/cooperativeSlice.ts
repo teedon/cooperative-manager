@@ -68,6 +68,18 @@ export const fetchMembers = createAsyncThunk(
   }
 );
 
+export const joinCooperativeByCode = createAsyncThunk(
+  'cooperative/joinByCode',
+  async (code: string, { rejectWithValue }) => {
+    try {
+      const response = await cooperativeApi.joinByCode(code);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue((error as Error).message);
+    }
+  }
+);
+
 const cooperativeSlice = createSlice({
   name: 'cooperative',
   initialState,
@@ -117,6 +129,19 @@ const cooperativeSlice = createSlice({
       // Fetch members
       .addCase(fetchMembers.fulfilled, (state, action) => {
         state.members = action.payload;
+      })
+      // Join cooperative by code
+      .addCase(joinCooperativeByCode.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(joinCooperativeByCode.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.cooperatives.push(action.payload);
+      })
+      .addCase(joinCooperativeByCode.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
       });
   },
 });

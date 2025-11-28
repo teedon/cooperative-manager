@@ -16,6 +16,7 @@ import { fetchCooperative, fetchMembers } from '../../store/slices/cooperativeSl
 import { fetchPlans } from '../../store/slices/contributionSlice';
 import { fetchGroupBuys } from '../../store/slices/groupBuySlice';
 import { fetchLoans } from '../../store/slices/loanSlice';
+import { colors, spacing, borderRadius, shadows } from '../../theme';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'CooperativeDetail'>;
 
@@ -65,7 +66,11 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   ];
 
   const renderTabs = () => (
-    <ScrollView horizontal={true} showsHorizontalScrollIndicator={false} style={styles.tabContainer}>
+    <ScrollView
+      horizontal={true}
+      showsHorizontalScrollIndicator={false}
+      style={styles.tabContainer}
+    >
       {tabs.map((tab) => (
         <TouchableOpacity
           key={tab.key}
@@ -323,7 +328,7 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   if (isLoading && !currentCooperative) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#0ea5e9" />
+        <ActivityIndicator size="large" color={colors.primary.main} />
       </View>
     );
   }
@@ -362,7 +367,7 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.background.default,
   },
   loadingContainer: {
     flex: 1,
@@ -376,120 +381,112 @@ const styles = StyleSheet.create({
   headerImage: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#e2e8f0',
+    backgroundColor: colors.secondary.dark,
   },
   headerOverlay: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    padding: 16,
+    backgroundColor: colors.overlay,
+    padding: spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   headerTitle: {
-    color: '#fff',
+    color: colors.text.inverse,
     fontSize: 20,
     fontWeight: 'bold',
     flex: 1,
   },
   roleBadge: {
-    backgroundColor: '#0ea5e9',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
+    backgroundColor: colors.primary.main,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.lg,
   },
   roleBadgeText: {
-    color: '#fff',
+    color: colors.primary.contrast,
     fontSize: 12,
     fontWeight: '600',
     textTransform: 'capitalize',
   },
   tabContainer: {
-    backgroundColor: '#fff',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    backgroundColor: colors.background.paper,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
+    borderBottomColor: colors.border.light,
   },
   tab: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    marginRight: 8,
-    borderRadius: 20,
-    backgroundColor: '#f1f5f9',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    marginRight: spacing.sm,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.secondary.main,
   },
   activeTab: {
-    backgroundColor: '#0ea5e9',
+    backgroundColor: colors.primary.main,
   },
   tabText: {
     fontSize: 14,
-    color: '#64748b',
+    color: colors.text.secondary,
     fontWeight: '500',
   },
   activeTabText: {
-    color: '#fff',
+    color: colors.primary.contrast,
   },
   section: {
-    padding: 16,
+    padding: spacing.lg,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#0f172a',
-    marginBottom: 12,
+    color: colors.text.primary,
+    marginBottom: spacing.md,
   },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
-    marginBottom: 24,
+    gap: spacing.md,
+    marginBottom: spacing['2xl'],
   },
   statCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: colors.background.paper,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
     width: '48%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    ...shadows.md,
   },
   statCardValue: {
     fontSize: 24,
     fontWeight: '600',
-    color: '#0f172a',
+    color: colors.text.primary,
   },
   statCardLabel: {
     fontSize: 12,
-    color: '#64748b',
-    marginTop: 4,
+    color: colors.text.secondary,
+    marginTop: spacing.xs,
   },
   adminSection: {
-    marginBottom: 24,
+    marginBottom: spacing['2xl'],
   },
   quickSection: {
-    marginBottom: 24,
+    marginBottom: spacing['2xl'],
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    backgroundColor: colors.background.paper,
+    padding: spacing.lg,
+    borderRadius: borderRadius.lg,
+    marginBottom: spacing.sm,
+    ...shadows.md,
   },
   actionIcon: {
     fontSize: 24,
-    marginRight: 12,
+    marginRight: spacing.md,
   },
   actionContent: {
     flex: 1,
@@ -497,48 +494,44 @@ const styles = StyleSheet.create({
   actionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#0f172a',
+    color: colors.text.primary,
   },
   actionSubtitle: {
     fontSize: 12,
-    color: '#64748b',
+    color: colors.text.secondary,
     marginTop: 2,
   },
   actionArrow: {
     fontSize: 20,
-    color: '#94a3b8',
+    color: colors.text.disabled,
   },
   memberCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    backgroundColor: colors.background.paper,
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    marginBottom: spacing.sm,
+    ...shadows.md,
   },
   memberAvatar: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#e2e8f0',
+    backgroundColor: colors.secondary.dark,
   },
   memberInfo: {
     flex: 1,
-    marginLeft: 12,
+    marginLeft: spacing.md,
   },
   memberName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#0f172a',
+    color: colors.text.primary,
   },
   memberRole: {
     fontSize: 12,
-    color: '#64748b',
+    color: colors.text.secondary,
     textTransform: 'capitalize',
   },
   memberBalance: {
@@ -547,167 +540,155 @@ const styles = StyleSheet.create({
   balanceValue: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#0ea5e9',
+    color: colors.primary.main,
   },
   balanceLabel: {
     fontSize: 10,
-    color: '#94a3b8',
+    color: colors.text.disabled,
   },
   planCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    backgroundColor: colors.background.paper,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+    ...shadows.md,
   },
   planHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   planName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#0f172a',
+    color: colors.text.primary,
     flex: 1,
   },
   badge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    backgroundColor: '#f1f5f9',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.secondary.main,
   },
   activeBadge: {
-    backgroundColor: '#dcfce7',
+    backgroundColor: colors.success.light,
   },
   badgeText: {
     fontSize: 12,
     fontWeight: '500',
-    color: '#16a34a',
+    color: colors.success.text,
   },
   planDescription: {
     fontSize: 14,
-    color: '#64748b',
-    marginBottom: 12,
+    color: colors.text.secondary,
+    marginBottom: spacing.md,
   },
   planDetails: {
     flexDirection: 'row',
-    gap: 12,
+    gap: spacing.md,
   },
   planDetail: {
     fontSize: 12,
-    color: '#64748b',
+    color: colors.text.secondary,
   },
   viewAllButton: {
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
   viewAllText: {
-    color: '#0ea5e9',
+    color: colors.primary.main,
     fontSize: 14,
     fontWeight: '600',
   },
   gbCard: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    marginBottom: 12,
+    backgroundColor: colors.background.paper,
+    borderRadius: borderRadius.lg,
+    marginBottom: spacing.md,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    ...shadows.md,
   },
   gbImage: {
     width: 100,
     height: 100,
-    backgroundColor: '#e2e8f0',
+    backgroundColor: colors.secondary.dark,
   },
   gbContent: {
     flex: 1,
-    padding: 12,
+    padding: spacing.md,
   },
   gbTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#0f172a',
+    color: colors.text.primary,
   },
   gbPrice: {
     fontSize: 14,
-    color: '#0ea5e9',
+    color: colors.primary.main,
     fontWeight: '600',
-    marginTop: 4,
+    marginTop: spacing.xs,
   },
   gbProgress: {
     height: 4,
-    backgroundColor: '#e2e8f0',
+    backgroundColor: colors.secondary.dark,
     borderRadius: 2,
-    marginTop: 8,
+    marginTop: spacing.sm,
     overflow: 'hidden',
   },
   gbProgressFill: {
     height: '100%',
-    backgroundColor: '#0ea5e9',
+    backgroundColor: colors.primary.main,
     borderRadius: 2,
   },
   gbUnits: {
     fontSize: 12,
-    color: '#64748b',
-    marginTop: 4,
+    color: colors.text.secondary,
+    marginTop: spacing.xs,
   },
   requestButton: {
-    backgroundColor: '#0ea5e9',
+    backgroundColor: colors.primary.main,
     padding: 14,
-    borderRadius: 8,
+    borderRadius: borderRadius.md,
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: spacing.lg,
   },
   requestButtonText: {
-    color: '#fff',
+    color: colors.primary.contrast,
     fontSize: 16,
     fontWeight: '600',
   },
   loanCard: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    backgroundColor: colors.background.paper,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+    ...shadows.md,
   },
   loanHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: spacing.sm,
   },
   loanAmount: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#0f172a',
+    color: colors.text.primary,
   },
   loanStatus: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    backgroundColor: '#f1f5f9',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.secondary.main,
   },
   loanApproved: {
-    backgroundColor: '#dcfce7',
+    backgroundColor: colors.success.light,
   },
   loanPending: {
-    backgroundColor: '#fef3c7',
+    backgroundColor: colors.warning.light,
   },
   loanRejected: {
-    backgroundColor: '#fee2e2',
+    backgroundColor: colors.error.light,
   },
   loanStatusText: {
     fontSize: 12,
@@ -716,24 +697,24 @@ const styles = StyleSheet.create({
   },
   loanPurpose: {
     fontSize: 14,
-    color: '#0f172a',
-    marginBottom: 4,
+    color: colors.text.primary,
+    marginBottom: spacing.xs,
   },
   loanDetails: {
     fontSize: 12,
-    color: '#64748b',
+    color: colors.text.secondary,
   },
   emptyState: {
     alignItems: 'center',
-    padding: 32,
+    padding: spacing['3xl'],
   },
   emptyIcon: {
     fontSize: 48,
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
   emptyText: {
     fontSize: 14,
-    color: '#64748b',
+    color: colors.text.secondary,
   },
 });
 

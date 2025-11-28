@@ -1,9 +1,10 @@
 import React from 'react';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
+import { colors, borderRadius, spacing } from '../../theme';
 
 export interface BadgeProps {
   text: string;
-  variant?: 'default' | 'success' | 'warning' | 'error' | 'info';
+  variant?: 'default' | 'success' | 'warning' | 'error' | 'info' | 'primary' | 'accent';
   size?: 'small' | 'medium';
   style?: ViewStyle;
   testID?: string;
@@ -26,6 +27,10 @@ const Badge: React.FC<BadgeProps> = ({
         return { bg: styles.errorBg, text: styles.errorText };
       case 'info':
         return { bg: styles.infoBg, text: styles.infoText };
+      case 'primary':
+        return { bg: styles.primaryBg, text: styles.primaryTextStyle };
+      case 'accent':
+        return { bg: styles.accentBg, text: styles.accentText };
       default:
         return { bg: styles.defaultBg, text: styles.defaultText };
     }
@@ -44,16 +49,16 @@ const Badge: React.FC<BadgeProps> = ({
 
 const styles = StyleSheet.create({
   badge: {
-    borderRadius: 12,
+    borderRadius: borderRadius.lg,
     alignSelf: 'flex-start',
   },
   small: {
-    paddingHorizontal: 8,
+    paddingHorizontal: spacing.sm,
     paddingVertical: 2,
   },
   medium: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
   },
   text: {
     fontWeight: '500',
@@ -66,34 +71,46 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   defaultBg: {
-    backgroundColor: '#f1f5f9',
+    backgroundColor: colors.secondary.main,
   },
   defaultText: {
-    color: '#64748b',
+    color: colors.text.secondary,
   },
   successBg: {
-    backgroundColor: '#dcfce7',
+    backgroundColor: colors.success.light,
   },
   successText: {
-    color: '#16a34a',
+    color: colors.success.text,
   },
   warningBg: {
-    backgroundColor: '#fef3c7',
+    backgroundColor: colors.warning.light,
   },
   warningText: {
-    color: '#d97706',
+    color: colors.warning.text,
   },
   errorBg: {
-    backgroundColor: '#fee2e2',
+    backgroundColor: colors.error.light,
   },
   errorText: {
-    color: '#dc2626',
+    color: colors.error.text,
   },
   infoBg: {
-    backgroundColor: '#e0f2fe',
+    backgroundColor: colors.info.light,
   },
   infoText: {
-    color: '#0284c7',
+    color: colors.info.text,
+  },
+  primaryBg: {
+    backgroundColor: colors.primary.light,
+  },
+  primaryTextStyle: {
+    color: colors.primary.dark,
+  },
+  accentBg: {
+    backgroundColor: colors.accent.light,
+  },
+  accentText: {
+    color: colors.accent.dark,
   },
 });
 

@@ -15,6 +15,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { login } from '../../store/slices/authSlice';
+import { colors, spacing, borderRadius, shadows } from '../../theme';
 
 type LoginScreenNavigationProp = NativeStackNavigationProp<AuthStackParamList, 'Login'>;
 
@@ -35,41 +36,41 @@ interface FormErrors {
 const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const dispatch = useAppDispatch();
   const { isLoading, error } = useAppSelector((state) => state.auth);
-  
+
   const [formData, setFormData] = useState<LoginFormData>({
     email: 'john.doe@example.com',
     password: 'password123',
   });
-  
+
   const [errors, setErrors] = useState<FormErrors>({});
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
-    
+
     // Email validation
     if (!formData.email) {
       newErrors.email = 'Email is required';
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = 'Please enter a valid email';
     }
-    
+
     // Password validation
     if (!formData.password) {
       newErrors.password = 'Password is required';
     } else if (formData.password.length < 6) {
       newErrors.password = 'Password must be at least 6 characters';
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async () => {
     if (!validateForm()) return;
-    
+
     try {
       await dispatch(login(formData)).unwrap();
-    } catch (err) {
+    } catch {
       Alert.alert('Login Failed', 'Please check your credentials and try again.');
     }
   };
@@ -93,6 +94,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
               <TextInput
                 style={[styles.input, errors.email && styles.inputError]}
                 placeholder="Enter your email"
+                placeholderTextColor={colors.text.disabled}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 onChangeText={(text) => setFormData({ ...formData, email: text })}
@@ -106,6 +108,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
               <TextInput
                 style={[styles.input, errors.password && styles.inputError]}
                 placeholder="Enter your password"
+                placeholderTextColor={colors.text.disabled}
                 secureTextEntry={true}
                 onChangeText={(text) => setFormData({ ...formData, password: text })}
                 value={formData.password}
@@ -121,7 +124,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
               disabled={isLoading}
             >
               {isLoading ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color={colors.primary.contrast} />
               ) : (
                 <Text style={styles.buttonText}>Sign In</Text>
               )}
@@ -147,7 +150,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.background.default,
   },
   keyboardView: {
     flex: 1,
@@ -155,105 +158,102 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     justifyContent: 'center',
-    paddingHorizontal: 24,
+    paddingHorizontal: spacing['2xl'],
   },
   header: {
     alignItems: 'center',
-    marginBottom: 40,
+    marginBottom: spacing['4xl'],
   },
   logo: {
     fontSize: 64,
-    marginBottom: 16,
+    marginBottom: spacing.lg,
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: '#0f172a',
-    marginBottom: 8,
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
   },
   subtitle: {
     fontSize: 16,
-    color: '#64748b',
+    color: colors.text.secondary,
     textAlign: 'center',
   },
   form: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    backgroundColor: colors.background.paper,
+    borderRadius: borderRadius.xl,
+    padding: spacing['2xl'],
+    ...shadows.lg,
   },
   inputContainer: {
-    marginBottom: 20,
+    marginBottom: spacing.xl,
   },
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#334155',
-    marginBottom: 8,
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    borderColor: colors.border.light,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
     fontSize: 16,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.secondary.light,
+    color: colors.text.primary,
   },
   inputError: {
-    borderColor: '#ef4444',
+    borderColor: colors.error.main,
   },
   errorText: {
-    color: '#ef4444',
+    color: colors.error.main,
     fontSize: 12,
-    marginTop: 4,
+    marginTop: spacing.xs,
   },
   apiError: {
-    color: '#ef4444',
+    color: colors.error.main,
     fontSize: 14,
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: spacing.lg,
   },
   button: {
-    backgroundColor: '#0ea5e9',
-    borderRadius: 8,
+    backgroundColor: colors.primary.main,
+    borderRadius: borderRadius.md,
     paddingVertical: 14,
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: spacing.sm,
   },
   buttonDisabled: {
     opacity: 0.7,
   },
   buttonText: {
-    color: '#fff',
+    color: colors.primary.contrast,
     fontSize: 16,
     fontWeight: '600',
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 24,
-    gap: 4,
+    marginTop: spacing['2xl'],
+    gap: spacing.xs,
   },
   footerText: {
-    color: '#64748b',
+    color: colors.text.secondary,
     fontSize: 14,
   },
   footerLink: {
-    color: '#0ea5e9',
+    color: colors.primary.main,
     fontSize: 14,
     fontWeight: '600',
   },
   demoNote: {
-    marginTop: 16,
+    marginTop: spacing.lg,
     alignItems: 'center',
   },
   demoText: {
-    color: '#94a3b8',
+    color: colors.text.disabled,
     fontSize: 12,
     fontStyle: 'italic',
   },

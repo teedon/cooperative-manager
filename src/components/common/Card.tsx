@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ViewStyle, Image } from 'react-native';
+import { colors, borderRadius, spacing, shadows } from '../../theme';
 
 export interface CardProps {
   title?: string;
@@ -44,32 +45,28 @@ const Card: React.FC<CardProps> = ({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
+    backgroundColor: colors.background.paper,
+    borderRadius: borderRadius.lg,
+    ...shadows.md,
     overflow: 'hidden',
   },
   image: {
     width: '100%',
     height: 120,
-    backgroundColor: '#e2e8f0',
+    backgroundColor: colors.secondary.dark,
   },
   content: {
-    padding: 16,
+    padding: spacing.lg,
   },
   title: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#0f172a',
-    marginBottom: 4,
+    color: colors.text.primary,
+    marginBottom: spacing.xs,
   },
   subtitle: {
     fontSize: 14,
-    color: '#64748b',
+    color: colors.text.secondary,
     lineHeight: 20,
   },
 });

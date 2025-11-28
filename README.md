@@ -11,18 +11,18 @@ A production-ready React Native mobile app for community cooperative platforms. 
 - **Loan Management**: Request loans, admin approval workflow, repayment tracking
 - **Virtual Balance**: Ledger-driven balance computed from contributions, loans, and group buys
 - **Offline Support**: AsyncStorage for offline caching and receipt storage
+- **Join Cooperative**: Join existing cooperatives using a unique cooperative code
 
 ## 📱 Tech Stack
 
-- **Framework**: React Native with Expo
+- **Framework**: React Native CLI
 - **Language**: TypeScript
 - **Navigation**: React Navigation (Stack + Tab navigators)
 - **State Management**: Redux Toolkit
-- **Forms**: React Hook Form + Zod validation
-- **Styling**: NativeWind (Tailwind for React Native)
+- **Styling**: StyleSheet with centralized theme system
 - **HTTP Client**: Axios
 - **Storage**: AsyncStorage
-- **Media**: Expo Image Picker and Camera
+- **Media**: React Native Image Picker
 - **Testing**: Jest + React Native Testing Library
 
 ## 🏗️ Project Structure
@@ -31,7 +31,6 @@ A production-ready React Native mobile app for community cooperative platforms. 
 cooperative-manager/
 ├── src/
 │   ├── api/              # API client and endpoint modules
-│   ├── assets/           # Images, fonts, and other assets
 │   ├── components/       # Reusable UI components
 │   │   ├── common/       # Generic components (Button, Card, Modal)
 │   │   ├── cooperative/  # Cooperative-specific components
@@ -39,8 +38,6 @@ cooperative-manager/
 │   │   ├── groupbuys/    # Group buy components
 │   │   ├── loans/        # Loan components
 │   │   └── ledger/       # Ledger display components
-│   ├── config/           # App configuration
-│   ├── hooks/            # Custom React hooks
 │   ├── models/           # TypeScript types and interfaces
 │   ├── navigation/       # React Navigation setup
 │   ├── screens/          # Screen components
@@ -51,8 +48,8 @@ cooperative-manager/
 │   │   ├── groupbuys/    # Group buy list, detail, management
 │   │   ├── loans/        # Loan request, detail, admin decision
 │   │   └── ledger/       # Ledger view
-│   ├── services/         # Business logic services
 │   ├── store/            # Redux store and slices
+│   ├── theme/            # Centralized colors, typography, spacing
 │   └── utils/            # Utility functions
 ├── mock-server/          # Express mock API server
 │   ├── data/             # Seed data (JSON)
@@ -68,10 +65,10 @@ cooperative-manager/
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 20+
 - npm or yarn
-- Expo CLI (`npm install -g expo-cli`)
-- iOS Simulator (Mac) or Android Emulator
+- iOS development setup (Mac with Xcode) or Android development setup (Android Studio)
+- CocoaPods (for iOS)
 
 ### Installation
 
@@ -91,20 +88,24 @@ cooperative-manager/
    cp .env.example .env
    ```
 
-4. Start the mock server:
+4. Install iOS pods (Mac only):
+   ```bash
+   cd ios && pod install && cd ..
+   ```
+
+5. Start the mock server:
    ```bash
    npm run mock-server
    ```
 
-5. In a new terminal, start the Expo dev server:
+6. In a new terminal, run the app:
    ```bash
-   npm start
+   # For iOS
+   npm run ios
+   
+   # For Android
+   npm run android
    ```
-
-6. Run on your preferred platform:
-   - Press `i` for iOS simulator
-   - Press `a` for Android emulator
-   - Press `w` for web browser
 
 ### Demo Credentials
 
@@ -115,10 +116,9 @@ cooperative-manager/
 
 | Command | Description |
 |---------|-------------|
-| `npm start` | Start Expo dev server |
+| `npm start` | Start Metro bundler |
 | `npm run android` | Run on Android emulator |
 | `npm run ios` | Run on iOS simulator |
-| `npm run web` | Run in web browser |
 | `npm run lint` | Run ESLint |
 | `npm run lint:fix` | Fix ESLint errors |
 | `npm run format` | Format code with Prettier |

@@ -22,6 +22,7 @@ import {
   validateMinLength,
   validatePasswordMatch,
 } from '../../utils/validation';
+import { colors, spacing, borderRadius, shadows } from '../../theme';
 
 type SignupScreenNavigationProp = NativeStackNavigationProp<AuthStackParamList, 'Signup'>;
 
@@ -82,9 +83,9 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
     if (!validateForm()) return;
 
     try {
-      const { confirmPassword, ...signupData } = formData;
+      const { confirmPassword: _, ...signupData } = formData;
       await dispatch(signup(signupData)).unwrap();
-    } catch (err) {
+    } catch {
       Alert.alert('Signup Failed', 'Please try again.');
     }
   };
@@ -109,6 +110,7 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
                 <TextInput
                   style={[styles.input, errors.firstName && styles.inputError]}
                   placeholder="First name"
+                  placeholderTextColor={colors.text.disabled}
                   onChangeText={(text) => setFormData({ ...formData, firstName: text })}
                   value={formData.firstName}
                 />
@@ -120,6 +122,7 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
                 <TextInput
                   style={[styles.input, errors.lastName && styles.inputError]}
                   placeholder="Last name"
+                  placeholderTextColor={colors.text.disabled}
                   onChangeText={(text) => setFormData({ ...formData, lastName: text })}
                   value={formData.lastName}
                 />
@@ -132,6 +135,7 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
               <TextInput
                 style={[styles.input, errors.email && styles.inputError]}
                 placeholder="Enter your email"
+                placeholderTextColor={colors.text.disabled}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 onChangeText={(text) => setFormData({ ...formData, email: text })}
@@ -145,6 +149,7 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
               <TextInput
                 style={styles.input}
                 placeholder="Enter your phone number"
+                placeholderTextColor={colors.text.disabled}
                 keyboardType="phone-pad"
                 onChangeText={(text) => setFormData({ ...formData, phone: text })}
                 value={formData.phone}
@@ -156,6 +161,7 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
               <TextInput
                 style={[styles.input, errors.password && styles.inputError]}
                 placeholder="Create a password"
+                placeholderTextColor={colors.text.disabled}
                 secureTextEntry={true}
                 onChangeText={(text) => setFormData({ ...formData, password: text })}
                 value={formData.password}
@@ -168,6 +174,7 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
               <TextInput
                 style={[styles.input, errors.confirmPassword && styles.inputError]}
                 placeholder="Confirm your password"
+                placeholderTextColor={colors.text.disabled}
                 secureTextEntry={true}
                 onChangeText={(text) => setFormData({ ...formData, confirmPassword: text })}
                 value={formData.confirmPassword}
@@ -185,7 +192,7 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
               disabled={isLoading}
             >
               {isLoading ? (
-                <ActivityIndicator color="#fff" />
+                <ActivityIndicator color={colors.primary.contrast} />
               ) : (
                 <Text style={styles.buttonText}>Create Account</Text>
               )}
@@ -207,7 +214,7 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.background.default,
   },
   keyboardView: {
     flex: 1,
@@ -215,104 +222,101 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 32,
+    paddingHorizontal: spacing['2xl'],
+    paddingVertical: spacing['3xl'],
   },
   header: {
     alignItems: 'center',
-    marginBottom: 32,
+    marginBottom: spacing['3xl'],
   },
   logo: {
     fontSize: 48,
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
   title: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#0f172a',
-    marginBottom: 8,
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
   },
   subtitle: {
     fontSize: 14,
-    color: '#64748b',
+    color: colors.text.secondary,
     textAlign: 'center',
   },
   form: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    backgroundColor: colors.background.paper,
+    borderRadius: borderRadius.xl,
+    padding: spacing['2xl'],
+    ...shadows.lg,
   },
   row: {
     flexDirection: 'row',
-    gap: 12,
+    gap: spacing.md,
   },
   halfWidth: {
     flex: 1,
   },
   inputContainer: {
-    marginBottom: 16,
+    marginBottom: spacing.lg,
   },
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#334155',
-    marginBottom: 8,
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    borderColor: colors.border.light,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
     fontSize: 16,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.secondary.light,
+    color: colors.text.primary,
   },
   inputError: {
-    borderColor: '#ef4444',
+    borderColor: colors.error.main,
   },
   errorText: {
-    color: '#ef4444',
+    color: colors.error.main,
     fontSize: 12,
-    marginTop: 4,
+    marginTop: spacing.xs,
   },
   apiError: {
-    color: '#ef4444',
+    color: colors.error.main,
     fontSize: 14,
     textAlign: 'center',
-    marginBottom: 16,
+    marginBottom: spacing.lg,
   },
   button: {
-    backgroundColor: '#0ea5e9',
-    borderRadius: 8,
+    backgroundColor: colors.primary.main,
+    borderRadius: borderRadius.md,
     paddingVertical: 14,
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: spacing.sm,
   },
   buttonDisabled: {
     opacity: 0.7,
   },
   buttonText: {
-    color: '#fff',
+    color: colors.primary.contrast,
     fontSize: 16,
     fontWeight: '600',
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 24,
-    gap: 4,
+    marginTop: spacing['2xl'],
+    gap: spacing.xs,
   },
   footerText: {
-    color: '#64748b',
+    color: colors.text.secondary,
     fontSize: 14,
   },
   footerLink: {
-    color: '#0ea5e9',
+    color: colors.primary.main,
     fontSize: 14,
     fontWeight: '600',
   },

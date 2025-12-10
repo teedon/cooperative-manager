@@ -155,7 +155,7 @@ const LoanRequestScreen: React.FC<Props> = ({ route, navigation }) => {
             <Text style={styles.calculationTitle}>Loan Summary</Text>
             <View style={styles.calcRow}>
               <Text style={styles.calcLabel}>Principal Amount</Text>
-              <Text style={styles.calcValue}>${amount.toFixed(2)}</Text>
+              <Text style={styles.calcValue}>₦{amount.toLocaleString()}</Text>
             </View>
             <View style={styles.calcRow}>
               <Text style={styles.calcLabel}>Interest Rate</Text>
@@ -167,11 +167,11 @@ const LoanRequestScreen: React.FC<Props> = ({ route, navigation }) => {
             </View>
             <View style={[styles.calcRow, styles.highlightRow]}>
               <Text style={styles.highlightLabel}>Monthly Repayment</Text>
-              <Text style={styles.highlightValue}>${monthlyRepayment.toFixed(2)}</Text>
+              <Text style={styles.highlightValue}>₦{monthlyRepayment.toLocaleString()}</Text>
             </View>
             <View style={[styles.calcRow, styles.totalRow]}>
               <Text style={styles.totalLabel}>Total Repayment</Text>
-              <Text style={styles.totalValue}>${totalRepayment.toFixed(2)}</Text>
+              <Text style={styles.totalValue}>₦{totalRepayment.toLocaleString()}</Text>
             </View>
           </View>
         )}

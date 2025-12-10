@@ -1,4 +1,5 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User, AuthState, LoginCredentials, SignupData } from '../../models';
 import { authApi } from '../../api/authApi';
 
@@ -38,6 +39,30 @@ export const logout = createAsyncThunk('auth/logout', async () => {
   await authApi.logout();
 });
 
+export const restoreSession = createAsyncThunk('auth/restoreSession', async () => {
+  const token = await AsyncStorage.getItem('auth_token');
+  const userJson = await AsyncStorage.getItem('auth_user');
+  
+  if (token && userJson) {
+    const user = JSON.parse(userJson);
+    return { token, user };
+  }
+  
+  throw new Error('No session found');
+});
+
+// export const restoreSession = createAsyncThunk('auth/restoreSession', async () => {
+//   const token = await AsyncStorage.getItem('auth_token');
+//   const userJson = await AsyncStorage.getItem('auth_user');
+  
+//   if (token && userJson) {
+//     const user = JSON.parse(userJson);
+//     return { token, user };
+//   }
+  
+//   throw new Error('No session found');
+// });
+
 const authSlice = createSlice({
   name: 'auth',
   initialState,
@@ -66,6 +91,9 @@ const authSlice = createSlice({
         state.isAuthenticated = true;
         state.user = action.payload.user;
         state.token = action.payload.token;
+        // Persist auth data
+        AsyncStorage.setItem('auth_token', action.payload.token);
+        AsyncStorage.setItem('auth_user', JSON.stringify(action.payload.user));
       })
       .addCase(login.rejected, (state, action) => {
         state.isLoading = false;
@@ -81,13 +109,30 @@ const authSlice = createSlice({
         state.isAuthenticated = true;
         state.user = action.payload.user;
         state.token = action.payload.token;
+        // Persist auth data
+        AsyncStorage.setItem('auth_token', action.payload.token);
+        AsyncStorage.setItem('auth_user', JSON.stringify(action.payload.user));
       })
       .addCase(signup.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
       })
       // Logout
-      .addCase(logout.fulfilled, () => initialState);
+      .addCase(logout.fulfilled, () => {
+        // Clear persisted auth data
+        AsyncStorage.removeItem('auth_token');
+        AsyncStorage.removeItem('auth_user');
+        return initialState;
+      })
+      // Restore Session
+      .addCase(restoreSession.fulfilled, (state, action) => {
+        state.isAuthenticated = true;
+        state.user = action.payload.user;
+        state.token = action.payload.token;
+      })
+      .addCase(restoreSession.rejected, (state) => {
+        state.isAuthenticated = false;
+      });
   },
 });
 

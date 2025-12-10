@@ -141,7 +141,7 @@ const PaymentVerificationScreen: React.FC<Props> = ({ route }) => {
                     </Text>
                   </View>
                 </View>
-                <Text style={styles.amount}>${record.amount.toLocaleString()}</Text>
+                <Text style={styles.amount}>₦{record.amount.toLocaleString()}</Text>
               </View>
 
               <View style={styles.cardDetails}>

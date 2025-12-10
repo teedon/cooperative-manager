@@ -88,7 +88,7 @@ const GroupBuyListScreen: React.FC<Props> = ({ route, navigation }) => {
           </Text>
 
           <View style={styles.priceRow}>
-            <Text style={styles.price}>${item.unitPrice}</Text>
+            <Text style={styles.price}>₦{item.unitPrice.toLocaleString()}</Text>
             <Text style={styles.priceLabel}>/unit</Text>
             {item.interestRate > 0 && (
               <Text style={styles.interest}>+{item.interestRate}% interest</Text>
@@ -125,7 +125,10 @@ const GroupBuyListScreen: React.FC<Props> = ({ route, navigation }) => {
   const renderHeader = () => (
     <View style={styles.header}>
       {isAdmin && (
-        <TouchableOpacity style={styles.createButton}>
+        <TouchableOpacity 
+          style={styles.createButton}
+          onPress={() => navigation.navigate('GroupBuyManagement', { cooperativeId })}
+        >
           <Text style={styles.createButtonText}>+ Create Group Buy</Text>
         </TouchableOpacity>
       )}

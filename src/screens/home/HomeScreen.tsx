@@ -14,7 +14,7 @@ import {
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { HomeStackParamList } from '../../navigation/MainNavigator';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { fetchCooperatives, joinCooperativeByCode } from '../../store/slices/cooperativeSlice';
+import { fetchCooperatives, joinCooperativeByCode, createCooperative } from '../../store/slices/cooperativeSlice';
 import { Cooperative } from '../../models';
 import { colors, spacing, borderRadius, shadows } from '../../theme';
 import Modal from '../../components/common/Modal';
@@ -59,7 +59,7 @@ const CooperativeCard: React.FC<{
         </View>
         <View style={styles.statDivider} />
         <View style={styles.statItem}>
-          <Text style={styles.statValue}>${cooperative.totalContributions.toLocaleString()}</Text>
+          <Text style={styles.statValue}>₦{cooperative.totalContributions.toLocaleString()}</Text>
           <Text style={styles.statLabel}>Total Contributions</Text>
         </View>
       </View>
@@ -86,8 +86,10 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const { cooperatives, isLoading } = useAppSelector((state) => state.cooperative);
   const { user } = useAppSelector((state) => state.auth);
   const [showJoinModal, setShowJoinModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [cooperativeCode, setCooperativeCode] = useState('');
   const [isJoining, setIsJoining] = useState(false);
+  const [newCoopData, setNewCoopData] = useState({ name: '', description: '' });
 
   const loadCooperatives = useCallback(() => {
     dispatch(fetchCooperatives());
@@ -117,6 +119,26 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     }
   };
 
+  const handleCreateCooperative = async () => {
+    if (!newCoopData.name.trim()) {
+      Alert.alert('Error', 'Please enter a cooperative name');
+      return;
+    }
+
+    setIsJoining(true);
+    try {
+      await dispatch(createCooperative(newCoopData)).unwrap();
+      setShowCreateModal(false);
+      setNewCoopData({ name: '', description: '' });
+      Alert.alert('Success', 'Cooperative created successfully!');
+      loadCooperatives();
+    } catch {
+      Alert.alert('Error', 'Failed to create cooperative');
+    } finally {
+      setIsJoining(false);
+    }
+  };
+
   const renderHeader = () => (
     <View style={styles.headerSection}>
       <View style={styles.greeting}>
@@ -125,18 +147,33 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       </View>
 
       {/* Join Cooperative Section */}
-      <TouchableOpacity style={styles.joinCooperativeCard} onPress={() => setShowJoinModal(true)}>
-        <View style={styles.joinCooperativeContent}>
-          <Text style={styles.joinCooperativeIcon}>🔑</Text>
-          <View style={styles.joinCooperativeText}>
-            <Text style={styles.joinCooperativeTitle}>Join a Cooperative</Text>
-            <Text style={styles.joinCooperativeSubtitle}>
-              Enter a code to join an existing cooperative
-            </Text>
+      <View style={styles.actionCards}>
+        <TouchableOpacity style={styles.joinCooperativeCard} onPress={() => setShowJoinModal(true)}>
+          <View style={styles.joinCooperativeContent}>
+            <Text style={styles.joinCooperativeIcon}>🔑</Text>
+            <View style={styles.joinCooperativeText}>
+              <Text style={styles.joinCooperativeTitle}>Join a Cooperative</Text>
+              <Text style={styles.joinCooperativeSubtitle}>
+                Enter a code to join
+              </Text>
+            </View>
           </View>
-        </View>
-        <Text style={styles.joinCooperativeArrow}>→</Text>
-      </TouchableOpacity>
+          <Text style={styles.joinCooperativeArrow}>→</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity style={styles.createCooperativeCard} onPress={() => setShowCreateModal(true)}>
+          <View style={styles.joinCooperativeContent}>
+            <Text style={styles.joinCooperativeIcon}>➕</Text>
+            <View style={styles.joinCooperativeText}>
+              <Text style={styles.joinCooperativeTitle}>Create Cooperative</Text>
+              <Text style={styles.joinCooperativeSubtitle}>
+                Start your own
+              </Text>
+            </View>
+          </View>
+          <Text style={styles.joinCooperativeArrow}>→</Text>
+        </TouchableOpacity>
+      </View>
 
       <View style={styles.quickActions}>
         <QuickAction
@@ -196,7 +233,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       <TouchableOpacity style={styles.joinButton} onPress={() => setShowJoinModal(true)}>
         <Text style={styles.joinButtonText}>Join with Code</Text>
       </TouchableOpacity>
-      <TouchableOpacity style={styles.createButton}>
+      <TouchableOpacity style={styles.createButton} onPress={() => setShowCreateModal(true)}>
         <Text style={styles.createButtonText}>Create Cooperative</Text>
       </TouchableOpacity>
     </View>
@@ -275,6 +312,55 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           />
         </View>
       </Modal>
+
+      {/* Create Cooperative Modal */}
+      <Modal
+        visible={showCreateModal}
+        onClose={() => {
+          setShowCreateModal(false);
+          setNewCoopData({ name: '', description: '' });
+        }}
+        title="Create Cooperative"
+      >
+        <Text style={styles.modalDescription}>
+          Create a new cooperative and invite members to join.
+        </Text>
+        <TextInput
+          style={styles.codeInput}
+          placeholder="Cooperative Name"
+          placeholderTextColor={colors.text.disabled}
+          value={newCoopData.name}
+          onChangeText={(text) => setNewCoopData({ ...newCoopData, name: text })}
+          autoCapitalize="words"
+        />
+        <TextInput
+          style={[styles.codeInput, styles.textArea]}
+          placeholder="Description (optional)"
+          placeholderTextColor={colors.text.disabled}
+          value={newCoopData.description}
+          onChangeText={(text) => setNewCoopData({ ...newCoopData, description: text })}
+          multiline={true}
+          numberOfLines={3}
+        />
+        <View style={styles.modalButtons}>
+          <Button
+            title="Cancel"
+            variant="outline"
+            onPress={() => {
+              setShowCreateModal(false);
+              setNewCoopData({ name: '', description: '' });
+            }}
+            style={styles.modalButton}
+          />
+          <Button
+            title="Create"
+            onPress={handleCreateCooperative}
+            loading={isJoining}
+            disabled={!newCoopData.name.trim()}
+            style={styles.modalButton}
+          />
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -315,16 +401,26 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
   },
   // Join Cooperative Card
+  actionCards: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginBottom: spacing['2xl'],
+  },
   joinCooperativeCard: {
+    flex: 1,
     backgroundColor: colors.accent.light,
     borderRadius: borderRadius.lg,
     padding: spacing.lg,
-    marginBottom: spacing['2xl'],
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
     borderWidth: 1,
     borderColor: colors.accent.main,
+  },
+  createCooperativeCard: {
+    flex: 1,
+    backgroundColor: colors.success.light,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.success.main,
   },
   joinCooperativeContent: {
     flexDirection: 'row',
@@ -528,6 +624,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.secondary.light,
     color: colors.text.primary,
     marginBottom: spacing.lg,
+  },
+  textArea: {
+    height: 80,
+    textAlign: 'left',
+    letterSpacing: 0,
+    fontWeight: 'normal',
+    fontSize: 16,
   },
   modalButtons: {
     flexDirection: 'row',

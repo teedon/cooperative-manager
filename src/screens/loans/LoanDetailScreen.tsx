@@ -100,12 +100,12 @@ const LoanDetailScreen: React.FC<Props> = ({ route }) => {
         </View>
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Monthly Repayment</Text>
-          <Text style={styles.detailValue}>${currentLoan.monthlyRepayment.toFixed(2)}</Text>
+          <Text style={styles.detailValue}>₦{currentLoan.monthlyRepayment.toLocaleString()}</Text>
         </View>
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Total Repayment</Text>
           <Text style={[styles.detailValue, styles.totalValue]}>
-            ${currentLoan.totalRepayment.toFixed(2)}
+            ₦{currentLoan.totalRepayment.toLocaleString()}
           </Text>
         </View>
       </View>
@@ -198,7 +198,7 @@ const LoanDetailScreen: React.FC<Props> = ({ route }) => {
                 <Text style={styles.repaymentDate}>
                   Due: {new Date(repayment.dueDate).toLocaleDateString()}
                 </Text>
-                <Text style={styles.repaymentAmount}>${repayment.totalAmount.toFixed(2)}</Text>
+                <Text style={styles.repaymentAmount}>₦{repayment.totalAmount.toLocaleString()}</Text>
               </View>
             </View>
           ))}

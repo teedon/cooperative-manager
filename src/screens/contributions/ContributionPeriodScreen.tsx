@@ -41,12 +41,12 @@ const ContributionPeriodScreen: React.FC<Props> = ({ route, navigation }) => {
         <View style={styles.amountRow}>
           <View>
             <Text style={styles.amountLabel}>Collected</Text>
-            <Text style={styles.amountValue}>${period.collectedAmount.toLocaleString()}</Text>
+            <Text style={styles.amountValue}>₦{period.collectedAmount.toLocaleString()}</Text>
           </View>
           <View style={styles.amountDivider} />
           <View>
             <Text style={styles.amountLabel}>Expected</Text>
-            <Text style={styles.amountValue}>${period.expectedAmount.toLocaleString()}</Text>
+            <Text style={styles.amountValue}>₦{period.expectedAmount.toLocaleString()}</Text>
           </View>
         </View>
       </View>

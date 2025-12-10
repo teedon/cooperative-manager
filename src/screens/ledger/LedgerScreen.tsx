@@ -83,7 +83,7 @@ const LedgerScreen: React.FC<Props> = ({ route }) => {
         <Text style={styles.summaryLabel}>
           {memberId ? 'Member Balance' : 'Total Cooperative Balance'}
         </Text>
-        <Text style={styles.summaryValue}>${totalBalance.toLocaleString()}</Text>
+        <Text style={styles.summaryValue}>₦{totalBalance.toLocaleString()}</Text>
         {!memberId && (
           <Text style={styles.summarySubtext}>Across {memberBalances.length} members</Text>
         )}
@@ -93,13 +93,13 @@ const LedgerScreen: React.FC<Props> = ({ route }) => {
         <View style={styles.breakdownRow}>
           <View style={styles.breakdownItem}>
             <Text style={styles.breakdownValue}>
-              ${memberBalances.reduce((sum, b) => sum + b.totalContributions, 0).toLocaleString()}
+              ₦{memberBalances.reduce((sum, b) => sum + b.totalContributions, 0).toLocaleString()}
             </Text>
             <Text style={styles.breakdownLabel}>Contributions</Text>
           </View>
           <View style={styles.breakdownItem}>
             <Text style={styles.breakdownValue}>
-              $
+              ₦
               {memberBalances
                 .reduce((sum, b) => sum + b.totalLoanDisbursements, 0)
                 .toLocaleString()}
@@ -108,7 +108,7 @@ const LedgerScreen: React.FC<Props> = ({ route }) => {
           </View>
           <View style={styles.breakdownItem}>
             <Text style={styles.breakdownValue}>
-              ${memberBalances.reduce((sum, b) => sum + b.totalGroupBuyOutlays, 0).toLocaleString()}
+              ₦{memberBalances.reduce((sum, b) => sum + b.totalGroupBuyOutlays, 0).toLocaleString()}
             </Text>
             <Text style={styles.breakdownLabel}>Group Buys</Text>
           </View>
@@ -140,9 +140,9 @@ const LedgerScreen: React.FC<Props> = ({ route }) => {
             item.amount > 0 ? styles.creditAmount : styles.debitAmount,
           ]}
         >
-          {item.amount > 0 ? '+' : ''}${Math.abs(item.amount).toFixed(2)}
+          {item.amount > 0 ? '+' : ''}₦{Math.abs(item.amount).toLocaleString()}
         </Text>
-        <Text style={styles.entryBalance}>Bal: ${item.balanceAfter.toFixed(2)}</Text>
+        <Text style={styles.entryBalance}>Bal: ₦{item.balanceAfter.toLocaleString()}</Text>
       </View>
     </View>
   );

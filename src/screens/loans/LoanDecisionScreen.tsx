@@ -139,11 +139,11 @@ const LoanDecisionScreen: React.FC<Props> = ({ route, navigation }) => {
         </View>
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Monthly Payment</Text>
-          <Text style={styles.detailValue}>${loan.monthlyRepayment.toFixed(2)}</Text>
+          <Text style={styles.detailValue}>₦{loan.monthlyRepayment.toLocaleString()}</Text>
         </View>
         <View style={[styles.detailRow, styles.totalRow]}>
           <Text style={styles.totalLabel}>Total Repayment</Text>
-          <Text style={styles.totalValue}>${loan.totalRepayment.toFixed(2)}</Text>
+          <Text style={styles.totalValue}>₦{loan.totalRepayment.toLocaleString()}</Text>
         </View>
       </View>
 

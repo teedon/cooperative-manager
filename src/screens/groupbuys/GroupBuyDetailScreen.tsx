@@ -199,15 +199,15 @@ const GroupBuyDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                 <Text style={styles.calcLabel}>
                   Subtotal ({qty} × ${currentGroupBuy.unitPrice})
                 </Text>
-                <Text style={styles.calcValue}>${subtotal.toFixed(2)}</Text>
+                <Text style={styles.calcValue}>₦{subtotal.toLocaleString()}</Text>
               </View>
               <View style={styles.calcRow}>
                 <Text style={styles.calcLabel}>Interest ({currentGroupBuy.interestRate}%)</Text>
-                <Text style={styles.calcValue}>${interest.toFixed(2)}</Text>
+                <Text style={styles.calcValue}>₦{interest.toLocaleString()}</Text>
               </View>
               <View style={[styles.calcRow, styles.totalRow]}>
                 <Text style={styles.totalLabel}>Total Liability</Text>
-                <Text style={styles.totalValue}>${total.toFixed(2)}</Text>
+                <Text style={styles.totalValue}>₦{total.toLocaleString()}</Text>
               </View>
             </View>
 
@@ -235,7 +235,7 @@ const GroupBuyDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               </View>
               <View style={styles.orderRow}>
                 <Text style={styles.orderLabel}>Total Liability</Text>
-                <Text style={styles.orderValue}>${myOrder.totalLiability.toFixed(2)}</Text>
+                <Text style={styles.orderValue}>₦{myOrder.totalLiability.toLocaleString()}</Text>
               </View>
               <View style={styles.orderRow}>
                 <Text style={styles.orderLabel}>Status</Text>

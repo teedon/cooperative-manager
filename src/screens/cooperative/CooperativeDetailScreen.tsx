@@ -94,7 +94,7 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         </View>
         <View style={styles.statCard}>
           <Text style={styles.statCardValue}>
-            ${currentCooperative?.totalContributions?.toLocaleString() || 0}
+            ₦{currentCooperative?.totalContributions?.toLocaleString() || 0}
           </Text>
           <Text style={styles.statCardLabel}>Total Contributions</Text>
         </View>

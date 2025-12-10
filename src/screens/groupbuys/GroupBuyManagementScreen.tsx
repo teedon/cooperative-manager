@@ -109,7 +109,7 @@ const GroupBuyManagementScreen: React.FC<Props> = ({ route }) => {
           <Text style={styles.summaryLabel}>Units Requested</Text>
         </View>
         <View style={styles.summaryCard}>
-          <Text style={styles.summaryValue}>${totalLiability.toFixed(0)}</Text>
+          <Text style={styles.summaryValue}>₦{totalLiability.toLocaleString()}</Text>
           <Text style={styles.summaryLabel}>Total Liability</Text>
         </View>
       </View>
@@ -166,11 +166,11 @@ const GroupBuyManagementScreen: React.FC<Props> = ({ route }) => {
               </View>
               <View style={styles.orderRow}>
                 <Text style={styles.orderLabel}>Interest</Text>
-                <Text style={styles.orderValue}>${order.interestAmount.toFixed(2)}</Text>
+                <Text style={styles.orderValue}>₦{order.interestAmount.toLocaleString()}</Text>
               </View>
               <View style={[styles.orderRow, styles.totalRow]}>
                 <Text style={styles.totalLabel}>Total Liability</Text>
-                <Text style={styles.totalValue}>${order.totalLiability.toFixed(2)}</Text>
+                <Text style={styles.totalValue}>₦{order.totalLiability.toLocaleString()}</Text>
               </View>
             </View>
           </View>

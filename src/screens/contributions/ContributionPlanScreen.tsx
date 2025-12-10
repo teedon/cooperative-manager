@@ -105,7 +105,7 @@ const ContributionPlanScreen: React.FC<Props> = ({ route, navigation }) => {
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Amount</Text>
           <Text style={styles.detailValue}>
-            {plan.type === 'fixed' ? `$${plan.amount}` : `$${plan.minAmount} - $${plan.maxAmount}`}
+            {plan.type === 'fixed' ? `₦${plan.amount}` : `₦${plan.minAmount} - ₦${plan.maxAmount}`}
           </Text>
         </View>
         <View style={styles.detailRow}>
@@ -179,7 +179,7 @@ const ContributionPlanScreen: React.FC<Props> = ({ route, navigation }) => {
                   />
                 </View>
                 <Text style={styles.progressText}>
-                  ${period.collectedAmount.toLocaleString()} / $
+                  ₦{period.collectedAmount.toLocaleString()} / ₦
                   {period.expectedAmount.toLocaleString()}
                 </Text>
               </View>

@@ -1,10 +1,12 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+// Note: keeping to bottom-tabs only to avoid adding drawer dependency
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Text, View, StyleSheet } from 'react-native';
 import { colors, spacing } from '../theme';
 
 import HomeScreen from '../screens/home/HomeScreen';
+import LandingScreen from '../screens/home/LandingScreen';
 import CooperativeDetailScreen from '../screens/cooperative/CooperativeDetailScreen';
 import ContributionPlanScreen from '../screens/contributions/ContributionPlanScreen';
 import ContributionPeriodScreen from '../screens/contributions/ContributionPeriodScreen';
@@ -22,33 +24,22 @@ import ProfileScreen from '../screens/home/ProfileScreen';
 
 export type MainTabParamList = {
   HomeTab: undefined;
+  CoopsTab: undefined;
   ProfileTab: undefined;
 };
 
-export type HomeStackParamList = {
-  Home: undefined;
-  CooperativeDetail: { cooperativeId: string };
-  ContributionPlan: { planId: string };
-  ContributionPeriod: { periodId: string };
-  RecordPayment: { periodId: string };
-  PaymentVerification: { cooperativeId: string };
-  GroupBuyList: { cooperativeId: string };
-  GroupBuyDetail: { groupBuyId: string };
-  GroupBuyManagement: { groupBuyId: string };
-  LoanRequest: { cooperativeId: string };
-  LoanDetail: { loanId: string };
-  LoanDecision: { loanId: string };
-  Ledger: { cooperativeId: string; memberId?: string };
-  MemberDashboard: { cooperativeId: string; memberId: string };
-};
+
 
 const Tab = createBottomTabNavigator<MainTabParamList>();
+// drawer navigator omitted (avoids adding @react-navigation/drawer dependency)
 const HomeStack = createNativeStackNavigator<HomeStackParamList>();
 
 // Tab bar icon component
+import Icon from '../components/common/Icon';
+
 const TabIcon: React.FC<{ name: string; focused: boolean }> = ({ name, focused }) => (
   <View style={tabIconStyles.container}>
-    <Text style={tabIconStyles.emoji}>{name === 'Home' ? '🏠' : '👤'}</Text>
+    <Icon name={name === 'Home' ? 'Home' : name === 'Profile' ? 'User' : 'List'} size={20} />
     <Text style={[tabIconStyles.label, focused && tabIconStyles.labelFocused]}>{name}</Text>
   </View>
 );
@@ -72,6 +63,24 @@ const tabIconStyles = StyleSheet.create({
   },
 });
 
+export type HomeStackParamList = {
+  Landing: undefined;
+  Home: { openModal?: 'create' | 'join' } | undefined;
+  CooperativeDetail: { cooperativeId: string };
+  ContributionPlan: { planId: string };
+  ContributionPeriod: { periodId: string };
+  RecordPayment: { periodId: string };
+  PaymentVerification: { cooperativeId: string };
+  GroupBuyList: { cooperativeId: string };
+  GroupBuyDetail: { groupBuyId: string };
+  GroupBuyManagement: { groupBuyId?: string; cooperativeId?: string };
+  LoanRequest: { cooperativeId: string };
+  LoanDetail: { loanId: string };
+  LoanDecision: { loanId: string };
+  Ledger: { cooperativeId: string; memberId?: string };
+  MemberDashboard: { cooperativeId: string; memberId: string };
+};
+
 const HomeStackNavigator: React.FC = () => {
   return (
     <HomeStack.Navigator
@@ -84,7 +93,9 @@ const HomeStackNavigator: React.FC = () => {
           fontWeight: 'bold',
         },
       }}
+      initialRouteName="Landing"
     >
+      <HomeStack.Screen name="Landing" component={LandingScreen} options={{ title: 'Overview' }} />
       <HomeStack.Screen name="Home" component={HomeScreen} options={{ title: 'My Cooperatives' }} />
       <HomeStack.Screen
         name="CooperativeDetail"
@@ -171,6 +182,14 @@ const MainNavigator: React.FC = () => {
         component={HomeStackNavigator}
         options={{
           tabBarIcon: ({ focused }) => <TabIcon name="Home" focused={focused} />,
+        }}
+      />
+      <Tab.Screen
+        name="CoopsTab"
+        component={HomeStackNavigator}
+        options={{
+          tabBarIcon: ({ focused }) => <TabIcon name="Cooperatives" focused={focused} />,
+          tabBarLabel: 'My Cooperatives',
         }}
       />
       <Tab.Screen

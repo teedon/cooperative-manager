@@ -42,24 +42,24 @@ export const logout = createAsyncThunk('auth/logout', async () => {
 export const restoreSession = createAsyncThunk('auth/restoreSession', async () => {
   const token = await AsyncStorage.getItem('auth_token');
   const userJson = await AsyncStorage.getItem('auth_user');
-  
+
   if (token && userJson) {
     const user = JSON.parse(userJson);
     return { token, user };
   }
-  
+
   throw new Error('No session found');
 });
 
 // export const restoreSession = createAsyncThunk('auth/restoreSession', async () => {
 //   const token = await AsyncStorage.getItem('auth_token');
 //   const userJson = await AsyncStorage.getItem('auth_user');
-  
+
 //   if (token && userJson) {
 //     const user = JSON.parse(userJson);
 //     return { token, user };
 //   }
-  
+
 //   throw new Error('No session found');
 // });
 

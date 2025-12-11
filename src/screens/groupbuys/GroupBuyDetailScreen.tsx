@@ -15,6 +15,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { HomeStackParamList } from '../../navigation/MainNavigator';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchGroupBuy, fetchOrders, indicateInterest } from '../../store/slices/groupBuySlice';
+import Icon from '../../components/common/Icon';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'GroupBuyDetail'>;
 
@@ -250,7 +251,10 @@ const GroupBuyDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             style={styles.manageButton}
             onPress={() => navigation.navigate('GroupBuyManagement', { groupBuyId })}
           >
-            <Text style={styles.manageButtonText}>Manage Group Buy →</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={styles.manageButtonText}>Manage Group Buy</Text>
+              <Icon name="ChevronRight" size={16} color="#0ea5e9" style={{ marginLeft: 8 }} />
+            </View>
           </TouchableOpacity>
         )}
       </View>

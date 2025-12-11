@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, ViewStyle } from 'react-native';
-import { colors, borderRadius, spacing } from '../../theme';
+import colors from '../../theme/colors';
+import { spacing, borderRadius } from '../../theme/spacing';
 
 export interface BadgeProps {
   text: string;

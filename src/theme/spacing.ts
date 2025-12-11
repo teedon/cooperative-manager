@@ -1,8 +1,4 @@
-/**
- * Centralized spacing and layout values for the Cooperative Manager app
- */
-
-export const spacing = {
+const spacing = {
   xs: 4,
   sm: 8,
   md: 12,
@@ -14,7 +10,7 @@ export const spacing = {
   '5xl': 48,
 };
 
-export const borderRadius = {
+const borderRadius = {
   sm: 4,
   md: 8,
   lg: 12,
@@ -22,7 +18,7 @@ export const borderRadius = {
   full: 9999,
 };
 
-export const shadows = {
+const shadows = {
   sm: {
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
@@ -53,4 +49,5 @@ export const shadows = {
   },
 };
 
-export default { spacing, borderRadius, shadows };
+export default spacing;
+export { spacing, borderRadius, shadows };

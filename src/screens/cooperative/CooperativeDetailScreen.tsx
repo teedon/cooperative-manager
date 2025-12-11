@@ -17,6 +17,7 @@ import { fetchPlans } from '../../store/slices/contributionSlice';
 import { fetchGroupBuys } from '../../store/slices/groupBuySlice';
 import { fetchLoans } from '../../store/slices/loanSlice';
 import { colors, spacing, borderRadius, shadows } from '../../theme';
+import Icon from '../../components/common/Icon';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'CooperativeDetail'>;
 
@@ -117,23 +118,23 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             style={styles.actionButton}
             onPress={() => navigation.navigate('PaymentVerification', { cooperativeId })}
           >
-            <Text style={styles.actionIcon}>✅</Text>
+            <Icon name="Check" size={24} color={colors.primary.main} style={styles.actionIcon} />
             <View style={styles.actionContent}>
               <Text style={styles.actionTitle}>Verify Payments</Text>
               <Text style={styles.actionSubtitle}>Review pending payment records</Text>
             </View>
-            <Text style={styles.actionArrow}>→</Text>
+            <Icon name="ChevronRight" size={20} color={colors.text.disabled} style={styles.actionArrow} />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.actionButton}
             onPress={() => navigation.navigate('Ledger', { cooperativeId })}
           >
-            <Text style={styles.actionIcon}>📊</Text>
+            <Icon name="BarChart" size={24} color={colors.primary.main} style={styles.actionIcon} />
             <View style={styles.actionContent}>
               <Text style={styles.actionTitle}>View Ledger</Text>
               <Text style={styles.actionSubtitle}>Full cooperative financial records</Text>
             </View>
-            <Text style={styles.actionArrow}>→</Text>
+            <Icon name="ChevronRight" size={20} color={colors.text.disabled} style={styles.actionArrow} />
           </TouchableOpacity>
         </View>
       )}
@@ -151,12 +152,12 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             }
           }}
         >
-          <Text style={styles.actionIcon}>👤</Text>
+          <Icon name="User" size={24} color={colors.primary.main} style={styles.actionIcon} />
           <View style={styles.actionContent}>
             <Text style={styles.actionTitle}>My Dashboard</Text>
             <Text style={styles.actionSubtitle}>View your personal summary</Text>
           </View>
-          <Text style={styles.actionArrow}>→</Text>
+          <Icon name="ChevronRight" size={20} color={colors.text.disabled} style={styles.actionArrow} />
         </TouchableOpacity>
       </View>
     </View>
@@ -209,7 +210,7 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     <View style={styles.section}>
       {plans.length === 0 ? (
         <View style={styles.emptyState}>
-          <Text style={styles.emptyIcon}>📋</Text>
+          <Icon name="Clipboard" size={48} style={styles.emptyIcon} />
           <Text style={styles.emptyText}>No contribution plans yet</Text>
         </View>
       ) : (
@@ -229,14 +230,20 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               {plan.description || 'No description'}
             </Text>
             <View style={styles.planDetails}>
-              <Text style={styles.planDetail}>
-                💰{' '}
-                {plan.type === 'fixed'
-                  ? `$${plan.amount}`
-                  : `$${plan.minAmount}-$${plan.maxAmount}`}
-              </Text>
-              <Text style={styles.planDetail}>📅 {plan.frequency}</Text>
-              <Text style={styles.planDetail}>⏱️ {plan.duration}</Text>
+              <View style={styles.planDetailRow}>
+                <Icon name="DollarSign" size={14} style={styles.smallIcon} />
+                <Text style={styles.planDetail}>
+                  {plan.type === 'fixed' ? `$${plan.amount}` : `$${plan.minAmount}-$${plan.maxAmount}`}
+                </Text>
+              </View>
+              <View style={styles.planDetailRow}>
+                <Icon name="Calendar" size={14} style={styles.smallIcon} />
+                <Text style={styles.planDetail}>{plan.frequency}</Text>
+              </View>
+              <View style={styles.planDetailRow}>
+                <Icon name="Clock" size={14} style={styles.smallIcon} />
+                <Text style={styles.planDetail}>{plan.duration}</Text>
+              </View>
             </View>
           </TouchableOpacity>
         ))
@@ -250,7 +257,10 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         style={styles.viewAllButton}
         onPress={() => navigation.navigate('GroupBuyList', { cooperativeId })}
       >
-        <Text style={styles.viewAllText}>View All Group Buys →</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Text style={styles.viewAllText}>View All Group Buys</Text>
+          <Icon name="ChevronRight" size={16} color={colors.primary.main} style={{ marginLeft: 8 }} />
+        </View>
       </TouchableOpacity>
       {groupBuys.slice(0, 3).map((gb) => (
         <TouchableOpacity
@@ -292,7 +302,7 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
       {loans.length === 0 ? (
         <View style={styles.emptyState}>
-          <Text style={styles.emptyIcon}>💳</Text>
+          <Icon name="CreditCard" size={48} style={styles.emptyIcon} />
           <Text style={styles.emptyText}>No loans yet</Text>
         </View>
       ) : (
@@ -709,12 +719,18 @@ const styles = StyleSheet.create({
     padding: spacing['3xl'],
   },
   emptyIcon: {
-    fontSize: 48,
     marginBottom: spacing.md,
   },
   emptyText: {
     fontSize: 14,
     color: colors.text.secondary,
+  },
+  planDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  smallIcon: {
+    marginRight: spacing.xs,
   },
 });
 

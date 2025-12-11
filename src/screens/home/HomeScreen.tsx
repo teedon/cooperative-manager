@@ -1,4 +1,5 @@
 import React, { useEffect, useCallback, useState } from 'react';
+import { useRoute } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -14,11 +15,16 @@ import {
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { HomeStackParamList } from '../../navigation/MainNavigator';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { fetchCooperatives, joinCooperativeByCode, createCooperative } from '../../store/slices/cooperativeSlice';
+import {
+  fetchCooperatives,
+  joinCooperativeByCode,
+  createCooperative,
+} from '../../store/slices/cooperativeSlice';
 import { Cooperative } from '../../models';
 import { colors, spacing, borderRadius, shadows } from '../../theme';
 import Modal from '../../components/common/Modal';
 import Button from '../../components/common/Button';
+import logger from '../../utils/logger';
 
 type HomeScreenNavigationProp = NativeStackNavigationProp<HomeStackParamList, 'Home'>;
 
@@ -67,17 +73,19 @@ const CooperativeCard: React.FC<{
   </TouchableOpacity>
 );
 
-const QuickAction: React.FC<{
+import Icon from '../../components/common/Icon';
+
+  const QuickAction: React.FC<{
   icon: string;
   label: string;
   onPress: () => void;
   color?: string;
 }> = ({ icon, label, onPress, color = colors.primary.main }) => (
-  <TouchableOpacity style={styles.quickAction} onPress={onPress}>
-    <View style={[styles.quickActionIcon, { backgroundColor: color + '20' }]}>
-      <Text style={styles.quickActionEmoji}>{icon}</Text>
+  <TouchableOpacity style={styles.quickActionCompact} onPress={onPress}>
+    <View style={[styles.quickActionIconCompact, { backgroundColor: color + '15' }]}> 
+      <Icon name={icon} size={20} color={color} />
     </View>
-    <Text style={styles.quickActionLabel}>{label}</Text>
+    <Text style={styles.quickActionLabelCompact}>{label}</Text>
   </TouchableOpacity>
 );
 
@@ -90,6 +98,19 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const [cooperativeCode, setCooperativeCode] = useState('');
   const [isJoining, setIsJoining] = useState(false);
   const [newCoopData, setNewCoopData] = useState({ name: '', description: '' });
+
+  const route: any = useRoute();
+
+  useEffect(() => {
+    // open create/join modal if requested via navigation params
+    const params = route?.params as any;
+    if (params?.openModal === 'create') {
+      setShowCreateModal(true);
+    }
+    if (params?.openModal === 'join') {
+      setShowJoinModal(true);
+    }
+  }, [route?.params]);
 
   const loadCooperatives = useCallback(() => {
     dispatch(fetchCooperatives());
@@ -120,19 +141,24 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   };
 
   const handleCreateCooperative = async () => {
+    logger.info('ui.createCoop.submit', { payload: newCoopData });
     if (!newCoopData.name.trim()) {
+      logger.warn('ui.createCoop.validation', { message: 'name is required', payload: newCoopData });
       Alert.alert('Error', 'Please enter a cooperative name');
       return;
     }
 
     setIsJoining(true);
     try {
+      logger.debug('ui.createCoop.dispatch', { payload: newCoopData });
       await dispatch(createCooperative(newCoopData)).unwrap();
+      logger.info('ui.createCoop.success', { name: newCoopData.name });
       setShowCreateModal(false);
       setNewCoopData({ name: '', description: '' });
       Alert.alert('Success', 'Cooperative created successfully!');
       loadCooperatives();
-    } catch {
+    } catch (err: any) {
+      logger.error('ui.createCoop.failure', { message: err?.message, response: err?.response?.data });
       Alert.alert('Error', 'Failed to create cooperative');
     } finally {
       setIsJoining(false);
@@ -148,74 +174,79 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
       {/* Join Cooperative Section */}
       <View style={styles.actionCards}>
-        <TouchableOpacity style={styles.joinCooperativeCard} onPress={() => setShowJoinModal(true)}>
-          <View style={styles.joinCooperativeContent}>
-            <Text style={styles.joinCooperativeIcon}>🔑</Text>
-            <View style={styles.joinCooperativeText}>
-              <Text style={styles.joinCooperativeTitle}>Join a Cooperative</Text>
-              <Text style={styles.joinCooperativeSubtitle}>
-                Enter a code to join
-              </Text>
+        <TouchableOpacity style={styles.joinCooperativeCard} onPress={() => setShowJoinModal(true)} activeOpacity={0.8}>
+          <View style={styles.joinCardInnerVertical}>
+            <View style={[styles.joinCardIconContainer, { backgroundColor: colors.accent.main + '20' }]}> 
+              <Icon name="Key" size={28} color={colors.accent.main} />
+            </View>
+            <View style={styles.joinCoopCenteredText}>
+              <Text style={[styles.joinCooperativeTitle, { color: colors.accent.dark, textAlign: 'center' }]}>Join a Cooperative</Text>
+              <Text style={[styles.joinCooperativeSubtitle, { textAlign: 'center' }]}>Enter a code to join</Text>
             </View>
           </View>
-          <Text style={styles.joinCooperativeArrow}>→</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.createCooperativeCard} onPress={() => setShowCreateModal(true)}>
-          <View style={styles.joinCooperativeContent}>
-            <Text style={styles.joinCooperativeIcon}>➕</Text>
-            <View style={styles.joinCooperativeText}>
-              <Text style={styles.joinCooperativeTitle}>Create Cooperative</Text>
-              <Text style={styles.joinCooperativeSubtitle}>
-                Start your own
-              </Text>
+        <TouchableOpacity
+          style={styles.createCooperativeCard}
+          onPress={() => {
+            logger.info('ui.createCoop.openModal', { via: 'card' });
+            setShowCreateModal(true);
+          }}
+          activeOpacity={0.8}
+        >
+          <View style={styles.joinCardInnerVertical}>
+            <View style={[styles.joinCardIconContainer, { backgroundColor: colors.success.main + '20' }]}>
+              <Icon name="Plus" size={28} color={colors.success.main} />
+            </View>
+            <View style={styles.joinCoopCenteredText}>
+              <Text style={[styles.joinCooperativeTitle, { color: colors.success.dark, textAlign: 'center' }]}>Create Cooperative</Text>
+              <Text style={[styles.joinCooperativeSubtitle, { textAlign: 'center' }]}>Start your own</Text>
             </View>
           </View>
-          <Text style={styles.joinCooperativeArrow}>→</Text>
         </TouchableOpacity>
       </View>
 
       <View style={styles.quickActions}>
-        <QuickAction
-          icon="💰"
-          label="Record Payment"
-          onPress={() => {
-            if (cooperatives.length > 0) {
-              navigation.navigate('CooperativeDetail', { cooperativeId: cooperatives[0].id });
-            }
-          }}
-          color={colors.success.main}
-        />
-        <QuickAction
-          icon="🛒"
-          label="Group Buys"
-          onPress={() => {
-            if (cooperatives.length > 0) {
-              navigation.navigate('GroupBuyList', { cooperativeId: cooperatives[0].id });
-            }
-          }}
-          color={colors.warning.main}
-        />
-        <QuickAction
-          icon="💳"
-          label="Request Loan"
-          onPress={() => {
-            if (cooperatives.length > 0) {
-              navigation.navigate('LoanRequest', { cooperativeId: cooperatives[0].id });
-            }
-          }}
-          color={colors.accent.main}
-        />
-        <QuickAction
-          icon="📊"
-          label="View Ledger"
-          onPress={() => {
-            if (cooperatives.length > 0) {
-              navigation.navigate('Ledger', { cooperativeId: cooperatives[0].id });
-            }
-          }}
-          color={colors.primary.main}
-        />
+          <QuickAction
+            icon="DollarSign"
+            label="Record Payment"
+            onPress={() => {
+              if (cooperatives.length > 0) {
+                navigation.navigate('CooperativeDetail', { cooperativeId: cooperatives[0].id });
+              }
+            }}
+            color={colors.success.main}
+          />
+          <QuickAction
+            icon="ShoppingCart"
+            label="Group Buys"
+            onPress={() => {
+              if (cooperatives.length > 0) {
+                navigation.navigate('GroupBuyList', { cooperativeId: cooperatives[0].id });
+              }
+            }}
+            color={colors.warning.main}
+          />
+          <QuickAction
+            icon="CreditCard"
+            label="Request Loan"
+            onPress={() => {
+              if (cooperatives.length > 0) {
+                navigation.navigate('LoanRequest', { cooperativeId: cooperatives[0].id });
+              }
+            }}
+            color={colors.accent.main}
+          />
+          <QuickAction
+            icon="BarChart"
+            label="View Ledger"
+            onPress={() => {
+              if (cooperatives.length > 0) {
+                navigation.navigate('Ledger', { cooperativeId: cooperatives[0].id });
+              }
+            }}
+            color={colors.primary.main}
+          />
       </View>
 
       <Text style={styles.sectionTitle}>My Cooperatives</Text>
@@ -223,17 +254,25 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   );
 
   const renderEmpty = () => (
-    <View style={styles.emptyState}>
-      <Text style={styles.emptyIcon}>🏠</Text>
+      <View style={styles.emptyState}>
+      <Icon name="Home" size={64} color={colors.primary.main} style={styles.emptyIcon} />
       <Text style={styles.emptyTitle}>No Cooperatives Yet</Text>
       <Text style={styles.emptyText}>
         You haven&apos;t joined any cooperatives yet. Join one using a cooperative code or create a
         new one.
       </Text>
-      <TouchableOpacity style={styles.joinButton} onPress={() => setShowJoinModal(true)}>
+      <TouchableOpacity style={[styles.joinButton, { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }]} onPress={() => setShowJoinModal(true)}>
+        <Icon name="Key" size={18} color={colors.accent.contrast} style={{ marginRight: 8 }} />
         <Text style={styles.joinButtonText}>Join with Code</Text>
       </TouchableOpacity>
-      <TouchableOpacity style={styles.createButton} onPress={() => setShowCreateModal(true)}>
+      <TouchableOpacity
+        style={[styles.createButton, { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }]}
+        onPress={() => {
+          logger.info('ui.createCoop.openModal', { via: 'emptyState' });
+          setShowCreateModal(true);
+        }}
+      >
+        <Icon name="Plus" size={18} color={colors.primary.contrast} style={{ marginRight: 8 }} />
         <Text style={styles.createButtonText}>Create Cooperative</Text>
       </TouchableOpacity>
     </View>
@@ -330,7 +369,10 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           placeholder="Cooperative Name"
           placeholderTextColor={colors.text.disabled}
           value={newCoopData.name}
-          onChangeText={(text) => setNewCoopData({ ...newCoopData, name: text })}
+          onChangeText={(text) => {
+            setNewCoopData({ ...newCoopData, name: text });
+            logger.debug('ui.createCoop.input.name', { value: text });
+          }}
           autoCapitalize="words"
         />
         <TextInput
@@ -338,7 +380,10 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
           placeholder="Description (optional)"
           placeholderTextColor={colors.text.disabled}
           value={newCoopData.description}
-          onChangeText={(text) => setNewCoopData({ ...newCoopData, description: text })}
+          onChangeText={(text) => {
+            setNewCoopData({ ...newCoopData, description: text });
+            logger.debug('ui.createCoop.input.description', { value: text });
+          }}
           multiline={true}
           numberOfLines={3}
         />
@@ -473,6 +518,38 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.text.secondary,
     textAlign: 'center',
+  },
+  // compact
+  actionCardsCompact: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: spacing['2xl'],
+  },
+  quickActionCompact: { flex: 1, alignItems: 'center', paddingVertical: spacing.sm },
+  quickActionIconCompact: { width: 44, height: 44, borderRadius: borderRadius.xl, justifyContent: 'center', alignItems: 'center', marginBottom: spacing.xs },
+  quickActionLabelCompact: { fontSize: 12, color: colors.text.secondary },
+  joinCardInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    flex: 1,
+  },
+  joinCardIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.md,
+  },
+  joinCardInnerVertical: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.lg,
+  },
+  joinCoopCenteredText: {
+    marginTop: spacing.sm,
   },
   sectionTitle: {
     fontSize: 18,

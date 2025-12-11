@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { logout } from '../../store/slices/authSlice';
 import { colors, spacing, borderRadius, shadows } from '../../theme';
+import Icon from '../../components/common/Icon';
 
 const ProfileScreen: React.FC = () => {
   const dispatch = useAppDispatch();
@@ -21,11 +22,11 @@ const ProfileScreen: React.FC = () => {
   };
 
   const menuItems = [
-    { icon: '👤', label: 'Edit Profile', onPress: () => {} },
-    { icon: '🔔', label: 'Notifications', onPress: () => {} },
-    { icon: '🔒', label: 'Privacy & Security', onPress: () => {} },
-    { icon: '❓', label: 'Help & Support', onPress: () => {} },
-    { icon: 'ℹ️', label: 'About', onPress: () => {} },
+    { icon: 'User', label: 'Edit Profile', onPress: () => {} },
+    { icon: 'Bell', label: 'Notifications', onPress: () => {} },
+    { icon: 'Lock', label: 'Privacy & Security', onPress: () => {} },
+    { icon: 'HelpCircle', label: 'Help & Support', onPress: () => {} },
+    { icon: 'Info', label: 'About', onPress: () => {} },
   ];
 
   return (
@@ -36,10 +37,13 @@ const ProfileScreen: React.FC = () => {
         </View>
 
         <View style={styles.profileSection}>
-          <Image
-            source={{ uri: user?.avatarUrl || 'https://i.pravatar.cc/150?u=default' }}
-            style={styles.avatar}
-          />
+          {user?.avatarUrl ? (
+            <Image source={{ uri: user.avatarUrl }} style={styles.avatar} />
+          ) : (
+            <View style={[styles.avatar, styles.avatarPlaceholder]}>
+              <Icon name="User" size={40} color={colors.primary.contrast} />
+            </View>
+          )}
           <Text style={styles.name}>
             {user?.firstName} {user?.lastName}
           </Text>
@@ -67,16 +71,18 @@ const ProfileScreen: React.FC = () => {
           {menuItems.map((item, index) => (
             <TouchableOpacity key={index} style={styles.menuItem} onPress={item.onPress}>
               <View style={styles.menuItemLeft}>
-                <Text style={styles.menuIcon}>{item.icon}</Text>
+                <View style={styles.menuIconContainer}>
+                  <Icon name={item.icon} size={20} color={colors.primary.main} />
+                </View>
                 <Text style={styles.menuLabel}>{item.label}</Text>
               </View>
-              <Text style={styles.menuArrow}>→</Text>
+              <Icon name="ChevronRight" size={20} color={colors.text.disabled} />
             </TouchableOpacity>
           ))}
         </View>
 
         <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutIcon}>🚪</Text>
+          <Icon name="LogOut" size={20} color={colors.error.text} style={{ marginRight: spacing.sm }} />
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
 
@@ -114,6 +120,10 @@ const styles = StyleSheet.create({
     borderRadius: 48,
     marginBottom: spacing.lg,
     backgroundColor: colors.secondary.dark,
+  },
+  avatarPlaceholder: {
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   name: {
     fontSize: 24,
@@ -173,17 +183,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  menuIcon: {
-    fontSize: 20,
+  menuIconContainer: {
     marginRight: spacing.md,
   },
   menuLabel: {
     fontSize: 16,
     color: colors.text.primary,
-  },
-  menuArrow: {
-    fontSize: 16,
-    color: colors.text.disabled,
   },
   logoutButton: {
     flexDirection: 'row',
@@ -194,10 +199,6 @@ const styles = StyleSheet.create({
     marginHorizontal: spacing.lg,
     paddingVertical: 14,
     borderRadius: borderRadius.lg,
-  },
-  logoutIcon: {
-    fontSize: 20,
-    marginRight: spacing.sm,
   },
   logoutText: {
     fontSize: 16,

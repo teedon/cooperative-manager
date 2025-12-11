@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, FlatList, RefreshControl, ActivityIndicator } f
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { HomeStackParamList } from '../../navigation/MainNavigator';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
+import Icon from '../../components/common/Icon';
 import { fetchLedger, fetchAllMemberBalances } from '../../store/slices/ledgerSlice';
 import { LedgerEntry } from '../../models';
 
@@ -36,21 +37,21 @@ const LedgerScreen: React.FC<Props> = ({ route }) => {
   const getEntryIcon = (type: LedgerEntry['type']) => {
     switch (type) {
       case 'contribution_in':
-        return '💰';
+        return 'DollarSign';
       case 'loan_disbursement':
-        return '💳';
+        return 'CreditCard';
       case 'loan_repayment':
-        return '💵';
+        return 'DollarSign';
       case 'groupbuy_outlay':
-        return '🛒';
+        return 'ShoppingCart';
       case 'groupbuy_repayment':
-        return '🔄';
+        return 'RefreshCw';
       case 'manual_credit':
-        return '➕';
+        return 'Plus';
       case 'manual_debit':
-        return '➖';
+        return 'Minus';
       default:
-        return '📝';
+        return 'List';
     }
   };
 
@@ -124,8 +125,8 @@ const LedgerScreen: React.FC<Props> = ({ route }) => {
   const renderEntry = ({ item }: { item: LedgerEntry }) => (
     <View style={styles.entryCard}>
       <View style={styles.entryIcon}>
-        <Text style={styles.entryIconText}>{getEntryIcon(item.type)}</Text>
-      </View>
+          <Icon name={getEntryIcon(item.type)} size={20} style={{}} />
+        </View>
       <View style={styles.entryContent}>
         <Text style={styles.entryType}>{getEntryTypeLabel(item.type)}</Text>
         <Text style={styles.entryDescription} numberOfLines={1}>
@@ -166,7 +167,7 @@ const LedgerScreen: React.FC<Props> = ({ route }) => {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       ListEmptyComponent={
         <View style={styles.emptyState}>
-          <Text style={styles.emptyIcon}>📊</Text>
+          <Icon name="BarChart" size={64} style={styles.emptyIcon} />
           <Text style={styles.emptyTitle}>No Transactions</Text>
           <Text style={styles.emptyText}>
             Ledger entries will appear here as transactions occur.

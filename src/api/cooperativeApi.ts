@@ -1,5 +1,6 @@
 import apiClient from './client';
 import { Cooperative, CooperativeMember, ApiResponse } from '../models';
+import logger from '../utils/logger';
 
 export const cooperativeApi = {
   getAll: async (): Promise<ApiResponse<Cooperative[]>> => {
@@ -12,9 +13,37 @@ export const cooperativeApi = {
     return response.data;
   },
 
-  create: async (data: Partial<Cooperative>): Promise<ApiResponse<Cooperative>> => {
-    const response = await apiClient.post<ApiResponse<Cooperative>>('/cooperatives', data);
-    return response.data;
+  create: async (
+    data: Partial<Cooperative>,
+    requestId?: string
+  ): Promise<ApiResponse<Cooperative>> => {
+    const op = 'cooperative.create';
+    const start = Date.now();
+    logger.info(op, 'request', { payload: data, requestId });
+    try {
+      const config = requestId ? { headers: { 'X-Request-Id': requestId } } : undefined;
+      const response = await apiClient.post<ApiResponse<Cooperative>>('/cooperatives', data, config);
+      const duration = Date.now() - start;
+      logger.info(op, 'success', {
+        status: response.status,
+        durationMs: duration,
+        responseData: response.data,
+        requestId,
+      });
+      return response.data;
+    } catch (err: any) {
+      const duration = Date.now() - start;
+      logger.error(op, 'failure', {
+        message: err?.message,
+        durationMs: duration,
+        configUrl: err?.config?.url,
+        status: err?.response?.status,
+        responseData: err?.response?.data,
+        payload: data,
+        requestId,
+      });
+      throw err;
+    }
   },
 
   update: async (id: string, data: Partial<Cooperative>): Promise<ApiResponse<Cooperative>> => {

@@ -12,6 +12,7 @@ import { HomeStackParamList } from '../../navigation/MainNavigator';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchVirtualBalance, fetchLedger } from '../../store/slices/ledgerSlice';
 import { VirtualBalance, LedgerEntry } from '../../models';
+import Icon from '../../components/common/Icon';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'MemberDashboard'>;
 
@@ -52,21 +53,21 @@ const MemberDashboardScreen: React.FC<Props> = ({ route }) => {
   const getEntryIcon = (type: LedgerEntry['type']) => {
     switch (type) {
       case 'contribution_in':
-        return '💰';
+        return 'DollarSign';
       case 'loan_disbursement':
-        return '💳';
+        return 'CreditCard';
       case 'loan_repayment':
-        return '💵';
+        return 'DollarSign';
       case 'groupbuy_outlay':
-        return '🛒';
+        return 'ShoppingCart';
       case 'groupbuy_repayment':
-        return '🔄';
+        return 'RefreshCw';
       case 'manual_credit':
-        return '➕';
+        return 'Plus';
       case 'manual_debit':
-        return '➖';
+        return 'Minus';
       default:
-        return '📝';
+        return 'List';
     }
   };
 
@@ -147,7 +148,7 @@ const MemberDashboardScreen: React.FC<Props> = ({ route }) => {
         <Text style={styles.sectionTitle}>Recent Transactions</Text>
         {entries.slice(0, 10).map((entry) => (
           <View key={entry.id} style={styles.transactionItem}>
-            <Text style={styles.transactionIcon}>{getEntryIcon(entry.type)}</Text>
+            <Icon name={getEntryIcon(entry.type)} size={20} style={styles.transactionIcon} />
             <View style={styles.transactionContent}>
               <Text style={styles.transactionDesc}>{entry.description}</Text>
               <Text style={styles.transactionDate}>

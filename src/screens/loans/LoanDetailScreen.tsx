@@ -198,7 +198,9 @@ const LoanDetailScreen: React.FC<Props> = ({ route }) => {
                 <Text style={styles.repaymentDate}>
                   Due: {new Date(repayment.dueDate).toLocaleDateString()}
                 </Text>
-                <Text style={styles.repaymentAmount}>₦{repayment.totalAmount.toLocaleString()}</Text>
+                <Text style={styles.repaymentAmount}>
+                  ₦{repayment.totalAmount.toLocaleString()}
+                </Text>
               </View>
             </View>
           ))}

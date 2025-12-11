@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ViewStyle, Image } from 'react-native';
-import { colors, borderRadius, spacing, shadows } from '../../theme';
+import colors from '../../theme/colors';
+import { spacing, borderRadius, shadows } from '../../theme/spacing';
 
 export interface CardProps {
   title?: string;

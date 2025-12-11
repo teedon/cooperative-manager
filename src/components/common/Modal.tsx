@@ -7,7 +7,8 @@ import {
   TouchableOpacity,
   TouchableWithoutFeedback,
 } from 'react-native';
-import { colors, borderRadius, spacing, shadows } from '../../theme';
+import colors from '../../theme/colors';
+import { spacing, borderRadius, shadows } from '../../theme/spacing';
 
 export interface ModalProps {
   visible: boolean;

@@ -43,16 +43,16 @@ const LoanRequestScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
-    
+
     const amountError = validateRequired(formData.amount, 'Amount');
     if (amountError) newErrors.amount = amountError;
-    
+
     const purposeError = validateMinLength(formData.purpose, 10, 'Purpose');
     if (purposeError) newErrors.purpose = purposeError;
-    
+
     const durationError = validateRequired(formData.duration, 'Duration');
     if (durationError) newErrors.duration = durationError;
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -65,7 +65,7 @@ const LoanRequestScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const onSubmit = async () => {
     if (!validateForm()) return;
-    
+
     setIsSubmitting(true);
     try {
       await dispatch(

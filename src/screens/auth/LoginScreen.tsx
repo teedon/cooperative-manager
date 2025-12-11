@@ -2,20 +2,21 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
-  TextInput,
-  TouchableOpacity,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
   Alert,
+  TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { login } from '../../store/slices/authSlice';
-import { colors, spacing, borderRadius, shadows } from '../../theme';
+import { spacing, borderRadius, shadows } from '../../theme/spacing';
+import { lightTheme } from '../../theme';
+import { ThemedInput, Button } from '../../components/common';
 
 type LoginScreenNavigationProp = NativeStackNavigationProp<AuthStackParamList, 'Login'>;
 
@@ -91,10 +92,9 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
           <View style={styles.form}>
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Email</Text>
-              <TextInput
+              <ThemedInput
                 style={[styles.input, errors.email && styles.inputError]}
                 placeholder="Enter your email"
-                placeholderTextColor={colors.text.disabled}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 onChangeText={(text) => setFormData({ ...formData, email: text })}
@@ -105,10 +105,9 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
             <View style={styles.inputContainer}>
               <Text style={styles.label}>Password</Text>
-              <TextInput
+              <ThemedInput
                 style={[styles.input, errors.password && styles.inputError]}
                 placeholder="Enter your password"
-                placeholderTextColor={colors.text.disabled}
                 secureTextEntry={true}
                 onChangeText={(text) => setFormData({ ...formData, password: text })}
                 value={formData.password}
@@ -118,17 +117,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
             {error && <Text style={styles.apiError}>{error}</Text>}
 
-            <TouchableOpacity
-              style={[styles.button, isLoading && styles.buttonDisabled]}
-              onPress={handleSubmit}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <ActivityIndicator color={colors.primary.contrast} />
-              ) : (
-                <Text style={styles.buttonText}>Sign In</Text>
-              )}
-            </TouchableOpacity>
+            <Button title="Sign In" onPress={handleSubmit} loading={isLoading} />
 
             <View style={styles.footer}>
               <Text style={styles.footerText}>Don&apos;t have an account?</Text>
@@ -150,7 +139,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: colors.background.default,
+    backgroundColor: lightTheme.background.default,
   },
   keyboardView: {
     flex: 1,
@@ -171,18 +160,16 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: colors.text.primary,
+    color: lightTheme.text.primary,
     marginBottom: spacing.sm,
   },
   subtitle: {
     fontSize: 16,
-    color: colors.text.secondary,
-    textAlign: 'center',
+    color: lightTheme.text.primary,
   },
   form: {
-    backgroundColor: colors.background.paper,
+    backgroundColor: lightTheme.background.surface,
     borderRadius: borderRadius.xl,
-    padding: spacing['2xl'],
     ...shadows.lg,
   },
   inputContainer: {
@@ -191,35 +178,35 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: colors.text.primary,
+    color: lightTheme.text.primary,
     marginBottom: spacing.sm,
   },
   input: {
     borderWidth: 1,
-    borderColor: colors.border.light,
+    borderColor: lightTheme.neutral[300],
     borderRadius: borderRadius.md,
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
     fontSize: 16,
-    backgroundColor: colors.secondary.light,
-    color: colors.text.primary,
+    backgroundColor: lightTheme.secondary.light,
+    color: lightTheme.text.primary,
   },
   inputError: {
-    borderColor: colors.error.main,
+    borderColor: lightTheme.error.main,
   },
   errorText: {
-    color: colors.error.main,
+    color: lightTheme.error.main,
     fontSize: 12,
     marginTop: spacing.xs,
   },
   apiError: {
-    color: colors.error.main,
+    color: lightTheme.error.main,
     fontSize: 14,
     textAlign: 'center',
     marginBottom: spacing.lg,
   },
   button: {
-    backgroundColor: colors.primary.main,
+    backgroundColor: lightTheme.primary.main,
     borderRadius: borderRadius.md,
     paddingVertical: 14,
     alignItems: 'center',
@@ -229,7 +216,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   buttonText: {
-    color: colors.primary.contrast,
+    color: lightTheme.primary.contrast,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -240,11 +227,11 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
   },
   footerText: {
-    color: colors.text.secondary,
+    color: lightTheme.text.secondary,
     fontSize: 14,
   },
   footerLink: {
-    color: colors.primary.main,
+    color: lightTheme.primary.main,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -253,7 +240,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   demoText: {
-    color: colors.text.disabled,
+    color: lightTheme.text.disabled,
     fontSize: 12,
     fontStyle: 'italic',
   },

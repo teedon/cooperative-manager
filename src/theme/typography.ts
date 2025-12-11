@@ -1,7 +1,3 @@
-/**
- * Centralized typography and text styles for the Cooperative Manager app
- */
-
 import { TextStyle } from 'react-native';
 import colors from './colors';
 

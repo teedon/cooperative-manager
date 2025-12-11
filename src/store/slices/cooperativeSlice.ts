@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { Cooperative, CooperativeMember } from '../../models';
 import { cooperativeApi } from '../../api/cooperativeApi';
+import logger from '../../utils/logger';
 
 interface CooperativeState {
   cooperatives: Cooperative[];
@@ -47,10 +48,16 @@ export const fetchCooperative = createAsyncThunk(
 export const createCooperative = createAsyncThunk(
   'cooperative/create',
   async (data: Partial<Cooperative>, { rejectWithValue }) => {
+    const op = 'store.cooperative.create';
+    logger.info(op, 'dispatch', { payload: data });
     try {
-      const response = await cooperativeApi.create(data);
+      const requestId = `ui-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      logger.debug(op, 'requestId', { requestId });
+      const response = await cooperativeApi.create(data, requestId);
+      logger.info(op, 'fulfilled', { cooperativeId: response.data?.id, requestId });
       return response.data;
-    } catch (error) {
+    } catch (error: any) {
+      logger.error(op, 'rejected', { message: error?.message, payload: data, response: error?.response?.data });
       return rejectWithValue((error as Error).message);
     }
   }

@@ -17,13 +17,20 @@ export const validateRequired = (value: string, fieldName: string): string | und
   return undefined;
 };
 
-export const validateMinLength = (value: string, minLength: number, fieldName: string): string | undefined => {
+export const validateMinLength = (
+  value: string,
+  minLength: number,
+  fieldName: string
+): string | undefined => {
   if (!value) return `${fieldName} is required`;
   if (value.length < minLength) return `${fieldName} must be at least ${minLength} characters`;
   return undefined;
 };
 
-export const validatePasswordMatch = (password: string, confirmPassword: string): string | undefined => {
+export const validatePasswordMatch = (
+  password: string,
+  confirmPassword: string
+): string | undefined => {
   if (password !== confirmPassword) return "Passwords don't match";
   return undefined;
 };

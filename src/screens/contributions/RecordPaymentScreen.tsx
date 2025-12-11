@@ -51,13 +51,13 @@ const RecordPaymentScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
-    
+
     const amountError = validateRequired(formData.amount, 'Amount');
     if (amountError) newErrors.amount = amountError;
-    
+
     const dateError = validateRequired(formData.paymentDate, 'Payment date');
     if (dateError) newErrors.paymentDate = dateError;
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -106,7 +106,7 @@ const RecordPaymentScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const handleSubmit = async () => {
     if (!validateForm()) return;
-    
+
     setIsSubmitting(true);
     try {
       await dispatch(

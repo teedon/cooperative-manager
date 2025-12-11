@@ -1,7 +1,16 @@
-/**
- * Centralized theme exports for the Cooperative Manager app
- */
+import { light, dark } from './colors';
+import typography from './typography';
+import spacing from './spacing';
 
-export { colors, default as Colors } from './colors';
-export { typography, fontSizes, fontWeights, lineHeights } from './typography';
+const lightTheme = { ...light, typography, spacing };
+const darkTheme = { ...dark, typography, spacing };
+
+export type Theme = typeof lightTheme;
+
+export const tokens = { colors: light, typography, spacing };
+
+export { lightTheme, darkTheme };
+export default lightTheme;
+// Compatibility exports for existing code
+export { default as colors } from './colors';
 export { spacing, borderRadius, shadows } from './spacing';

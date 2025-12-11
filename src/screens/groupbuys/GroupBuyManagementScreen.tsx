@@ -14,6 +14,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { HomeStackParamList } from '../../navigation/MainNavigator';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchGroupBuy, fetchOrders, finalizeGroupBuy } from '../../store/slices/groupBuySlice';
+import Icon from '../../components/common/Icon';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'GroupBuyManagement'>;
 
@@ -26,6 +27,7 @@ const GroupBuyManagementScreen: React.FC<Props> = ({ route }) => {
   const { currentGroupBuy, orders, isLoading } = useAppSelector((state) => state.groupBuy);
 
   const loadData = useCallback(async () => {
+    if (!groupBuyId) return;
     await Promise.all([dispatch(fetchGroupBuy(groupBuyId)), dispatch(fetchOrders(groupBuyId))]);
   }, [dispatch, groupBuyId]);
 
@@ -49,6 +51,7 @@ const GroupBuyManagementScreen: React.FC<Props> = ({ route }) => {
           text: 'Finalize',
           style: 'destructive',
           onPress: async () => {
+            if (!groupBuyId) return;
             setIsProcessing(true);
             try {
               await dispatch(finalizeGroupBuy(groupBuyId)).unwrap();
@@ -199,11 +202,11 @@ const GroupBuyManagementScreen: React.FC<Props> = ({ route }) => {
 
       {currentGroupBuy.status === 'finalized' && (
         <View style={styles.finalizedBanner}>
-          <Text style={styles.finalizedIcon}>✅</Text>
-          <Text style={styles.finalizedText}>
-            This group buy has been finalized. Liabilities have been created for all members.
-          </Text>
-        </View>
+            <Icon name="Check" size={24} color="#166534" style={styles.finalizedIcon} />
+            <Text style={styles.finalizedText}>
+              This group buy has been finalized. Liabilities have been created for all members.
+            </Text>
+          </View>
       )}
     </ScrollView>
   );

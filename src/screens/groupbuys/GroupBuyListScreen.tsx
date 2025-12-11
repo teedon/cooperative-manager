@@ -14,6 +14,7 @@ import { HomeStackParamList } from '../../navigation/MainNavigator';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchGroupBuys } from '../../store/slices/groupBuySlice';
 import { GroupBuy } from '../../models';
+import Icon from '../../components/common/Icon';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'GroupBuyList'>;
 
@@ -125,11 +126,14 @@ const GroupBuyListScreen: React.FC<Props> = ({ route, navigation }) => {
   const renderHeader = () => (
     <View style={styles.header}>
       {isAdmin && (
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.createButton}
           onPress={() => navigation.navigate('GroupBuyManagement', { cooperativeId })}
         >
-          <Text style={styles.createButtonText}>+ Create Group Buy</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Icon name="Plus" size={16} color="#fff" style={{ marginRight: 8 }} />
+            <Text style={styles.createButtonText}>Create Group Buy</Text>
+          </View>
         </TouchableOpacity>
       )}
       <View style={styles.filterRow}>
@@ -168,7 +172,7 @@ const GroupBuyListScreen: React.FC<Props> = ({ route, navigation }) => {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       ListEmptyComponent={
         <View style={styles.emptyState}>
-          <Text style={styles.emptyIcon}>🛒</Text>
+          <Icon name="ShoppingCart" size={48} style={styles.emptyIcon} />
           <Text style={styles.emptyTitle}>No Group Buys</Text>
           <Text style={styles.emptyText}>There are no group buys available yet.</Text>
         </View>

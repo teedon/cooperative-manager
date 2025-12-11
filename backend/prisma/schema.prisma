@@ -1,0 +1,171 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id         String   @id @default(cuid())
+  email      String   @unique
+  password   String
+  firstName  String
+  lastName   String
+  phone      String?
+  avatarUrl  String?
+  refreshToken String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  members    Member[]
+}
+
+model Cooperative {
+  id                 String   @id @default(cuid())
+  name               String
+  description        String?
+  imageUrl           String?
+  status             String
+  createdBy          String?
+  memberCount        Int      @default(0)
+  totalContributions Int      @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  members            Member[]
+  contributionPlans  ContributionPlan[]
+  groupBuys          GroupBuy[]
+}
+
+model Member {
+  id            String   @id @default(cuid())
+  cooperative   Cooperative @relation(fields: [cooperativeId], references: [id])
+  cooperativeId String
+  user          User       @relation(fields: [userId], references: [id])
+  userId        String
+  role          String
+  joinedAt      DateTime
+  virtualBalance Int     @default(0)
+  status        String
+  contributionRecords ContributionRecord[]
+  loans         Loan[]
+  groupBuyOrders GroupBuyOrder[]
+}
+
+model ContributionPlan {
+  id          String  @id @default(cuid())
+  cooperative Cooperative @relation(fields: [cooperativeId], references: [id])
+  cooperativeId String
+  name        String
+  description String?
+  type        String
+  amount      Int?
+  frequency   String?
+  duration    String
+  isActive    Boolean @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  periods     ContributionPeriod[]
+}
+
+model ContributionPeriod {
+  id           String @id @default(cuid())
+  plan         ContributionPlan @relation(fields: [planId], references: [id])
+  planId       String
+  periodNumber Int
+  startDate    DateTime
+  endDate      DateTime
+  dueDate      DateTime
+  expectedAmount Int
+  collectedAmount Int @default(0)
+  status       String
+  records      ContributionRecord[]
+}
+
+model ContributionRecord {
+  id           String @id @default(cuid())
+  period       ContributionPeriod @relation(fields: [periodId], references: [id])
+  periodId     String
+  member       Member @relation(fields: [memberId], references: [id])
+  memberId     String
+  amount       Int
+  paymentDate  DateTime
+  paymentReference String?
+  receiptUrl   String?
+  notes        String?
+  status       String
+  verifiedBy   String?
+  verifiedAt   DateTime?
+  rejectionReason String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model GroupBuy {
+  id            String @id @default(cuid())
+  cooperative   Cooperative @relation(fields: [cooperativeId], references: [id])
+  cooperativeId String
+  title         String
+  description   String?
+  imageUrl      String?
+  totalUnits    Int
+  availableUnits Int
+  unitPrice     Int
+  interestRate  Int
+  allocationMethod String
+  status        String
+  createdBy     String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  orders        GroupBuyOrder[]
+}
+
+model GroupBuyOrder {
+  id            String @id @default(cuid())
+  groupBuy      GroupBuy @relation(fields: [groupBuyId], references: [id])
+  groupBuyId    String
+  member        Member @relation(fields: [memberId], references: [id])
+  memberId      String
+  requestedQuantity Int
+  allocatedQuantity Int
+  unitPrice     Int
+  interestAmount Int
+  totalLiability Int
+  status        String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Loan {
+  id            String @id @default(cuid())
+  cooperativeId String
+  memberId      String
+  member        Member @relation(fields: [memberId], references: [id])
+  amount        Int
+  purpose       String
+  duration      Int
+  interestRate  Int
+  monthlyRepayment Int
+  totalRepayment Int
+  status        String
+  requestedAt   DateTime @default(now())
+  reviewedBy    String?
+  reviewedAt    DateTime?
+  disbursedAt   DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model LedgerEntry {
+  id            String @id @default(cuid())
+  cooperativeId String
+  memberId      String
+  type          String
+  amount        Int
+  balanceAfter  Int
+  referenceId   String?
+  referenceType String?
+  description   String?
+  createdBy     String
+  createdAt     DateTime @default(now())
+}

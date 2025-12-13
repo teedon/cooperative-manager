@@ -52,7 +52,7 @@ const ListingCard: React.FC<ListingCardProps> = ({ groupBuy, onPress, testID }) 
         )}
 
         <View style={styles.priceRow}>
-          <Text style={styles.price}>${groupBuy.unitPrice.toFixed(2)}</Text>
+          <Text style={styles.price}>₦{groupBuy.unitPrice.toLocaleString()}</Text>
           <Text style={styles.priceUnit}>per unit</Text>
         </View>
 

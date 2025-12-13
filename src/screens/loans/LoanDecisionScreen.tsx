@@ -54,7 +54,7 @@ const LoanDecisionScreen: React.FC<Props> = ({ route, navigation }) => {
     } else {
       Alert.alert(
         'Approve Loan',
-        `Are you sure you want to approve this $${loan?.amount.toLocaleString()} loan request?`,
+        `Are you sure you want to approve this ₦${loan?.amount.toLocaleString()} loan request?`,
         [
           { text: 'Cancel', style: 'cancel' },
           {
@@ -90,7 +90,7 @@ const LoanDecisionScreen: React.FC<Props> = ({ route, navigation }) => {
     <ScrollView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Review Loan Request</Text>
-        <Text style={styles.headerAmount}>${loan.amount.toLocaleString()}</Text>
+        <Text style={styles.headerAmount}>₦{loan.amount.toLocaleString()}</Text>
       </View>
 
       <View style={styles.applicantSection}>
@@ -123,7 +123,7 @@ const LoanDecisionScreen: React.FC<Props> = ({ route, navigation }) => {
         <Text style={styles.cardTitle}>Loan Details</Text>
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Amount Requested</Text>
-          <Text style={styles.detailValue}>${loan.amount.toLocaleString()}</Text>
+          <Text style={styles.detailValue}>₦{loan.amount.toLocaleString()}</Text>
         </View>
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Purpose</Text>

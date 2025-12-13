@@ -53,6 +53,12 @@ const CooperativeCard: React.FC<{
           </Text>
         </View>
       </View>
+      {cooperative.code && (
+        <View style={styles.codeContainer}>
+          <Icon name="Key" size={14} color={colors.primary.main} />
+          <Text style={styles.codeText}>Code: {cooperative.code}</Text>
+        </View>
+      )}
       {cooperative.description && (
         <Text style={styles.cardDescription} numberOfLines={2}>
           {cooperative.description}
@@ -91,7 +97,7 @@ import Icon from '../../components/common/Icon';
 
 const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const dispatch = useAppDispatch();
-  const { cooperatives, isLoading } = useAppSelector((state) => state.cooperative);
+  const { cooperatives = [], isLoading } = useAppSelector((state) => state.cooperative);
   const { user } = useAppSelector((state) => state.auth);
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -133,8 +139,9 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       setCooperativeCode('');
       Alert.alert('Success', 'You have successfully joined the cooperative!');
       loadCooperatives();
-    } catch {
-      Alert.alert('Error', 'Invalid cooperative code or you are already a member');
+    } catch (err: any) {
+      const errorMessage = err?.response?.data?.message || err?.message || 'Invalid cooperative code or you are already a member';
+      Alert.alert('Error', errorMessage);
     } finally {
       setIsJoining(false);
     }
@@ -151,15 +158,19 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     setIsJoining(true);
     try {
       logger.debug('ui.createCoop.dispatch', { payload: newCoopData });
-      await dispatch(createCooperative(newCoopData)).unwrap();
-      logger.info('ui.createCoop.success', { name: newCoopData.name });
+      const createdCooperative = await dispatch(createCooperative(newCoopData)).unwrap();
+      logger.info('ui.createCoop.success', { name: newCoopData.name, id: createdCooperative?.id });
       setShowCreateModal(false);
       setNewCoopData({ name: '', description: '' });
-      Alert.alert('Success', 'Cooperative created successfully!');
+      Alert.alert(
+        'Success! 🎉',
+        `"${createdCooperative?.name || newCoopData.name}" has been created successfully!\n\nYou can now invite members to join your cooperative.`
+      );
       loadCooperatives();
     } catch (err: any) {
+      const errorMessage = err?.response?.data?.message || err?.message || 'Failed to create cooperative';
       logger.error('ui.createCoop.failure', { message: err?.message, response: err?.response?.data });
-      Alert.alert('Error', 'Failed to create cooperative');
+      Alert.alert('Error', errorMessage);
     } finally {
       setIsJoining(false);
     }
@@ -320,18 +331,30 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         }}
         title="Join Cooperative"
       >
+        <View style={styles.modalIconContainer}>
+          <View style={[styles.modalIconCircle, { backgroundColor: colors.accent.main + '20' }]}>
+            <Icon name="Key" size={32} color={colors.accent.main} />
+          </View>
+        </View>
         <Text style={styles.modalDescription}>
-          Enter the cooperative code provided by the cooperative administrator to join.
+          Enter the 6-digit cooperative code provided by the administrator to request membership.
         </Text>
-        <TextInput
-          style={styles.codeInput}
-          placeholder="Enter cooperative code"
-          placeholderTextColor={colors.text.disabled}
-          value={cooperativeCode}
-          onChangeText={setCooperativeCode}
-          autoCapitalize="characters"
-          autoCorrect={false}
-        />
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Cooperative Code</Text>
+          <View style={styles.inputWrapper}>
+            <Icon name="Hash" size={20} color={colors.text.secondary} />
+            <TextInput
+              style={styles.modalInput}
+              placeholder="e.g. ABC123"
+              placeholderTextColor={colors.text.disabled}
+              value={cooperativeCode}
+              onChangeText={setCooperativeCode}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              maxLength={6}
+            />
+          </View>
+        </View>
         <View style={styles.modalButtons}>
           <Button
             title="Cancel"
@@ -346,7 +369,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             title="Join"
             onPress={handleJoinCooperative}
             loading={isJoining}
-            disabled={!cooperativeCode.trim()}
+            disabled={!cooperativeCode.trim() || cooperativeCode.length < 6}
             style={styles.modalButton}
           />
         </View>
@@ -361,32 +384,49 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         }}
         title="Create Cooperative"
       >
+        <View style={styles.modalIconContainer}>
+          <View style={[styles.modalIconCircle, { backgroundColor: colors.success.main + '20' }]}>
+            <Icon name="Plus" size={32} color={colors.success.main} />
+          </View>
+        </View>
         <Text style={styles.modalDescription}>
-          Create a new cooperative and invite members to join.
+          Create a new cooperative and invite members using the unique code that will be generated.
         </Text>
-        <TextInput
-          style={styles.codeInput}
-          placeholder="Cooperative Name"
-          placeholderTextColor={colors.text.disabled}
-          value={newCoopData.name}
-          onChangeText={(text) => {
-            setNewCoopData({ ...newCoopData, name: text });
-            logger.debug('ui.createCoop.input.name', { value: text });
-          }}
-          autoCapitalize="words"
-        />
-        <TextInput
-          style={[styles.codeInput, styles.textArea]}
-          placeholder="Description (optional)"
-          placeholderTextColor={colors.text.disabled}
-          value={newCoopData.description}
-          onChangeText={(text) => {
-            setNewCoopData({ ...newCoopData, description: text });
-            logger.debug('ui.createCoop.input.description', { value: text });
-          }}
-          multiline={true}
-          numberOfLines={3}
-        />
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Cooperative Name</Text>
+          <View style={styles.inputWrapper}>
+            <Icon name="Home" size={20} color={colors.text.secondary} />
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Enter cooperative name"
+              placeholderTextColor={colors.text.disabled}
+              value={newCoopData.name}
+              onChangeText={(text) => {
+                setNewCoopData({ ...newCoopData, name: text });
+                logger.debug('ui.createCoop.input.name', { value: text });
+              }}
+              autoCapitalize="words"
+            />
+          </View>
+        </View>
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Description <Text style={styles.optionalLabel}>(Optional)</Text></Text>
+          <View style={[styles.inputWrapper, styles.textAreaWrapper]}>
+            <TextInput
+              style={[styles.modalInput, styles.textAreaInput]}
+              placeholder="What is this cooperative about?"
+              placeholderTextColor={colors.text.disabled}
+              value={newCoopData.description}
+              onChangeText={(text) => {
+                setNewCoopData({ ...newCoopData, description: text });
+                logger.debug('ui.createCoop.input.description', { value: text });
+              }}
+              multiline={true}
+              numberOfLines={3}
+              textAlignVertical="top"
+            />
+          </View>
+        </View>
         <View style={styles.modalButtons}>
           <Button
             title="Cancel"
@@ -585,6 +625,23 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
     flex: 1,
   },
+  codeContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary.light,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.sm,
+    alignSelf: 'flex-start',
+    marginBottom: spacing.sm,
+    gap: spacing.xs,
+  },
+  codeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.primary.main,
+    letterSpacing: 1,
+  },
   statusBadge: {
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
@@ -682,11 +739,60 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   // Modal styles
+  modalIconContainer: {
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  modalIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   modalDescription: {
     fontSize: 14,
     color: colors.text.secondary,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.xl,
     lineHeight: 20,
+    textAlign: 'center',
+  },
+  inputGroup: {
+    marginBottom: spacing.lg,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
+  },
+  optionalLabel: {
+    fontWeight: '400',
+    color: colors.text.secondary,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border.light,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.background.default,
+    gap: spacing.sm,
+  },
+  textAreaWrapper: {
+    alignItems: 'flex-start',
+    paddingVertical: spacing.sm,
+  },
+  modalInput: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    fontSize: 16,
+    color: colors.text.primary,
+  },
+  textAreaInput: {
+    minHeight: 80,
+    textAlignVertical: 'top',
   },
   codeInput: {
     borderWidth: 1,

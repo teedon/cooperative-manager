@@ -8,11 +8,12 @@ import {
   RefreshControl,
   ActivityIndicator,
   Image,
+  Alert,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { HomeStackParamList } from '../../navigation/MainNavigator';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { fetchCooperative, fetchMembers } from '../../store/slices/cooperativeSlice';
+import { fetchCooperative, fetchMembers, fetchPendingMembers, approveMember, rejectMember } from '../../store/slices/cooperativeSlice';
 import { fetchPlans } from '../../store/slices/contributionSlice';
 import { fetchGroupBuys } from '../../store/slices/groupBuySlice';
 import { fetchLoans } from '../../store/slices/loanSlice';
@@ -29,7 +30,7 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [refreshing, setRefreshing] = useState(false);
 
-  const { currentCooperative, members, isLoading } = useAppSelector((state) => state.cooperative);
+  const { currentCooperative, members, pendingMembers, isLoading } = useAppSelector((state) => state.cooperative);
   const { plans } = useAppSelector((state) => state.contribution);
   const { groupBuys } = useAppSelector((state) => state.groupBuy);
   const { loans } = useAppSelector((state) => state.loan);
@@ -39,14 +40,22 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const isAdmin = currentMember?.role === 'admin';
 
   const loadData = useCallback(async () => {
-    await Promise.all([
+    const promises = [
       dispatch(fetchCooperative(cooperativeId)),
       dispatch(fetchMembers(cooperativeId)),
       dispatch(fetchPlans(cooperativeId)),
       dispatch(fetchGroupBuys(cooperativeId)),
       dispatch(fetchLoans(cooperativeId)),
-    ]);
+    ];
+    await Promise.all(promises);
   }, [dispatch, cooperativeId]);
+
+  // Fetch pending members when admin and tab is members
+  useEffect(() => {
+    if (isAdmin) {
+      dispatch(fetchPendingMembers(cooperativeId));
+    }
+  }, [dispatch, cooperativeId, isAdmin]);
 
   useEffect(() => {
     loadData();
@@ -55,9 +64,54 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const onRefresh = async () => {
     setRefreshing(true);
     await loadData();
+    if (isAdmin) {
+      await dispatch(fetchPendingMembers(cooperativeId));
+    }
     setRefreshing(false);
   };
 
+  const handleApproveMember = (memberId: string, memberName: string) => {
+    Alert.alert(
+      'Approve Member',
+      `Are you sure you want to approve ${memberName}'s membership request?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Approve',
+          onPress: async () => {
+            try {
+              await dispatch(approveMember(memberId)).unwrap();
+              Alert.alert('Success', `${memberName} has been approved as a member.`);
+            } catch (error: any) {
+              Alert.alert('Error', error || 'Failed to approve member');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleRejectMember = (memberId: string, memberName: string) => {
+    Alert.alert(
+      'Reject Member',
+      `Are you sure you want to reject ${memberName}'s membership request?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reject',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await dispatch(rejectMember(memberId)).unwrap();
+              Alert.alert('Success', `${memberName}'s request has been rejected.`);
+            } catch (error: any) {
+              Alert.alert('Error', error || 'Failed to reject member');
+            }
+          },
+        },
+      ]
+    );
+  };
   const tabs: { key: TabType; label: string }[] = [
     { key: 'overview', label: 'Overview' },
     { key: 'members', label: 'Members' },
@@ -116,12 +170,34 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           <Text style={styles.sectionTitle}>Admin Actions</Text>
           <TouchableOpacity
             style={styles.actionButton}
+            onPress={() => navigation.navigate('CreateContribution', { cooperativeId })}
+          >
+            <Icon name="Plus" size={24} color={colors.primary.main} style={styles.actionIcon} />
+            <View style={styles.actionContent}>
+              <Text style={styles.actionTitle}>Create Contribution</Text>
+              <Text style={styles.actionSubtitle}>Set up a new contribution plan</Text>
+            </View>
+            <Icon name="ChevronRight" size={20} color={colors.text.disabled} style={styles.actionArrow} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.actionButton}
             onPress={() => navigation.navigate('PaymentVerification', { cooperativeId })}
           >
             <Icon name="Check" size={24} color={colors.primary.main} style={styles.actionIcon} />
             <View style={styles.actionContent}>
               <Text style={styles.actionTitle}>Verify Payments</Text>
               <Text style={styles.actionSubtitle}>Review pending payment records</Text>
+            </View>
+            <Icon name="ChevronRight" size={20} color={colors.text.disabled} style={styles.actionArrow} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => navigation.navigate('PaymentApproval', { cooperativeId })}
+          >
+            <Icon name="CreditCard" size={24} color={colors.primary.main} style={styles.actionIcon} />
+            <View style={styles.actionContent}>
+              <Text style={styles.actionTitle}>Approve Subscription Payments</Text>
+              <Text style={styles.actionSubtitle}>Review member subscription payments</Text>
             </View>
             <Icon name="ChevronRight" size={20} color={colors.text.disabled} style={styles.actionArrow} />
           </TouchableOpacity>
@@ -165,6 +241,54 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const renderMembers = () => (
     <View style={styles.section}>
+      {/* Pending Members Section for Admin */}
+      {isAdmin && pendingMembers.length > 0 && (
+        <View style={styles.pendingSection}>
+          <View style={styles.pendingHeader}>
+            <Icon name="Clock" size={20} color={colors.warning.main} />
+            <Text style={styles.pendingTitle}>Pending Requests ({pendingMembers.length})</Text>
+          </View>
+          {pendingMembers.map((member) => {
+            const memberUser = member.user || (member as any).user;
+            const memberName = memberUser 
+              ? `${memberUser.firstName} ${memberUser.lastName}`
+              : 'Unknown Member';
+            return (
+              <View key={member.id} style={styles.pendingMemberCard}>
+                <Image
+                  source={{
+                    uri: memberUser?.avatarUrl || 'https://i.pravatar.cc/150',
+                  }}
+                  style={styles.memberAvatar}
+                />
+                <View style={styles.pendingMemberInfo}>
+                  <Text style={styles.memberName}>{memberName}</Text>
+                  <Text style={styles.pendingDate}>
+                    Requested {new Date(member.joinedAt).toLocaleDateString()}
+                  </Text>
+                </View>
+                <View style={styles.pendingActions}>
+                  <TouchableOpacity
+                    style={styles.approveButton}
+                    onPress={() => handleApproveMember(member.id, memberName)}
+                  >
+                    <Icon name="Check" size={18} color={colors.background.paper} />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.rejectButton}
+                    onPress={() => handleRejectMember(member.id, memberName)}
+                  >
+                    <Icon name="X" size={18} color={colors.background.paper} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            );
+          })}
+        </View>
+      )}
+
+      {/* Active Members */}
+      <Text style={styles.sectionTitle}>Active Members ({members.length})</Text>
       {members.map((member) => (
         <TouchableOpacity
           key={member.id}
@@ -198,7 +322,7 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             <Text style={styles.memberRole}>{member.role}</Text>
           </View>
           <View style={styles.memberBalance}>
-            <Text style={styles.balanceValue}>${member.virtualBalance.toLocaleString()}</Text>
+            <Text style={styles.balanceValue}>₦{member.virtualBalance.toLocaleString()}</Text>
             <Text style={styles.balanceLabel}>Balance</Text>
           </View>
         </TouchableOpacity>
@@ -206,12 +330,37 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     </View>
   );
 
+  const getCategoryBadgeStyle = (category: string) => {
+    return category === 'compulsory' 
+      ? { backgroundColor: colors.error.light } 
+      : { backgroundColor: colors.success.light };
+  };
+
+  const getCategoryTextStyle = (category: string) => {
+    return category === 'compulsory' 
+      ? { color: colors.error.main } 
+      : { color: colors.success.main };
+  };
+
   const renderContributions = () => (
     <View style={styles.section}>
+      {isAdmin && (
+        <TouchableOpacity
+          style={styles.createButton}
+          onPress={() => navigation.navigate('CreateContribution', { cooperativeId })}
+        >
+          <Icon name="Plus" size={20} color={colors.primary.contrast} />
+          <Text style={styles.createButtonText}>Create New Contribution</Text>
+        </TouchableOpacity>
+      )}
+      
       {plans.length === 0 ? (
         <View style={styles.emptyState}>
-          <Icon name="Clipboard" size={48} style={styles.emptyIcon} />
+          <Icon name="Clipboard" size={48} color={colors.text.disabled} />
           <Text style={styles.emptyText}>No contribution plans yet</Text>
+          {isAdmin && (
+            <Text style={styles.emptyHint}>Create your first contribution plan above</Text>
+          )}
         </View>
       ) : (
         plans.map((plan) => (
@@ -222,8 +371,15 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           >
             <View style={styles.planHeader}>
               <Text style={styles.planName}>{plan.name}</Text>
-              <View style={[styles.badge, plan.isActive && styles.activeBadge]}>
-                <Text style={styles.badgeText}>{plan.isActive ? 'Active' : 'Inactive'}</Text>
+              <View style={styles.planBadges}>
+                <View style={[styles.categoryBadge, getCategoryBadgeStyle(plan.category)]}>
+                  <Text style={[styles.categoryBadgeText, getCategoryTextStyle(plan.category)]}>
+                    {plan.category}
+                  </Text>
+                </View>
+                <View style={[styles.badge, plan.isActive && styles.activeBadge]}>
+                  <Text style={styles.badgeText}>{plan.isActive ? 'Active' : 'Inactive'}</Text>
+                </View>
               </View>
             </View>
             <Text style={styles.planDescription} numberOfLines={2}>
@@ -231,20 +387,32 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             </Text>
             <View style={styles.planDetails}>
               <View style={styles.planDetailRow}>
-                <Icon name="DollarSign" size={14} style={styles.smallIcon} />
+                <Icon name="DollarSign" size={14} color={colors.text.secondary} />
                 <Text style={styles.planDetail}>
-                  {plan.type === 'fixed' ? `$${plan.amount}` : `$${plan.minAmount}-$${plan.maxAmount}`}
+                  {plan.amountType === 'fixed' 
+                    ? `₦${plan.fixedAmount?.toLocaleString()}` 
+                    : plan.minAmount && plan.maxAmount
+                      ? `₦${plan.minAmount.toLocaleString()} - ₦${plan.maxAmount.toLocaleString()}`
+                      : 'Member decides'}
                 </Text>
               </View>
               <View style={styles.planDetailRow}>
-                <Icon name="Calendar" size={14} style={styles.smallIcon} />
-                <Text style={styles.planDetail}>{plan.frequency}</Text>
+                <Icon name="Calendar" size={14} color={colors.text.secondary} />
+                <Text style={styles.planDetail}>{plan.frequency || 'N/A'}</Text>
               </View>
               <View style={styles.planDetailRow}>
-                <Icon name="Clock" size={14} style={styles.smallIcon} />
-                <Text style={styles.planDetail}>{plan.duration}</Text>
+                <Icon name="Clock" size={14} color={colors.text.secondary} />
+                <Text style={styles.planDetail}>{plan.contributionType}</Text>
               </View>
             </View>
+            {plan._count && (
+              <View style={styles.subscribersRow}>
+                <Icon name="Users" size={14} color={colors.primary.main} />
+                <Text style={styles.subscribersText}>
+                  {plan._count.subscriptions} subscriber{plan._count.subscriptions !== 1 ? 's' : ''}
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
         ))
       )}
@@ -271,7 +439,7 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           <Image source={{ uri: gb.imageUrl }} style={styles.gbImage} />
           <View style={styles.gbContent}>
             <Text style={styles.gbTitle}>{gb.title}</Text>
-            <Text style={styles.gbPrice}>${gb.unitPrice}/unit</Text>
+            <Text style={styles.gbPrice}>₦{gb.unitPrice.toLocaleString()}/unit</Text>
             <View style={styles.gbProgress}>
               <View
                 style={[
@@ -311,9 +479,9 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             key={loan.id}
             style={styles.loanCard}
             onPress={() => navigation.navigate('LoanDetail', { loanId: loan.id })}
-          >
+          >       
             <View style={styles.loanHeader}>
-              <Text style={styles.loanAmount}>${loan.amount.toLocaleString()}</Text>
+              <Text style={styles.loanAmount}>₦{loan.amount.toLocaleString()}</Text>
               <View
                 style={[
                   styles.loanStatus,
@@ -354,7 +522,15 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           style={styles.headerImage}
         />
         <View style={styles.headerOverlay}>
-          <Text style={styles.headerTitle}>{currentCooperative?.name}</Text>
+          <View style={styles.headerTitleRow}>
+            <Text style={styles.headerTitle}>{currentCooperative?.name}</Text>
+            {currentCooperative?.code && (
+              <View style={styles.codeBadge}>
+                <Icon name="Key" size={12} color={colors.text.inverse} />
+                <Text style={styles.codeText}>{currentCooperative.code}</Text>
+              </View>
+            )}
+          </View>
           {currentMember && (
             <View style={styles.roleBadge}>
               <Text style={styles.roleBadgeText}>{currentMember.role}</Text>
@@ -404,11 +580,32 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
+  headerTitleRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    flexWrap: 'wrap',
+  },
   headerTitle: {
     color: colors.text.inverse,
     fontSize: 20,
     fontWeight: 'bold',
-    flex: 1,
+  },
+  codeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.md,
+    gap: 4,
+  },
+  codeText: {
+    color: colors.text.inverse,
+    fontSize: 11,
+    fontWeight: '600',
+    letterSpacing: 1,
   },
   roleBadge: {
     backgroundColor: colors.primary.main,
@@ -515,6 +712,63 @@ const styles = StyleSheet.create({
     fontSize: 20,
     color: colors.text.disabled,
   },
+  // Pending members styles
+  pendingSection: {
+    backgroundColor: colors.warning.light,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginBottom: spacing['xl'],
+    borderWidth: 1,
+    borderColor: colors.warning.main,
+  },
+  pendingHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+    gap: spacing.sm,
+  },
+  pendingTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.warning.dark,
+  },
+  pendingMemberCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background.paper,
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.sm,
+  },
+  pendingMemberInfo: {
+    flex: 1,
+    marginLeft: spacing.md,
+  },
+  pendingDate: {
+    fontSize: 12,
+    color: colors.text.secondary,
+    marginTop: 2,
+  },
+  pendingActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  approveButton: {
+    backgroundColor: colors.success.main,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  rejectButton: {
+    backgroundColor: colors.error.main,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   memberCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -556,6 +810,27 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: colors.text.disabled,
   },
+  createButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.primary.main,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
+    borderRadius: borderRadius.lg,
+    marginBottom: spacing.lg,
+    gap: spacing.sm,
+  },
+  createButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary.contrast,
+  },
+  emptyHint: {
+    fontSize: 12,
+    color: colors.text.disabled,
+    marginTop: spacing.xs,
+  },
   planCard: {
     backgroundColor: colors.background.paper,
     borderRadius: borderRadius.lg,
@@ -566,7 +841,7 @@ const styles = StyleSheet.create({
   planHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginBottom: spacing.sm,
   },
   planName: {
@@ -574,6 +849,22 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.text.primary,
     flex: 1,
+    marginRight: spacing.sm,
+  },
+  planBadges: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+    flexWrap: 'wrap',
+  },
+  categoryBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.md,
+  },
+  categoryBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'capitalize',
   },
   badge: {
     paddingHorizontal: spacing.sm,
@@ -585,7 +876,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.success.light,
   },
   badgeText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '500',
     color: colors.success.text,
   },
@@ -596,11 +887,31 @@ const styles = StyleSheet.create({
   },
   planDetails: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.md,
+  },
+  planDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
   },
   planDetail: {
     fontSize: 12,
     color: colors.text.secondary,
+  },
+  subscribersRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.md,
+    paddingTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border.light,
+    gap: spacing.xs,
+  },
+  subscribersText: {
+    fontSize: 13,
+    color: colors.primary.main,
+    fontWeight: '500',
   },
   viewAllButton: {
     marginBottom: spacing.md,

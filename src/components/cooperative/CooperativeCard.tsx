@@ -1,46 +1,46 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Cooperative } from '../../models';
-import Badge from '../common/Badge';
+import { colors, spacing, borderRadius, shadows } from '../../theme';
+import Icon from '../common/Icon';
 
-export interface CooperativeCardProps {
+interface CooperativeCardProps {
   cooperative: Cooperative;
   onPress?: () => void;
-  testID?: string;
 }
 
-const CooperativeCard: React.FC<CooperativeCardProps> = ({ cooperative, onPress, testID }) => {
+export const CooperativeCard: React.FC<CooperativeCardProps> = ({ cooperative, onPress }) => {
   return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7} testID={testID}>
+    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
       <Image
-        source={{ uri: cooperative.imageUrl || 'https://picsum.photos/400/200' }}
+        source={{ uri: cooperative.imageUrl || 'https://picsum.photos/200' }}
         style={styles.image}
-        resizeMode="cover"
       />
       <View style={styles.content}>
         <View style={styles.header}>
-          <Text style={styles.title} numberOfLines={1}>
+          <Text style={styles.name} numberOfLines={1}>
             {cooperative.name}
           </Text>
-          <Badge
-            text={cooperative.status}
-            variant={cooperative.status === 'active' ? 'success' : 'default'}
-          />
+          {cooperative.code && (
+            <View style={styles.codeContainer}>
+              <Icon name="Key" size={12} color={colors.primary.main} />
+              <Text style={styles.codeText}>{cooperative.code}</Text>
+            </View>
+          )}
         </View>
-        {cooperative.description && (
-          <Text style={styles.description} numberOfLines={2}>
-            {cooperative.description}
-          </Text>
-        )}
-        <View style={styles.stats}>
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>{cooperative.memberCount}</Text>
-            <Text style={styles.statLabel}>Members</Text>
+        <Text style={styles.description} numberOfLines={2}>
+          {cooperative.description || 'No description available'}
+        </Text>
+        <View style={styles.footer}>
+          <View style={styles.stat}>
+            <Icon name="Users" size={14} color={colors.text.secondary} />
+            <Text style={styles.statText}>{cooperative.memberCount || 0} members</Text>
           </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statValue}>${cooperative.totalContributions.toLocaleString()}</Text>
-            <Text style={styles.statLabel}>Total Contributions</Text>
+          <View style={styles.stat}>
+            <Icon name="DollarSign" size={14} color={colors.text.secondary} />
+            <Text style={styles.statText}>
+              ₦{(cooperative.totalContributions || 0).toLocaleString()}
+            </Text>
           </View>
         </View>
       </View>
@@ -50,65 +50,65 @@ const CooperativeCard: React.FC<CooperativeCardProps> = ({ cooperative, onPress,
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
+    backgroundColor: colors.background.paper,
+    borderRadius: borderRadius.lg,
     overflow: 'hidden',
+    ...shadows.md,
   },
   image: {
     width: '100%',
     height: 120,
-    backgroundColor: '#e2e8f0',
+    backgroundColor: colors.secondary.main,
   },
   content: {
-    padding: 16,
+    padding: spacing.md,
   },
   header: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    justifyContent: 'space-between',
+    marginBottom: spacing.xs,
   },
-  title: {
-    fontSize: 18,
+  name: {
+    fontSize: 16,
     fontWeight: '600',
-    color: '#0f172a',
+    color: colors.text.primary,
     flex: 1,
-    marginRight: 8,
   },
-  description: {
-    fontSize: 14,
-    color: '#64748b',
-    marginBottom: 16,
-    lineHeight: 20,
-  },
-  stats: {
+  codeContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: colors.primary.light,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.md,
+    marginLeft: spacing.sm,
+    gap: 4,
   },
-  statItem: {
-    flex: 1,
-  },
-  statValue: {
-    fontSize: 18,
+  codeText: {
+    fontSize: 11,
     fontWeight: '600',
-    color: '#0f172a',
+    color: colors.primary.main,
+    letterSpacing: 1,
   },
-  statLabel: {
+  description: {
+    fontSize: 13,
+    color: colors.text.secondary,
+    lineHeight: 18,
+    marginBottom: spacing.md,
+  },
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.lg,
+  },
+  stat: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  statText: {
     fontSize: 12,
-    color: '#94a3b8',
-    marginTop: 2,
-  },
-  statDivider: {
-    width: 1,
-    height: 32,
-    backgroundColor: '#e2e8f0',
-    marginHorizontal: 16,
+    color: colors.text.secondary,
   },
 });
-
-export default CooperativeCard;

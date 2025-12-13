@@ -50,10 +50,10 @@ export const formatRelativeTime = (dateString: string): string => {
 };
 
 /**
- * Format currency amount
+ * Format currency amount in Nigerian Naira
  */
-export const formatCurrency = (amount: number, currency = 'USD'): string => {
-  return new Intl.NumberFormat(undefined, {
+export const formatCurrency = (amount: number, currency = 'NGN'): string => {
+  return new Intl.NumberFormat('en-NG', {
     style: 'currency',
     currency,
     minimumFractionDigits: 2,

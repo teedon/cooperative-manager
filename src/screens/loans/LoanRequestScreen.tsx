@@ -100,7 +100,7 @@ const LoanRequestScreen: React.FC<Props> = ({ route, navigation }) => {
         <View style={styles.inputGroup}>
           <Text style={styles.label}>Loan Amount *</Text>
           <View style={styles.amountInputContainer}>
-            <Text style={styles.currencyPrefix}>$</Text>
+            <Text style={styles.currencyPrefix}>₦</Text>
             <TextInput
               style={[styles.amountInput, errors.amount && styles.inputError]}
               placeholder="0.00"

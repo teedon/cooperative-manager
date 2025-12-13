@@ -16,6 +16,24 @@ const getApiBaseUrl = () => {
 
 const API_BASE_URL = getApiBaseUrl();
 
+// Flag to prevent multiple simultaneous refresh attempts
+let isRefreshing = false;
+let failedQueue: Array<{
+  resolve: (token: string) => void;
+  reject: (error: Error) => void;
+}> = [];
+
+const processQueue = (error: Error | null, token: string | null = null) => {
+  failedQueue.forEach((promise) => {
+    if (error) {
+      promise.reject(error);
+    } else {
+      promise.resolve(token!);
+    }
+  });
+  failedQueue = [];
+};
+
 const apiClient: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
   timeout: 30000,
@@ -44,24 +62,94 @@ apiClient.interceptors.request.use(
   }
 );
 
-// Response interceptor to handle errors
+// Response interceptor to handle errors and refresh token
 apiClient.interceptors.response.use(
   (response: AxiosResponse) => response,
   async (error: AxiosError) => {
+    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+
     logger.error('api response error', {
       message: error.message,
       status: error.response?.status,
       url: error.config?.url,
       data: error.response?.data,
     });
-    if (error.response?.status === 401) {
-      // Clear token and redirect to login
-      await AsyncStorage.removeItem('auth_token');
-      // Could dispatch a logout action here if needed
+
+    // If 401 and not already retrying, attempt to refresh token
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      // Don't retry refresh endpoint itself
+      if (originalRequest.url?.includes('/auth/refresh')) {
+        await clearAuthData();
+        return Promise.reject(error);
+      }
+
+      if (isRefreshing) {
+        // Queue this request while refresh is in progress
+        return new Promise<AxiosResponse>((resolve, reject) => {
+          failedQueue.push({
+            resolve: async (token: string) => {
+              originalRequest.headers.Authorization = `Bearer ${token}`;
+              resolve(apiClient(originalRequest));
+            },
+            reject: (err: Error) => {
+              reject(err);
+            },
+          });
+        });
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      try {
+        const refreshToken = await AsyncStorage.getItem('auth_refresh');
+        
+        if (!refreshToken) {
+          throw new Error('No refresh token available');
+        }
+
+        // Call refresh endpoint directly to avoid interceptor loop
+        const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
+          refreshToken,
+        });
+
+        if (response.data.success) {
+          const { token: newToken, refreshToken: newRefreshToken } = response.data.data;
+          
+          // Save new tokens
+          await AsyncStorage.setItem('auth_token', newToken);
+          if (newRefreshToken) {
+            await AsyncStorage.setItem('auth_refresh', newRefreshToken);
+          }
+
+          // Update authorization header for the original request
+          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+          
+          processQueue(null, newToken);
+          
+          // Retry original request with new token
+          return apiClient(originalRequest);
+        } else {
+          throw new Error('Token refresh failed');
+        }
+      } catch (refreshError) {
+        processQueue(refreshError as Error, null);
+        await clearAuthData();
+        return Promise.reject(refreshError);
+      } finally {
+        isRefreshing = false;
+      }
     }
 
     return Promise.reject(error);
   }
 );
+
+// Helper to clear auth data
+const clearAuthData = async () => {
+  await AsyncStorage.removeItem('auth_token');
+  await AsyncStorage.removeItem('auth_user');
+  await AsyncStorage.removeItem('auth_refresh');
+};
 
 export default apiClient;

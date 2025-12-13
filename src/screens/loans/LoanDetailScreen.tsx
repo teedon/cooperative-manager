@@ -77,7 +77,7 @@ const LoanDetailScreen: React.FC<Props> = ({ route }) => {
       <View style={styles.header}>
         <View style={styles.amountSection}>
           <Text style={styles.amountLabel}>Loan Amount</Text>
-          <Text style={styles.amountValue}>${currentLoan.amount.toLocaleString()}</Text>
+          <Text style={styles.amountValue}>₦{currentLoan.amount.toLocaleString()}</Text>
         </View>
         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(currentLoan.status) }]}>
           <Text style={styles.statusText}>{currentLoan.status}</Text>

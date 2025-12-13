@@ -108,6 +108,7 @@ const groupBuySlice = createSlice({
     setCurrentGroupBuy: (state, action: PayloadAction<GroupBuy | null>) => {
       state.currentGroupBuy = action.payload;
     },
+    resetGroupBuy: () => initialState,
   },
   extraReducers: (builder) => {
     builder
@@ -152,5 +153,5 @@ const groupBuySlice = createSlice({
   },
 });
 
-export const { clearError, setCurrentGroupBuy } = groupBuySlice.actions;
+export const { clearError, setCurrentGroupBuy, resetGroupBuy } = groupBuySlice.actions;
 export default groupBuySlice.reducer;

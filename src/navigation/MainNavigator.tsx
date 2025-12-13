@@ -4,14 +4,20 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Text, View, StyleSheet } from 'react-native';
 import { colors, spacing } from '../theme';
+import CustomTabBar from '../components/navigation/CustomTabBar';
 
 import HomeScreen from '../screens/home/HomeScreen';
 import LandingScreen from '../screens/home/LandingScreen';
 import CooperativeDetailScreen from '../screens/cooperative/CooperativeDetailScreen';
 import ContributionPlanScreen from '../screens/contributions/ContributionPlanScreen';
 import ContributionPeriodScreen from '../screens/contributions/ContributionPeriodScreen';
+import CreateContributionScreen from '../screens/contributions/CreateContributionScreen';
 import RecordPaymentScreen from '../screens/contributions/RecordPaymentScreen';
 import PaymentVerificationScreen from '../screens/contributions/PaymentVerificationScreen';
+import RecordSubscriptionPaymentScreen from '../screens/contributions/RecordSubscriptionPaymentScreen';
+import PaymentApprovalScreen from '../screens/contributions/PaymentApprovalScreen';
+import PaymentScheduleScreen from '../screens/contributions/PaymentScheduleScreen';
+import RecordSchedulePaymentScreen from '../screens/contributions/RecordSchedulePaymentScreen';
 import GroupBuyListScreen from '../screens/groupbuys/GroupBuyListScreen';
 import GroupBuyDetailScreen from '../screens/groupbuys/GroupBuyDetailScreen';
 import GroupBuyManagementScreen from '../screens/groupbuys/GroupBuyManagementScreen';
@@ -33,44 +39,35 @@ export type MainTabParamList = {
 const Tab = createBottomTabNavigator<MainTabParamList>();
 // drawer navigator omitted (avoids adding @react-navigation/drawer dependency)
 const HomeStack = createNativeStackNavigator<HomeStackParamList>();
-
-// Tab bar icon component
-import Icon from '../components/common/Icon';
-
-const TabIcon: React.FC<{ name: string; focused: boolean }> = ({ name, focused }) => (
-  <View style={tabIconStyles.container}>
-    <Icon name={name === 'Home' ? 'Home' : name === 'Profile' ? 'User' : 'List'} size={20} />
-    <Text style={[tabIconStyles.label, focused && tabIconStyles.labelFocused]}>{name}</Text>
-  </View>
-);
-
-const tabIconStyles = StyleSheet.create({
-  container: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: spacing.sm,
-  },
-  emoji: {
-    fontSize: 20,
-  },
-  label: {
-    fontSize: 10,
-    color: colors.text.secondary,
-    marginTop: 2,
-  },
-  labelFocused: {
-    color: colors.primary.main,
-  },
-});
+const CoopsStack = createNativeStackNavigator<HomeStackParamList>();
 
 export type HomeStackParamList = {
   Landing: undefined;
   Home: { openModal?: 'create' | 'join' } | undefined;
   CooperativeDetail: { cooperativeId: string };
+  CreateContribution: { cooperativeId: string };
   ContributionPlan: { planId: string };
   ContributionPeriod: { periodId: string };
   RecordPayment: { periodId: string };
   PaymentVerification: { cooperativeId: string };
+  RecordSubscriptionPayment: { 
+    subscriptionId: string;
+    planName?: string;
+    amount?: number;
+    dueDate?: string;
+  };
+  PaymentApproval: { cooperativeId: string };
+  PaymentSchedule: {
+    subscriptionId?: string;
+    cooperativeId?: string;
+  };
+  RecordSchedulePayment: {
+    scheduleId: string;
+    planName?: string;
+    amount?: number;
+    dueDate?: string;
+    periodLabel?: string;
+  };
   GroupBuyList: { cooperativeId: string };
   GroupBuyDetail: { groupBuyId: string };
   GroupBuyManagement: { groupBuyId?: string; cooperativeId?: string };
@@ -103,6 +100,11 @@ const HomeStackNavigator: React.FC = () => {
         options={{ title: 'Cooperative' }}
       />
       <HomeStack.Screen
+        name="CreateContribution"
+        component={CreateContributionScreen}
+        options={{ title: 'Create Contribution' }}
+      />
+      <HomeStack.Screen
         name="ContributionPlan"
         component={ContributionPlanScreen}
         options={{ title: 'Contribution Plan' }}
@@ -121,6 +123,26 @@ const HomeStackNavigator: React.FC = () => {
         name="PaymentVerification"
         component={PaymentVerificationScreen}
         options={{ title: 'Verify Payments' }}
+      />
+      <HomeStack.Screen
+        name="RecordSubscriptionPayment"
+        component={RecordSubscriptionPaymentScreen}
+        options={{ title: 'Record Payment' }}
+      />
+      <HomeStack.Screen
+        name="PaymentApproval"
+        component={PaymentApprovalScreen}
+        options={{ title: 'Pending Payments' }}
+      />
+      <HomeStack.Screen
+        name="PaymentSchedule"
+        component={PaymentScheduleScreen}
+        options={{ title: 'Payment Schedule' }}
+      />
+      <HomeStack.Screen
+        name="RecordSchedulePayment"
+        component={RecordSchedulePaymentScreen}
+        options={{ title: 'Record Payment' }}
       />
       <HomeStack.Screen
         name="GroupBuyList"
@@ -162,42 +184,131 @@ const HomeStackNavigator: React.FC = () => {
   );
 };
 
+// Cooperatives tab stack - starts with the cooperatives list (Home screen)
+const CoopsStackNavigator: React.FC = () => {
+  return (
+    <CoopsStack.Navigator
+      screenOptions={{
+        headerStyle: {
+          backgroundColor: colors.primary.main,
+        },
+        headerTintColor: colors.primary.contrast,
+        headerTitleStyle: {
+          fontWeight: 'bold',
+        },
+      }}
+      initialRouteName="Home"
+    >
+      <CoopsStack.Screen name="Home" component={HomeScreen} options={{ title: 'My Cooperatives' }} />
+      <CoopsStack.Screen
+        name="CooperativeDetail"
+        component={CooperativeDetailScreen}
+        options={{ title: 'Cooperative' }}
+      />
+      <CoopsStack.Screen
+        name="CreateContribution"
+        component={CreateContributionScreen}
+        options={{ title: 'Create Contribution' }}
+      />
+      <CoopsStack.Screen
+        name="ContributionPlan"
+        component={ContributionPlanScreen}
+        options={{ title: 'Contribution Plan' }}
+      />
+      <CoopsStack.Screen
+        name="ContributionPeriod"
+        component={ContributionPeriodScreen}
+        options={{ title: 'Period Details' }}
+      />
+      <CoopsStack.Screen
+        name="RecordPayment"
+        component={RecordPaymentScreen}
+        options={{ title: 'Record Payment' }}
+      />
+      <CoopsStack.Screen
+        name="PaymentVerification"
+        component={PaymentVerificationScreen}
+        options={{ title: 'Verify Payments' }}
+      />
+      <CoopsStack.Screen
+        name="RecordSubscriptionPayment"
+        component={RecordSubscriptionPaymentScreen}
+        options={{ title: 'Record Payment' }}
+      />
+      <CoopsStack.Screen
+        name="PaymentApproval"
+        component={PaymentApprovalScreen}
+        options={{ title: 'Pending Payments' }}
+      />
+      <CoopsStack.Screen
+        name="PaymentSchedule"
+        component={PaymentScheduleScreen}
+        options={{ title: 'Payment Schedule' }}
+      />
+      <CoopsStack.Screen
+        name="RecordSchedulePayment"
+        component={RecordSchedulePaymentScreen}
+        options={{ title: 'Record Payment' }}
+      />
+      <CoopsStack.Screen
+        name="GroupBuyList"
+        component={GroupBuyListScreen}
+        options={{ title: 'Group Buys' }}
+      />
+      <CoopsStack.Screen
+        name="GroupBuyDetail"
+        component={GroupBuyDetailScreen}
+        options={{ title: 'Group Buy' }}
+      />
+      <CoopsStack.Screen
+        name="GroupBuyManagement"
+        component={GroupBuyManagementScreen}
+        options={{ title: 'Manage Group Buy' }}
+      />
+      <CoopsStack.Screen
+        name="LoanRequest"
+        component={LoanRequestScreen}
+        options={{ title: 'Request Loan' }}
+      />
+      <CoopsStack.Screen
+        name="LoanDetail"
+        component={LoanDetailScreen}
+        options={{ title: 'Loan Details' }}
+      />
+      <CoopsStack.Screen
+        name="LoanDecision"
+        component={LoanDecisionScreen}
+        options={{ title: 'Review Loan' }}
+      />
+      <CoopsStack.Screen name="Ledger" component={LedgerScreen} options={{ title: 'Ledger' }} />
+      <CoopsStack.Screen
+        name="MemberDashboard"
+        component={MemberDashboardScreen}
+        options={{ title: 'Member Dashboard' }}
+      />
+    </CoopsStack.Navigator>
+  );
+};
+
 const MainNavigator: React.FC = () => {
   return (
     <Tab.Navigator
+      tabBar={(props) => <CustomTabBar {...props} />}
       screenOptions={{
         headerShown: false,
-        tabBarShowLabel: false,
-        tabBarStyle: {
-          height: 60,
-          paddingBottom: spacing.sm,
-          backgroundColor: colors.background.paper,
-          borderTopWidth: 1,
-          borderTopColor: colors.border.light,
-        },
       }}
     >
       <Tab.Screen
         name="HomeTab"
         component={HomeStackNavigator}
-        options={{
-          tabBarIcon: ({ focused }) => <TabIcon name="Home" focused={focused} />,
-        }}
       />
       <Tab.Screen
         name="CoopsTab"
-        component={HomeStackNavigator}
-        options={{
-          tabBarIcon: ({ focused }) => <TabIcon name="Cooperatives" focused={focused} />,
-          tabBarLabel: 'My Cooperatives',
-        }}
+        component={CoopsStackNavigator}
       />
       <Tab.Screen
         name="ProfileTab"
         component={ProfileScreen}
-        options={{
-          tabBarIcon: ({ focused }) => <TabIcon name="Profile" focused={focused} />,
-        }}
       />
     </Tab.Navigator>
   );

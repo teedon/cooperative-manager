@@ -99,4 +99,25 @@ export const cooperativeApi = {
     );
     return response.data;
   },
+
+  getPendingMembers: async (cooperativeId: string): Promise<ApiResponse<CooperativeMember[]>> => {
+    const response = await apiClient.get<ApiResponse<CooperativeMember[]>>(
+      `/cooperatives/${cooperativeId}/pending-members`
+    );
+    return response.data;
+  },
+
+  approveMember: async (memberId: string): Promise<ApiResponse<CooperativeMember>> => {
+    const response = await apiClient.post<ApiResponse<CooperativeMember>>(
+      `/cooperatives/members/${memberId}/approve`
+    );
+    return response.data;
+  },
+
+  rejectMember: async (memberId: string): Promise<ApiResponse<{ message: string }>> => {
+    const response = await apiClient.post<ApiResponse<{ message: string }>>(
+      `/cooperatives/members/${memberId}/reject`
+    );
+    return response.data;
+  },
 };

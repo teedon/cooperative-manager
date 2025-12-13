@@ -7,6 +7,7 @@ interface CooperativeState {
   cooperatives: Cooperative[];
   currentCooperative: Cooperative | null;
   members: CooperativeMember[];
+  pendingMembers: CooperativeMember[];
   currentMember: CooperativeMember | null;
   isLoading: boolean;
   error: string | null;
@@ -16,6 +17,7 @@ const initialState: CooperativeState = {
   cooperatives: [],
   currentCooperative: null,
   members: [],
+  pendingMembers: [],
   currentMember: null,
   isLoading: false,
   error: null,
@@ -87,6 +89,42 @@ export const joinCooperativeByCode = createAsyncThunk(
   }
 );
 
+export const fetchPendingMembers = createAsyncThunk(
+  'cooperative/fetchPendingMembers',
+  async (cooperativeId: string, { rejectWithValue }) => {
+    try {
+      const response = await cooperativeApi.getPendingMembers(cooperativeId);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue((error as Error).message);
+    }
+  }
+);
+
+export const approveMember = createAsyncThunk(
+  'cooperative/approveMember',
+  async (memberId: string, { rejectWithValue }) => {
+    try {
+      const response = await cooperativeApi.approveMember(memberId);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue((error as Error).message);
+    }
+  }
+);
+
+export const rejectMember = createAsyncThunk(
+  'cooperative/rejectMember',
+  async (memberId: string, { rejectWithValue }) => {
+    try {
+      const response = await cooperativeApi.rejectMember(memberId);
+      return { memberId };
+    } catch (error) {
+      return rejectWithValue((error as Error).message);
+    }
+  }
+);
+
 const cooperativeSlice = createSlice({
   name: 'cooperative',
   initialState,
@@ -100,6 +138,7 @@ const cooperativeSlice = createSlice({
     setCurrentMember: (state, action: PayloadAction<CooperativeMember | null>) => {
       state.currentMember = action.payload;
     },
+    resetCooperative: () => initialState,
   },
   extraReducers: (builder) => {
     builder
@@ -110,7 +149,7 @@ const cooperativeSlice = createSlice({
       })
       .addCase(fetchCooperatives.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.cooperatives = action.payload;
+        state.cooperatives = action.payload || [];
       })
       .addCase(fetchCooperatives.rejected, (state, action) => {
         state.isLoading = false;
@@ -130,6 +169,9 @@ const cooperativeSlice = createSlice({
       })
       // Create cooperative
       .addCase(createCooperative.fulfilled, (state, action) => {
+        if (!state.cooperatives) {
+          state.cooperatives = [];
+        }
         state.cooperatives.push(action.payload);
         state.currentCooperative = action.payload;
       })
@@ -144,14 +186,46 @@ const cooperativeSlice = createSlice({
       })
       .addCase(joinCooperativeByCode.fulfilled, (state, action) => {
         state.isLoading = false;
+        if (!state.cooperatives) {
+          state.cooperatives = [];
+        }
         state.cooperatives.push(action.payload);
       })
       .addCase(joinCooperativeByCode.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
+      })
+      // Fetch pending members
+      .addCase(fetchPendingMembers.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(fetchPendingMembers.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.pendingMembers = action.payload;
+      })
+      .addCase(fetchPendingMembers.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      })
+      // Approve member
+      .addCase(approveMember.fulfilled, (state, action) => {
+        // Remove from pending and add to members
+        const index = state.pendingMembers.findIndex((m) => m.id === action.payload.id);
+        if (index !== -1) {
+          state.pendingMembers.splice(index, 1);
+        }
+        state.members.push(action.payload);
+      })
+      // Reject member
+      .addCase(rejectMember.fulfilled, (state, action) => {
+        // Remove from pending
+        const index = state.pendingMembers.findIndex((m) => m.id === action.payload.memberId);
+        if (index !== -1) {
+          state.pendingMembers.splice(index, 1);
+        }
       });
   },
 });
 
-export const { clearError, setCurrentCooperative, setCurrentMember } = cooperativeSlice.actions;
+export const { clearError, setCurrentCooperative, setCurrentMember, resetCooperative } = cooperativeSlice.actions;
 export default cooperativeSlice.reducer;

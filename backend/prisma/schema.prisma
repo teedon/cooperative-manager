@@ -19,11 +19,13 @@ model User {
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   members    Member[]
+  activities Activity[]
 }
 
 model Cooperative {
   id                 String   @id @default(cuid())
   name               String
+  code               String   @unique
   description        String?
   imageUrl           String?
   status             String
@@ -35,6 +37,7 @@ model Cooperative {
   members            Member[]
   contributionPlans  ContributionPlan[]
   groupBuys          GroupBuy[]
+  activities         Activity[]
 }
 
 model Member {
@@ -48,24 +51,134 @@ model Member {
   virtualBalance Int     @default(0)
   status        String
   contributionRecords ContributionRecord[]
+  contributionSubscriptions ContributionSubscription[]
+  contributionPayments ContributionPayment[]
   loans         Loan[]
   groupBuyOrders GroupBuyOrder[]
 }
 
 model ContributionPlan {
-  id          String  @id @default(cuid())
-  cooperative Cooperative @relation(fields: [cooperativeId], references: [id])
-  cooperativeId String
-  name        String
-  description String?
-  type        String
-  amount      Int?
-  frequency   String?
-  duration    String
-  isActive    Boolean @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-  periods     ContributionPeriod[]
+  id              String  @id @default(cuid())
+  cooperative     Cooperative @relation(fields: [cooperativeId], references: [id])
+  cooperativeId   String
+  name            String
+  description     String?
+  
+  // Category: compulsory or optional
+  category        String  // 'compulsory' | 'optional'
+  
+  // Amount type: fixed (set by admin) or notional (set by member)
+  amountType      String  // 'fixed' | 'notional'
+  fixedAmount     Int?    // Required if amountType is 'fixed'
+  minAmount       Int?    // Optional min for notional
+  maxAmount       Int?    // Optional max for notional
+  
+  // Contribution type: continuous or period-based
+  contributionType String // 'continuous' | 'period'
+  frequency       String? // 'daily' | 'weekly' | 'monthly' | 'yearly'
+  startDate       DateTime?
+  endDate         DateTime? // Required if contributionType is 'period'
+  
+  isActive        Boolean @default(true)
+  createdBy       String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  periods         ContributionPeriod[]
+  subscriptions   ContributionSubscription[]
+}
+
+model ContributionSubscription {
+  id              String @id @default(cuid())
+  plan            ContributionPlan @relation(fields: [planId], references: [id])
+  planId          String
+  member          Member @relation(fields: [memberId], references: [id])
+  memberId        String
+  
+  // Amount committed (for notional plans, this is member-defined)
+  amount          Int
+  
+  // Balance tracking for this subscription
+  totalPaid       Int @default(0)
+  
+  status          String // 'active' | 'paused' | 'cancelled'
+  subscribedAt    DateTime @default(now())
+  pausedAt        DateTime?
+  cancelledAt     DateTime?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  payments        ContributionPayment[]
+  schedules       PaymentSchedule[]
+  
+  @@unique([planId, memberId])
+}
+
+// Payment schedules - represents expected payment dates for subscriptions
+model PaymentSchedule {
+  id              String @id @default(cuid())
+  subscription    ContributionSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  subscriptionId  String
+  
+  // Schedule details
+  dueDate         DateTime              // When this payment is due
+  amount          Int                   // Expected amount for this schedule
+  periodNumber    Int                   // 1, 2, 3... for tracking which payment period
+  periodLabel     String?               // e.g., "January 2025", "Week 1"
+  
+  // Payment status
+  status          String @default("pending") // 'pending' | 'paid' | 'partial' | 'overdue' | 'waived'
+  paidAmount      Int @default(0)       // Amount paid towards this schedule
+  paidAt          DateTime?             // When it was fully paid
+  
+  // Linked payment (if paid)
+  payment         ContributionPayment? @relation(fields: [paymentId], references: [id])
+  paymentId       String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@unique([subscriptionId, periodNumber])
+  @@index([subscriptionId])
+  @@index([dueDate])
+  @@index([status])
+}
+
+// Payments made by members for their subscriptions
+model ContributionPayment {
+  id              String @id @default(cuid())
+  subscription    ContributionSubscription @relation(fields: [subscriptionId], references: [id])
+  subscriptionId  String
+  member          Member @relation(fields: [memberId], references: [id])
+  memberId        String
+  
+  // Payment details
+  amount          Int
+  paymentDate     DateTime @default(now())
+  dueDate         DateTime?  // The due date this payment is for
+  paymentMethod   String?    // 'bank_transfer' | 'cash' | 'mobile_money' | 'card'
+  paymentReference String?   // Transaction reference
+  
+  // Evidence/receipt
+  receiptUrl      String?
+  notes           String?
+  
+  // Approval workflow
+  status          String     // 'pending' | 'approved' | 'rejected'
+  approvedBy      String?
+  approvedAt      DateTime?
+  rejectionReason String?
+  
+  // Linked schedule (which schedule this payment is for)
+  schedules       PaymentSchedule[]
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([subscriptionId])
+  @@index([memberId])
+  @@index([status])
 }
 
 model ContributionPeriod {
@@ -168,4 +281,20 @@ model LedgerEntry {
   description   String?
   createdBy     String
   createdAt     DateTime @default(now())
+}
+
+model Activity {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id])
+  cooperativeId String?
+  cooperative   Cooperative? @relation(fields: [cooperativeId], references: [id])
+  action        String   // e.g., 'cooperative.create', 'cooperative.join', 'member.approve', 'loan.request'
+  description   String   // Human-readable description
+  metadata      Json?    // Additional context data
+  createdAt     DateTime @default(now())
+
+  @@index([userId])
+  @@index([cooperativeId])
+  @@index([createdAt])
 }

@@ -5,3 +5,4 @@ export * from './contributionApi';
 export * from './groupBuyApi';
 export * from './loanApi';
 export * from './ledgerApi';
+export * from './activityApi';

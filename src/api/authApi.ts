@@ -4,6 +4,7 @@ import { User, LoginCredentials, SignupData, ApiResponse } from '../models';
 interface AuthResponse {
   user: User;
   token: string;
+  refreshToken?: string;
 }
 
 export const authApi = {
@@ -13,11 +14,12 @@ export const authApi = {
   },
 
   signup: async (data: SignupData): Promise<ApiResponse<AuthResponse>> => {
-    const response = await apiClient.post<ApiResponse<AuthResponse>>('/auth/signup', data);
+    const response = await apiClient.post<ApiResponse<AuthResponse>>('/auth/register', data);
     return response.data;
   },
 
   logout: async (): Promise<void> => {
+    // backend returns an ApiResponse but we don't need it here
     await apiClient.post('/auth/logout');
   },
 
@@ -26,8 +28,11 @@ export const authApi = {
     return response.data;
   },
 
-  refreshToken: async (): Promise<ApiResponse<{ token: string }>> => {
-    const response = await apiClient.post<ApiResponse<{ token: string }>>('/auth/refresh');
+  refreshToken: async (refreshToken?: string): Promise<ApiResponse<{ token: string; refreshToken?: string }>> => {
+    // backend expects a body with refreshToken
+    const response = await apiClient.post<ApiResponse<{ token: string; refreshToken?: string }>>('/auth/refresh', {
+      refreshToken,
+    });
     return response.data;
   },
 };

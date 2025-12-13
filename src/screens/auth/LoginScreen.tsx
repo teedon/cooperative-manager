@@ -2,21 +2,22 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
+  TextInput,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
   Alert,
   TouchableOpacity,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { login } from '../../store/slices/authSlice';
-import { spacing, borderRadius, shadows } from '../../theme/spacing';
-import { lightTheme } from '../../theme';
-import { ThemedInput, Button } from '../../components/common';
+import { colors, spacing, borderRadius, shadows } from '../../theme';
+import Icon from '../../components/common/Icon';
 
 type LoginScreenNavigationProp = NativeStackNavigationProp<AuthStackParamList, 'Login'>;
 
@@ -39,23 +40,22 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
   const { isLoading, error } = useAppSelector((state) => state.auth);
 
   const [formData, setFormData] = useState<LoginFormData>({
-    email: 'john.doe@example.com',
-    password: 'password123',
+    email: '',
+    password: '',
   });
 
   const [errors, setErrors] = useState<FormErrors>({});
+  const [showPassword, setShowPassword] = useState(false);
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
 
-    // Email validation
     if (!formData.email) {
       newErrors.email = 'Email is required';
     } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = 'Please enter a valid email';
     }
 
-    // Password validation
     if (!formData.password) {
       newErrors.password = 'Password is required';
     } else if (formData.password.length < 6) {
@@ -71,8 +71,9 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 
     try {
       await dispatch(login(formData)).unwrap();
-    } catch {
-      Alert.alert('Login Failed', 'Please check your credentials and try again.');
+    } catch (err: any) {
+      const errorMessage = err?.response?.data?.message || err?.message || 'Please check your credentials and try again.';
+      Alert.alert('Login Failed', errorMessage);
     }
   };
 
@@ -82,55 +83,107 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
-        <View style={styles.content}>
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Header Section */}
           <View style={styles.header}>
-            <Text style={styles.logo}>🤝</Text>
-            <Text style={styles.title}>Cooperative Manager</Text>
-            <Text style={styles.subtitle}>Manage your community cooperatives</Text>
+            <View style={styles.logoContainer}>
+              <Icon name="Users" size={40} color={colors.primary.main} />
+            </View>
+            <Text style={styles.title}>Welcome Back</Text>
+            <Text style={styles.subtitle}>Sign in to continue managing your cooperatives</Text>
           </View>
 
-          <View style={styles.form}>
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Email</Text>
-              <ThemedInput
-                style={[styles.input, errors.email && styles.inputError]}
-                placeholder="Enter your email"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                onChangeText={(text) => setFormData({ ...formData, email: text })}
-                value={formData.email}
-              />
+          {/* Form Section */}
+          <View style={styles.formCard}>
+            {/* Email Input */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Email Address</Text>
+              <View style={[styles.inputWrapper, errors.email && styles.inputWrapperError]}>
+                <Icon name="Mail" size={20} color={colors.text.secondary} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter your email"
+                  placeholderTextColor={colors.text.disabled}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  onChangeText={(text) => {
+                    setFormData({ ...formData, email: text });
+                    if (errors.email) setErrors({ ...errors, email: undefined });
+                  }}
+                  value={formData.email}
+                />
+              </View>
               {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
             </View>
 
-            <View style={styles.inputContainer}>
+            {/* Password Input */}
+            <View style={styles.inputGroup}>
               <Text style={styles.label}>Password</Text>
-              <ThemedInput
-                style={[styles.input, errors.password && styles.inputError]}
-                placeholder="Enter your password"
-                secureTextEntry={true}
-                onChangeText={(text) => setFormData({ ...formData, password: text })}
-                value={formData.password}
-              />
+              <View style={[styles.inputWrapper, errors.password && styles.inputWrapperError]}>
+                <Icon name="Lock" size={20} color={colors.text.secondary} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter your password"
+                  placeholderTextColor={colors.text.disabled}
+                  secureTextEntry={!showPassword}
+                  onChangeText={(text) => {
+                    setFormData({ ...formData, password: text });
+                    if (errors.password) setErrors({ ...errors, password: undefined });
+                  }}
+                  value={formData.password}
+                />
+                <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                  <Icon 
+                    name={showPassword ? 'EyeOff' : 'Eye'} 
+                    size={20} 
+                    color={colors.text.secondary} 
+                  />
+                </TouchableOpacity>
+              </View>
               {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
             </View>
 
-            {error && <Text style={styles.apiError}>{error}</Text>}
+            {/* Forgot Password */}
+            <TouchableOpacity style={styles.forgotPassword}>
+              <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+            </TouchableOpacity>
 
-            <Button title="Sign In" onPress={handleSubmit} loading={isLoading} />
+            {/* API Error */}
+            {error && (
+              <View style={styles.apiErrorContainer}>
+                <Icon name="AlertCircle" size={16} color={colors.error.main} />
+                <Text style={styles.apiError}>{error}</Text>
+              </View>
+            )}
 
-            <View style={styles.footer}>
-              <Text style={styles.footerText}>Don&apos;t have an account?</Text>
-              <TouchableOpacity onPress={() => navigation.navigate('Signup')}>
-                <Text style={styles.footerLink}>Sign Up</Text>
-              </TouchableOpacity>
-            </View>
-
-            <View style={styles.demoNote}>
-              <Text style={styles.demoText}>Demo credentials pre-filled</Text>
-            </View>
+            {/* Submit Button */}
+            <TouchableOpacity
+              style={[styles.button, isLoading && styles.buttonDisabled]}
+              onPress={handleSubmit}
+              disabled={isLoading}
+              activeOpacity={0.8}
+            >
+              {isLoading ? (
+                <ActivityIndicator color={colors.primary.contrast} />
+              ) : (
+                <Text style={styles.buttonText}>Sign In</Text>
+              )}
+            </TouchableOpacity>
           </View>
-        </View>
+
+          {/* Footer */}
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>Don't have an account?</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Signup')}>
+              <Text style={styles.footerLink}>Create Account</Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -139,110 +192,136 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: lightTheme.background.default,
+    backgroundColor: colors.background.default,
   },
   keyboardView: {
     flex: 1,
   },
-  content: {
-    flex: 1,
+  scrollContent: {
+    flexGrow: 1,
     justifyContent: 'center',
-    paddingHorizontal: spacing['2xl'],
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing['3xl'],
   },
   header: {
     alignItems: 'center',
-    marginBottom: spacing['4xl'],
+    marginBottom: spacing['3xl'],
   },
-  logo: {
-    fontSize: 64,
+  logoContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: borderRadius.xl,
+    backgroundColor: colors.primary.light,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: spacing.lg,
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
-    color: lightTheme.text.primary,
+    fontWeight: '700',
+    color: colors.text.primary,
     marginBottom: spacing.sm,
   },
   subtitle: {
-    fontSize: 16,
-    color: lightTheme.text.primary,
+    fontSize: 15,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    lineHeight: 22,
   },
-  form: {
-    backgroundColor: lightTheme.background.surface,
+  formCard: {
+    backgroundColor: colors.background.paper,
     borderRadius: borderRadius.xl,
+    padding: spacing.xl,
     ...shadows.lg,
   },
-  inputContainer: {
-    marginBottom: spacing.xl,
+  inputGroup: {
+    marginBottom: spacing.lg,
   },
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: lightTheme.text.primary,
+    color: colors.text.primary,
     marginBottom: spacing.sm,
   },
-  input: {
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
     borderWidth: 1,
-    borderColor: lightTheme.neutral[300],
+    borderColor: colors.border.light,
     borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.lg,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.background.default,
+    gap: spacing.sm,
+  },
+  inputWrapperError: {
+    borderColor: colors.error.main,
+  },
+  input: {
+    flex: 1,
     paddingVertical: spacing.md,
     fontSize: 16,
-    backgroundColor: lightTheme.secondary.light,
-    color: lightTheme.text.primary,
-  },
-  inputError: {
-    borderColor: lightTheme.error.main,
+    color: colors.text.primary,
   },
   errorText: {
-    color: lightTheme.error.main,
+    color: colors.error.main,
     fontSize: 12,
     marginTop: spacing.xs,
+    marginLeft: spacing.xs,
   },
-  apiError: {
-    color: lightTheme.error.main,
-    fontSize: 14,
-    textAlign: 'center',
+  forgotPassword: {
+    alignSelf: 'flex-end',
     marginBottom: spacing.lg,
   },
-  button: {
-    backgroundColor: lightTheme.primary.main,
-    borderRadius: borderRadius.md,
-    paddingVertical: 14,
+  forgotPasswordText: {
+    color: colors.primary.main,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  apiErrorContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: spacing.sm,
+    backgroundColor: colors.error.light,
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.lg,
+    gap: spacing.sm,
+  },
+  apiError: {
+    color: colors.error.main,
+    fontSize: 14,
+    flex: 1,
+  },
+  button: {
+    backgroundColor: colors.primary.main,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.md + 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 50,
   },
   buttonDisabled: {
     opacity: 0.7,
   },
   buttonText: {
-    color: lightTheme.primary.contrast,
+    color: colors.primary.contrast,
     fontSize: 16,
     fontWeight: '600',
   },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
+    alignItems: 'center',
     marginTop: spacing['2xl'],
     gap: spacing.xs,
   },
   footerText: {
-    color: lightTheme.text.secondary,
-    fontSize: 14,
+    color: colors.text.secondary,
+    fontSize: 15,
   },
   footerLink: {
-    color: lightTheme.primary.main,
-    fontSize: 14,
+    color: colors.primary.main,
+    fontSize: 15,
     fontWeight: '600',
-  },
-  demoNote: {
-    marginTop: spacing.lg,
-    alignItems: 'center',
-  },
-  demoText: {
-    color: lightTheme.text.disabled,
-    fontSize: 12,
-    fontStyle: 'italic',
   },
 });
 

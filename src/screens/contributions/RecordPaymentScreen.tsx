@@ -17,12 +17,14 @@ import { HomeStackParamList } from '../../navigation/MainNavigator';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { recordPayment } from '../../store/slices/contributionSlice';
 import { validateRequired } from '../../utils/validation';
+import DatePicker from '../../components/common/DatePicker';
+import { toDateInputValue } from '../../utils/formatters';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'RecordPayment'>;
 
 interface PaymentFormData {
   amount: string;
-  paymentDate: string;
+  paymentDate: Date;
   paymentReference: string;
   notes: string;
 }
@@ -43,7 +45,7 @@ const RecordPaymentScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const [formData, setFormData] = useState<PaymentFormData>({
     amount: currentPlan?.type === 'fixed' ? String(currentPlan.amount) : '',
-    paymentDate: new Date().toISOString().split('T')[0],
+    paymentDate: new Date(),
     paymentReference: '',
     notes: '',
   });
@@ -55,8 +57,9 @@ const RecordPaymentScreen: React.FC<Props> = ({ route, navigation }) => {
     const amountError = validateRequired(formData.amount, 'Amount');
     if (amountError) newErrors.amount = amountError;
 
-    const dateError = validateRequired(formData.paymentDate, 'Payment date');
-    if (dateError) newErrors.paymentDate = dateError;
+    if (!formData.paymentDate) {
+      newErrors.paymentDate = 'Payment date is required';
+    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -164,14 +167,14 @@ const RecordPaymentScreen: React.FC<Props> = ({ route, navigation }) => {
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.label}>Payment Date *</Text>
-          <TextInput
-            style={[styles.input, errors.paymentDate && styles.inputError]}
-            placeholder="YYYY-MM-DD"
-            onChangeText={(text) => setFormData({ ...formData, paymentDate: text })}
+          <DatePicker
+            label="Payment Date *"
             value={formData.paymentDate}
+            onChange={(date) => setFormData({ ...formData, paymentDate: date || new Date() })}
+            placeholder="Select payment date"
+            maximumDate={new Date()}
+            error={errors.paymentDate}
           />
-          {errors.paymentDate && <Text style={styles.errorText}>{errors.paymentDate}</Text>}
         </View>
 
         <View style={styles.inputGroup}>

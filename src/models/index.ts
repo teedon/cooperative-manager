@@ -13,6 +13,7 @@ export interface User {
 export interface AuthState {
   user: User | null;
   token: string | null;
+  refreshToken?: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
@@ -35,9 +36,32 @@ export interface SignupData {
 export type MemberRole = 'admin' | 'moderator' | 'member';
 export type CooperativeStatus = 'active' | 'inactive' | 'suspended';
 
+// Activity Types
+export interface Activity {
+  id: string;
+  userId: string;
+  user?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    avatarUrl?: string;
+  };
+  cooperativeId?: string;
+  cooperative?: {
+    id: string;
+    name: string;
+    code: string;
+  };
+  action: string;
+  description: string;
+  metadata?: Record<string, any>;
+  createdAt: string;
+}
+
 export interface Cooperative {
   id: string;
   name: string;
+  code: string;
   description?: string;
   imageUrl?: string;
   status: CooperativeStatus;
@@ -55,33 +79,145 @@ export interface CooperativeMember {
   role: MemberRole;
   joinedAt: string;
   virtualBalance: number;
-  status: 'active' | 'suspended' | 'removed';
+  status: 'active' | 'pending' | 'suspended' | 'removed';
 }
 
 // Contribution Types
-export type ContributionFrequency = 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'annually';
-export type ContributionPlanType = 'fixed' | 'variable';
-export type ContributionPlanDuration = 'continuous' | 'fixed_period';
+export type ContributionFrequency = 'daily' | 'weekly' | 'monthly' | 'yearly';
+export type ContributionCategory = 'compulsory' | 'optional';
+export type ContributionAmountType = 'fixed' | 'notional';
+export type ContributionType = 'continuous' | 'period';
 export type ContributionPeriodStatus = 'upcoming' | 'active' | 'completed' | 'overdue';
 export type ContributionRecordStatus = 'pending' | 'verified' | 'rejected';
+export type SubscriptionStatus = 'active' | 'paused' | 'cancelled';
 
 export interface ContributionPlan {
   id: string;
   cooperativeId: string;
   name: string;
   description?: string;
-  type: ContributionPlanType;
-  amount?: number; // Required if type is 'fixed'
-  minAmount?: number; // For variable plans
-  maxAmount?: number; // For variable plans
-  frequency: ContributionFrequency;
-  duration: ContributionPlanDuration;
-  startDate: string;
-  endDate?: string; // Required if duration is 'fixed_period'
-  totalPeriods?: number; // Computed for fixed_period
+  
+  // Category: compulsory or optional
+  category: ContributionCategory;
+  
+  // Amount type: fixed (set by admin) or notional (set by member)
+  amountType: ContributionAmountType;
+  fixedAmount?: number; // Required if amountType is 'fixed'
+  minAmount?: number; // Optional min for notional
+  maxAmount?: number; // Optional max for notional
+  
+  // Contribution type: continuous or period-based
+  contributionType: ContributionType;
+  frequency?: ContributionFrequency;
+  startDate?: string;
+  endDate?: string; // Required if contributionType is 'period'
+  
   isActive: boolean;
+  createdBy: string;
   createdAt: string;
   updatedAt: string;
+  
+  // Relations
+  subscriptions?: ContributionSubscription[];
+  _count?: {
+    subscriptions: number;
+  };
+}
+
+export interface ContributionSubscription {
+  id: string;
+  planId: string;
+  memberId: string;
+  amount: number;
+  totalPaid: number;
+  status: SubscriptionStatus;
+  subscribedAt: string;
+  pausedAt?: string;
+  cancelledAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  
+  // Relations
+  plan?: ContributionPlan;
+  member?: CooperativeMember;
+  payments?: ContributionPayment[];
+}
+
+export type PaymentStatus = 'pending' | 'approved' | 'rejected';
+export type PaymentMethod = 'bank_transfer' | 'cash' | 'mobile_money' | 'card';
+
+export interface ContributionPayment {
+  id: string;
+  subscriptionId: string;
+  memberId: string;
+  amount: number;
+  paymentDate: string;
+  dueDate?: string;
+  paymentMethod?: PaymentMethod;
+  paymentReference?: string;
+  receiptUrl?: string;
+  notes?: string;
+  status: PaymentStatus;
+  approvedBy?: string;
+  approvedAt?: string;
+  rejectionReason?: string;
+  createdAt: string;
+  updatedAt: string;
+  
+  // Relations
+  subscription?: ContributionSubscription;
+  member?: CooperativeMember;
+}
+
+export type ScheduleStatus = 'pending' | 'paid' | 'partial' | 'overdue' | 'waived';
+
+export interface PaymentSchedule {
+  id: string;
+  subscriptionId: string;
+  dueDate: string;
+  amount: number;
+  periodNumber: number;
+  periodLabel?: string;
+  status: ScheduleStatus;
+  paidAmount: number;
+  paidAt?: string;
+  paymentId?: string;
+  createdAt: string;
+  updatedAt: string;
+  
+  // Calculated fields (from backend)
+  isOverdue?: boolean;
+  daysOverdue?: number;
+  
+  // Relations
+  subscription?: ContributionSubscription & {
+    plan?: ContributionPlan;
+    member?: CooperativeMember;
+  };
+  payment?: ContributionPayment;
+}
+
+export interface DuePayment {
+  subscription: {
+    id: string;
+    amount: number;
+    totalPaid: number;
+    status: SubscriptionStatus;
+    subscribedAt: string;
+  };
+  plan: {
+    id: string;
+    name: string;
+    category: ContributionCategory;
+    frequency?: string;
+    amountType: ContributionAmountType;
+  };
+  nextDueDate: string;
+  isDue: boolean;
+  isOverdue: boolean;
+  amountDue: number;
+  pendingPaymentsCount: number;
+  pendingAmount: number;
 }
 
 export interface ContributionPeriod {

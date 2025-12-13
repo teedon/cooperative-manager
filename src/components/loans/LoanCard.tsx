@@ -39,7 +39,7 @@ const LoanCard: React.FC<LoanCardProps> = ({ loan, onPress, showMember, testID }
     >
       <View style={styles.header}>
         <View style={styles.amountSection}>
-          <Text style={styles.amount}>${loan.amount.toLocaleString()}</Text>
+          <Text style={styles.amount}>₦{loan.amount.toLocaleString()}</Text>
           <Badge text={loan.status} variant={getStatusVariant()} />
         </View>
       </View>
@@ -65,13 +65,13 @@ const LoanCard: React.FC<LoanCardProps> = ({ loan, onPress, showMember, testID }
         </View>
         <View style={styles.detailItem}>
           <Text style={styles.detailLabel}>Monthly</Text>
-          <Text style={styles.detailValue}>${loan.monthlyRepayment.toFixed(2)}</Text>
+          <Text style={styles.detailValue}>₦{loan.monthlyRepayment.toLocaleString()}</Text>
         </View>
       </View>
 
       <View style={styles.footer}>
         <Text style={styles.footerLabel}>Total Repayment</Text>
-        <Text style={styles.footerValue}>${loan.totalRepayment.toFixed(2)}</Text>
+        <Text style={styles.footerValue}>₦{loan.totalRepayment.toLocaleString()}</Text>
       </View>
     </TouchableOpacity>
   );

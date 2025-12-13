@@ -108,6 +108,7 @@ const loanSlice = createSlice({
     setCurrentLoan: (state, action: PayloadAction<LoanRequest | null>) => {
       state.currentLoan = action.payload;
     },
+    resetLoan: () => initialState,
   },
   extraReducers: (builder) => {
     builder
@@ -156,5 +157,5 @@ const loanSlice = createSlice({
   },
 });
 
-export const { clearError, setCurrentLoan } = loanSlice.actions;
+export const { clearError, setCurrentLoan, resetLoan } = loanSlice.actions;
 export default loanSlice.reducer;

@@ -53,9 +53,9 @@ const PeriodCard: React.FC<PeriodCardProps> = ({ period, onPress, expectedAmount
           <View style={[styles.progressFill, { width: `${progress}%` }]} />
         </View>
         <View style={styles.progressLabels}>
-          <Text style={styles.collectedAmount}>${period.collectedAmount.toLocaleString()}</Text>
+          <Text style={styles.collectedAmount}>₦{period.collectedAmount.toLocaleString()}</Text>
           {expectedAmount && (
-            <Text style={styles.expectedAmount}>of ${expectedAmount.toLocaleString()}</Text>
+            <Text style={styles.expectedAmount}>of ₦{expectedAmount.toLocaleString()}</Text>
           )}
         </View>
       </View>

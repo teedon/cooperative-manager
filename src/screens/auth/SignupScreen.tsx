@@ -23,6 +23,7 @@ import {
   validatePasswordMatch,
 } from '../../utils/validation';
 import { colors, spacing, borderRadius, shadows } from '../../theme';
+import Icon from '../../components/common/Icon';
 
 type SignupScreenNavigationProp = NativeStackNavigationProp<AuthStackParamList, 'Signup'>;
 
@@ -34,7 +35,7 @@ interface SignupFormData {
   firstName: string;
   lastName: string;
   email: string;
-  phone?: string;
+  phone: string;
   password: string;
   confirmPassword: string;
 }
@@ -61,6 +62,8 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
   });
 
   const [errors, setErrors] = useState<FormErrors>({});
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
@@ -85,8 +88,16 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
     try {
       const { confirmPassword: _, ...signupData } = formData;
       await dispatch(signup(signupData)).unwrap();
-    } catch {
-      Alert.alert('Signup Failed', 'Please try again.');
+    } catch (err: any) {
+      const errorMessage = err?.response?.data?.message || err?.message || 'Please try again.';
+      Alert.alert('Signup Failed', errorMessage);
+    }
+  };
+
+  const updateField = (field: keyof SignupFormData, value: string) => {
+    setFormData({ ...formData, [field]: value });
+    if (errors[field as keyof FormErrors]) {
+      setErrors({ ...errors, [field]: undefined });
     }
   };
 
@@ -96,100 +107,152 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
-        <ScrollView contentContainerStyle={styles.scrollContent}>
+        <ScrollView 
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {/* Header Section */}
           <View style={styles.header}>
-            <Text style={styles.logo}>🤝</Text>
+            <View style={styles.logoContainer}>
+              <Icon name="UserPlus" size={40} color={colors.primary.main} />
+            </View>
             <Text style={styles.title}>Create Account</Text>
             <Text style={styles.subtitle}>Join a community cooperative today</Text>
           </View>
 
-          <View style={styles.form}>
+          {/* Form Section */}
+          <View style={styles.formCard}>
+            {/* Name Row */}
             <View style={styles.row}>
-              <View style={[styles.inputContainer, styles.halfWidth]}>
+              <View style={[styles.inputGroup, styles.halfWidth]}>
                 <Text style={styles.label}>First Name</Text>
-                <TextInput
-                  style={[styles.input, errors.firstName && styles.inputError]}
-                  placeholder="First name"
-                  placeholderTextColor={colors.text.disabled}
-                  onChangeText={(text) => setFormData({ ...formData, firstName: text })}
-                  value={formData.firstName}
-                />
+                <View style={[styles.inputWrapper, errors.firstName && styles.inputWrapperError]}>
+                  <Icon name="User" size={18} color={colors.text.secondary} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="First name"
+                    placeholderTextColor={colors.text.disabled}
+                    onChangeText={(text) => updateField('firstName', text)}
+                    value={formData.firstName}
+                  />
+                </View>
                 {errors.firstName && <Text style={styles.errorText}>{errors.firstName}</Text>}
               </View>
 
-              <View style={[styles.inputContainer, styles.halfWidth]}>
+              <View style={[styles.inputGroup, styles.halfWidth]}>
                 <Text style={styles.label}>Last Name</Text>
-                <TextInput
-                  style={[styles.input, errors.lastName && styles.inputError]}
-                  placeholder="Last name"
-                  placeholderTextColor={colors.text.disabled}
-                  onChangeText={(text) => setFormData({ ...formData, lastName: text })}
-                  value={formData.lastName}
-                />
+                <View style={[styles.inputWrapper, errors.lastName && styles.inputWrapperError]}>
+                  <Icon name="User" size={18} color={colors.text.secondary} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Last name"
+                    placeholderTextColor={colors.text.disabled}
+                    onChangeText={(text) => updateField('lastName', text)}
+                    value={formData.lastName}
+                  />
+                </View>
                 {errors.lastName && <Text style={styles.errorText}>{errors.lastName}</Text>}
               </View>
             </View>
 
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Email</Text>
-              <TextInput
-                style={[styles.input, errors.email && styles.inputError]}
-                placeholder="Enter your email"
-                placeholderTextColor={colors.text.disabled}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                onChangeText={(text) => setFormData({ ...formData, email: text })}
-                value={formData.email}
-              />
+            {/* Email Input */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Email Address</Text>
+              <View style={[styles.inputWrapper, errors.email && styles.inputWrapperError]}>
+                <Icon name="Mail" size={20} color={colors.text.secondary} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter your email"
+                  placeholderTextColor={colors.text.disabled}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  onChangeText={(text) => updateField('email', text)}
+                  value={formData.email}
+                />
+              </View>
               {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
             </View>
 
-            <View style={styles.inputContainer}>
-              <Text style={styles.label}>Phone (Optional)</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Enter your phone number"
-                placeholderTextColor={colors.text.disabled}
-                keyboardType="phone-pad"
-                onChangeText={(text) => setFormData({ ...formData, phone: text })}
-                value={formData.phone}
-              />
+            {/* Phone Input */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Phone Number <Text style={styles.optional}>(Optional)</Text></Text>
+              <View style={styles.inputWrapper}>
+                <Icon name="Phone" size={20} color={colors.text.secondary} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Enter your phone number"
+                  placeholderTextColor={colors.text.disabled}
+                  keyboardType="phone-pad"
+                  onChangeText={(text) => updateField('phone', text)}
+                  value={formData.phone}
+                />
+              </View>
             </View>
 
-            <View style={styles.inputContainer}>
+            {/* Password Input */}
+            <View style={styles.inputGroup}>
               <Text style={styles.label}>Password</Text>
-              <TextInput
-                style={[styles.input, errors.password && styles.inputError]}
-                placeholder="Create a password"
-                placeholderTextColor={colors.text.disabled}
-                secureTextEntry={true}
-                onChangeText={(text) => setFormData({ ...formData, password: text })}
-                value={formData.password}
-              />
+              <View style={[styles.inputWrapper, errors.password && styles.inputWrapperError]}>
+                <Icon name="Lock" size={20} color={colors.text.secondary} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Create a password"
+                  placeholderTextColor={colors.text.disabled}
+                  secureTextEntry={!showPassword}
+                  onChangeText={(text) => updateField('password', text)}
+                  value={formData.password}
+                />
+                <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                  <Icon 
+                    name={showPassword ? 'EyeOff' : 'Eye'} 
+                    size={20} 
+                    color={colors.text.secondary} 
+                  />
+                </TouchableOpacity>
+              </View>
               {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
             </View>
 
-            <View style={styles.inputContainer}>
+            {/* Confirm Password Input */}
+            <View style={styles.inputGroup}>
               <Text style={styles.label}>Confirm Password</Text>
-              <TextInput
-                style={[styles.input, errors.confirmPassword && styles.inputError]}
-                placeholder="Confirm your password"
-                placeholderTextColor={colors.text.disabled}
-                secureTextEntry={true}
-                onChangeText={(text) => setFormData({ ...formData, confirmPassword: text })}
-                value={formData.confirmPassword}
-              />
-              {errors.confirmPassword && (
-                <Text style={styles.errorText}>{errors.confirmPassword}</Text>
-              )}
+              <View style={[styles.inputWrapper, errors.confirmPassword && styles.inputWrapperError]}>
+                <Icon name="Lock" size={20} color={colors.text.secondary} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="Confirm your password"
+                  placeholderTextColor={colors.text.disabled}
+                  secureTextEntry={!showConfirmPassword}
+                  onChangeText={(text) => updateField('confirmPassword', text)}
+                  value={formData.confirmPassword}
+                />
+                <TouchableOpacity onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+                  <Icon 
+                    name={showConfirmPassword ? 'EyeOff' : 'Eye'} 
+                    size={20} 
+                    color={colors.text.secondary} 
+                  />
+                </TouchableOpacity>
+              </View>
+              {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword}</Text>}
             </View>
 
-            {error && <Text style={styles.apiError}>{error}</Text>}
+            {/* API Error */}
+            {error && (
+              <View style={styles.apiErrorContainer}>
+                <Icon name="AlertCircle" size={16} color={colors.error.main} />
+                <Text style={styles.apiError}>{error}</Text>
+              </View>
+            )}
 
+            {/* Submit Button */}
             <TouchableOpacity
               style={[styles.button, isLoading && styles.buttonDisabled]}
               onPress={handleSubmit}
               disabled={isLoading}
+              activeOpacity={0.8}
             >
               {isLoading ? (
                 <ActivityIndicator color={colors.primary.contrast} />
@@ -198,12 +261,20 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
               )}
             </TouchableOpacity>
 
-            <View style={styles.footer}>
-              <Text style={styles.footerText}>Already have an account?</Text>
-              <TouchableOpacity onPress={() => navigation.goBack()}>
-                <Text style={styles.footerLink}>Sign In</Text>
-              </TouchableOpacity>
-            </View>
+            {/* Terms */}
+            <Text style={styles.terms}>
+              By creating an account, you agree to our{' '}
+              <Text style={styles.termsLink}>Terms of Service</Text> and{' '}
+              <Text style={styles.termsLink}>Privacy Policy</Text>
+            </Text>
+          </View>
+
+          {/* Footer */}
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>Already have an account?</Text>
+            <TouchableOpacity onPress={() => navigation.goBack()}>
+              <Text style={styles.footerLink}>Sign In</Text>
+            </TouchableOpacity>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -221,33 +292,37 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
-    paddingHorizontal: spacing['2xl'],
-    paddingVertical: spacing['3xl'],
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing['2xl'],
   },
   header: {
     alignItems: 'center',
-    marginBottom: spacing['3xl'],
+    marginBottom: spacing['2xl'],
   },
-  logo: {
-    fontSize: 48,
+  logoContainer: {
+    width: 72,
+    height: 72,
+    borderRadius: borderRadius.xl,
+    backgroundColor: colors.primary.light,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: spacing.md,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    fontSize: 26,
+    fontWeight: '700',
     color: colors.text.primary,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 15,
     color: colors.text.secondary,
     textAlign: 'center',
   },
-  form: {
+  formCard: {
     backgroundColor: colors.background.paper,
     borderRadius: borderRadius.xl,
-    padding: spacing['2xl'],
+    padding: spacing.xl,
     ...shadows.lg,
   },
   row: {
@@ -257,7 +332,7 @@ const styles = StyleSheet.create({
   halfWidth: {
     flex: 1,
   },
-  inputContainer: {
+  inputGroup: {
     marginBottom: spacing.lg,
   },
   label: {
@@ -266,36 +341,56 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
     marginBottom: spacing.sm,
   },
-  input: {
+  optional: {
+    fontWeight: '400',
+    color: colors.text.secondary,
+  },
+  inputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
     borderWidth: 1,
     borderColor: colors.border.light,
     borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
-    fontSize: 16,
-    backgroundColor: colors.secondary.light,
-    color: colors.text.primary,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.background.default,
+    gap: spacing.sm,
   },
-  inputError: {
+  inputWrapperError: {
     borderColor: colors.error.main,
+  },
+  input: {
+    flex: 1,
+    paddingVertical: spacing.md,
+    fontSize: 15,
+    color: colors.text.primary,
   },
   errorText: {
     color: colors.error.main,
     fontSize: 12,
     marginTop: spacing.xs,
+    marginLeft: spacing.xs,
+  },
+  apiErrorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.error.light,
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.lg,
+    gap: spacing.sm,
   },
   apiError: {
     color: colors.error.main,
     fontSize: 14,
-    textAlign: 'center',
-    marginBottom: spacing.lg,
+    flex: 1,
   },
   button: {
     backgroundColor: colors.primary.main,
     borderRadius: borderRadius.md,
-    paddingVertical: 14,
+    paddingVertical: spacing.md + 2,
     alignItems: 'center',
-    marginTop: spacing.sm,
+    justifyContent: 'center',
+    minHeight: 50,
   },
   buttonDisabled: {
     opacity: 0.7,
@@ -305,19 +400,31 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  terms: {
+    fontSize: 12,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    marginTop: spacing.lg,
+    lineHeight: 18,
+  },
+  termsLink: {
+    color: colors.primary.main,
+    fontWeight: '500',
+  },
   footer: {
     flexDirection: 'row',
     justifyContent: 'center',
+    alignItems: 'center',
     marginTop: spacing['2xl'],
     gap: spacing.xs,
   },
   footerText: {
     color: colors.text.secondary,
-    fontSize: 14,
+    fontSize: 15,
   },
   footerLink: {
     color: colors.primary.main,
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
   },
 });

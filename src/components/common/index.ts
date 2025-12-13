@@ -7,3 +7,6 @@ export { default as Modal } from './Modal';
 export { default as Badge } from './Badge';
 export { default as Avatar } from './Avatar';
 export { default as ListItem } from './ListItem';
+export { default as DatePicker } from './DatePicker';
+export { default as Logo } from './Logo';
+export * from './OnboardingIllustrations';

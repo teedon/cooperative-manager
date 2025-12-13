@@ -1,14 +1,36 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { logout } from '../../store/slices/authSlice';
+import { logout, resetAuth } from '../../store/slices/authSlice';
+import { fetchCooperatives } from '../../store/slices/cooperativeSlice';
 import { colors, spacing, borderRadius, shadows } from '../../theme';
 import Icon from '../../components/common/Icon';
+import { formatCurrency } from '../../utils/formatters';
 
 const ProfileScreen: React.FC = () => {
   const dispatch = useAppDispatch();
   const { user } = useAppSelector((state) => state.auth);
+  const { cooperatives = [] } = useAppSelector((state) => state.cooperative);
+
+  useEffect(() => {
+    // Fetch cooperatives to get stats
+    dispatch(fetchCooperatives());
+  }, [dispatch]);
+
+  // Calculate statistics
+  const totalCooperatives = cooperatives.length;
+  const totalContributions = cooperatives.reduce((sum, c) => sum + (c.totalContributions ?? 0), 0);
+  
+  // Calculate months active since account creation
+  const getMonthsActive = (): number => {
+    if (!user?.createdAt) return 0;
+    const createdDate = new Date(user.createdAt);
+    const now = new Date();
+    const months = (now.getFullYear() - createdDate.getFullYear()) * 12 + 
+                   (now.getMonth() - createdDate.getMonth());
+    return Math.max(1, months); // At least 1 month if user exists
+  };
 
   const handleLogout = () => {
     Alert.alert('Logout', 'Are you sure you want to logout?', [
@@ -16,7 +38,15 @@ const ProfileScreen: React.FC = () => {
       {
         text: 'Logout',
         style: 'destructive',
-        onPress: () => dispatch(logout()),
+        onPress: async () => {
+          try {
+            await dispatch(logout()).unwrap();
+          } catch (err) {
+            // Even if the API call fails, clear local state
+            console.warn('Logout API failed, clearing local state', err);
+            dispatch(resetAuth());
+          }
+        },
       },
     ]);
   };
@@ -52,17 +82,17 @@ const ProfileScreen: React.FC = () => {
 
         <View style={styles.statsSection}>
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>3</Text>
+            <Text style={styles.statValue}>{totalCooperatives}</Text>
             <Text style={styles.statLabel}>Cooperatives</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>$25,000</Text>
+            <Text style={styles.statValue}>{formatCurrency(totalContributions)}</Text>
             <Text style={styles.statLabel}>Total Savings</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>12</Text>
+            <Text style={styles.statValue}>{getMonthsActive()}</Text>
             <Text style={styles.statLabel}>Months Active</Text>
           </View>
         </View>

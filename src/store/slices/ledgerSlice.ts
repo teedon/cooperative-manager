@@ -71,6 +71,7 @@ const ledgerSlice = createSlice({
       state.entries = [];
       state.virtualBalance = null;
     },
+    resetLedger: () => initialState,
   },
   extraReducers: (builder) => {
     builder
@@ -98,5 +99,5 @@ const ledgerSlice = createSlice({
   },
 });
 
-export const { clearError, clearLedger } = ledgerSlice.actions;
+export const { clearError, clearLedger, resetLedger } = ledgerSlice.actions;
 export default ledgerSlice.reducer;

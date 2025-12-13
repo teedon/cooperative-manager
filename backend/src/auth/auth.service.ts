@@ -3,12 +3,17 @@ import { UsersService } from '../users/users.service';
 import * as bcrypt from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
 import { randomBytes } from 'crypto';
+import { ActivitiesService } from '../activities/activities.service';
 
 type TokenPair = { accessToken: string; refreshToken: string };
 
 @Injectable()
 export class AuthService {
-  constructor(private users: UsersService, private jwt: JwtService) {}
+  constructor(
+    private users: UsersService,
+    private jwt: JwtService,
+    private activitiesService: ActivitiesService,
+  ) {}
 
   async validateUser(email: string, pass: string) {
     const user = await this.users.findByEmail(email);
@@ -27,6 +32,16 @@ export class AuthService {
     const refreshToken = randomBytes(64).toString('hex');
     const hashed = await bcrypt.hash(refreshToken, 10);
     await this.users.setRefreshToken(user.id, hashed);
+
+    // Log activity
+    await this.activitiesService.log(
+      user.id,
+      'auth.login',
+      'Logged into the system',
+      undefined,
+      { email: user.email },
+    );
+
     return { accessToken, refreshToken } as TokenPair;
   }
 
@@ -41,6 +56,16 @@ export class AuthService {
     const refreshToken = randomBytes(64).toString('hex');
     const hashed = await bcrypt.hash(refreshToken, 10);
     await this.users.setRefreshToken(user.id, hashed);
+
+    // Log activity
+    await this.activitiesService.log(
+      user.id,
+      'auth.register',
+      'Created a new account',
+      undefined,
+      { email: user.email, firstName: user.firstName, lastName: user.lastName },
+    );
+
     return { user: safe, accessToken, refreshToken };
   }
 

@@ -911,7 +911,7 @@ export class ContributionsService {
   async generatePaymentSchedules(
     subscriptionId: string,
     plan: {
-      frequency: string;
+      frequency: string | null;
       startDate?: Date | null;
       endDate?: Date | null;
       contributionType: string;
@@ -919,6 +919,8 @@ export class ContributionsService {
     amount: number,
     monthsAhead: number = 12
   ) {
+    // Default to monthly if no frequency specified
+    const frequency = plan.frequency || 'monthly';
     const startDate = plan.startDate ? new Date(plan.startDate) : new Date();
     const now = new Date();
     
@@ -948,7 +950,7 @@ export class ContributionsService {
     let periodNumber = 1;
 
     while (currentDate <= scheduleEnd) {
-      const periodLabel = this.getPeriodLabel(currentDate, plan.frequency);
+      const periodLabel = this.getPeriodLabel(currentDate, frequency);
       
       schedules.push({
         subscriptionId,
@@ -960,7 +962,7 @@ export class ContributionsService {
       });
 
       // Move to next period based on frequency
-      currentDate = this.getNextDueDate(currentDate, plan.frequency);
+      currentDate = this.getNextDueDate(currentDate, frequency);
       periodNumber++;
 
       // Safety limit to prevent infinite loops
@@ -1245,8 +1247,10 @@ export class ContributionsService {
     threeMonthsFromNow.setMonth(threeMonthsFromNow.getMonth() + 3);
 
     if (new Date(latestSchedule.dueDate) < threeMonthsFromNow) {
+      // Default to monthly if no frequency specified
+      const frequency = subscription.plan.frequency || 'monthly';
       // Generate more schedules starting from the last one
-      const startDate = this.getNextDueDate(new Date(latestSchedule.dueDate), subscription.plan.frequency);
+      const startDate = this.getNextDueDate(new Date(latestSchedule.dueDate), frequency);
       const endDate = new Date();
       endDate.setMonth(endDate.getMonth() + 12);
 
@@ -1260,11 +1264,11 @@ export class ContributionsService {
           dueDate: new Date(currentDate),
           amount: subscription.amount,
           periodNumber,
-          periodLabel: this.getPeriodLabel(currentDate, subscription.plan.frequency),
+          periodLabel: this.getPeriodLabel(currentDate, frequency),
           status: 'pending',
         });
 
-        currentDate = this.getNextDueDate(currentDate, subscription.plan.frequency);
+        currentDate = this.getNextDueDate(currentDate, frequency);
         periodNumber++;
 
         if (periodNumber > latestSchedule.periodNumber + 365) break;
@@ -1324,7 +1328,7 @@ export class ContributionsService {
         subscriptionId: schedule.subscriptionId,
         memberId: schedule.subscription.memberId,
         amount: dto.amount,
-        paymentDate: dto.paymentDate ? new Date(dto.paymentDate) : new Date(),
+        paymentDate: new Date(),
         dueDate: schedule.dueDate,
         paymentMethod: dto.paymentMethod,
         paymentReference: dto.paymentReference,

@@ -18,8 +18,14 @@ const appReducer = combineReducers({
 
 // Custom root reducer to handle global reset
 const rootReducer = (state: ReturnType<typeof appReducer> | undefined, action: any) => {
-  // When logout is fulfilled or resetAuth is called, reset entire state
-  if (action.type === 'auth/logout/fulfilled' || action.type === 'auth/resetAuth') {
+  // When logout is initiated or completed, resetAuth, forceLogout, or clearAllData is called, reset entire state
+  if (
+    action.type === 'auth/logout/pending' ||
+    action.type === 'auth/logout/fulfilled' ||
+    action.type === 'auth/resetAuth' ||
+    action.type === 'auth/forceLogout' ||
+    action.type === 'auth/clearAllData'
+  ) {
     // Return undefined to reset to initial state for all reducers
     state = undefined;
   }

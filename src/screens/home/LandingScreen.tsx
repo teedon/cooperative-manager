@@ -259,7 +259,10 @@ const LandingScreen: React.FC = () => {
   };
 
   useEffect(() => {
-    logger.info('ui.landing.mounted');
+    logger.info('ui.landing.mounted', { userId: user?.id });
+    // Reset local state for new user
+    setActivities([]);
+    setActivitiesLoading(true);
     fetchData();
     
     // Animate header
@@ -268,7 +271,7 @@ const LandingScreen: React.FC = () => {
       duration: 600,
       useNativeDriver: true,
     }).start();
-  }, [dispatch]);
+  }, [dispatch, user?.id]);
 
   const onRefresh = async () => {
     setRefreshing(true);

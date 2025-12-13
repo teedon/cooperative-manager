@@ -43,10 +43,15 @@ export const logout = createAsyncThunk('auth/logout', async (_, { rejectWithValu
     // Even if backend logout fails, we should clear local storage
     console.warn('Backend logout failed, clearing local storage anyway');
   }
-  // Always clear local storage
-  await AsyncStorage.removeItem('auth_token');
-  await AsyncStorage.removeItem('auth_user');
-  await AsyncStorage.removeItem('auth_refresh');
+  // Clear ALL user-related local storage including onboarding state
+  // This ensures new users see onboarding when signing up on same device
+  await AsyncStorage.multiRemove([
+    'auth_token',
+    'auth_user',
+    'auth_refresh',
+    'hasSeenOnboarding',
+  ]);
+  return true; // Signal successful logout
 });
 
 export const restoreSession = createAsyncThunk('auth/restoreSession', async (_, { rejectWithValue }) => {
@@ -125,16 +130,17 @@ const authSlice = createSlice({
     },
     forceLogout: (state) => {
       // Used when token refresh fails in the interceptor
-      AsyncStorage.removeItem('auth_token');
-      AsyncStorage.removeItem('auth_user');
-      AsyncStorage.removeItem('auth_refresh');
+      AsyncStorage.multiRemove(['auth_token', 'auth_user', 'auth_refresh', 'hasSeenOnboarding']);
       return initialState;
     },
     resetAuth: () => {
       // Clear persisted auth data when resetting
-      AsyncStorage.removeItem('auth_token');
-      AsyncStorage.removeItem('auth_user');
-      AsyncStorage.removeItem('auth_refresh');
+      AsyncStorage.multiRemove(['auth_token', 'auth_user', 'auth_refresh', 'hasSeenOnboarding']);
+      return initialState;
+    },
+    clearAllData: () => {
+      // Clear everything for a complete fresh start
+      AsyncStorage.multiRemove(['auth_token', 'auth_user', 'auth_refresh', 'hasSeenOnboarding']);
       return initialState;
     },
   },
@@ -219,5 +225,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { clearError, setUser, setToken, updateTokens, forceLogout, resetAuth } = authSlice.actions;
+export const { clearError, setUser, setToken, updateTokens, forceLogout, resetAuth, clearAllData } = authSlice.actions;
 export default authSlice.reducer;

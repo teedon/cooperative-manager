@@ -124,7 +124,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
 
   useEffect(() => {
     loadCooperatives();
-  }, [loadCooperatives]);
+  }, [loadCooperatives, user?.id]);
 
   const handleJoinCooperative = async () => {
     if (!cooperativeCode.trim()) {

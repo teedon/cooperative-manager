@@ -20,9 +20,19 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 
 const RootNavigator: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { isAuthenticated } = useAppSelector((state) => state.auth);
+  const { isAuthenticated, user } = useAppSelector((state) => state.auth);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
+
+  // Check onboarding state whenever auth changes
+  useEffect(() => {
+    const checkOnboardingState = async () => {
+      const hasSeenOnboarding = await AsyncStorage.getItem('hasSeenOnboarding');
+      setShowOnboarding(hasSeenOnboarding !== 'true');
+    };
+    
+    checkOnboardingState();
+  }, [isAuthenticated, user?.id]);
 
   useEffect(() => {
     const checkAppState = async () => {

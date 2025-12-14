@@ -31,7 +31,47 @@ export class CooperativesService {
     return code;
   }
 
-  async findAll() {
+  async findAll(userId?: string) {
+    // If userId is provided, only return cooperatives where user is an active member
+    if (userId) {
+      const memberships = await this.prisma.member.findMany({
+        where: { 
+          userId, 
+          status: 'active' 
+        },
+        include: {
+          cooperative: true,
+        },
+      });
+
+      // Get the user's contribution totals for each cooperative
+      const cooperativesWithUserData = await Promise.all(
+        memberships.map(async (membership) => {
+          // Calculate user's total contributions for this cooperative
+          const userContributions = await this.prisma.contributionPayment.aggregate({
+            where: {
+              memberId: membership.id,
+              status: 'approved',
+            },
+            _sum: {
+              amount: true,
+            },
+          });
+
+          return {
+            ...membership.cooperative,
+            memberRole: membership.role,
+            userTotalContributions: userContributions._sum.amount || 0,
+          };
+        })
+      );
+
+      return cooperativesWithUserData.sort((a, b) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+    }
+
+    // Fallback: return all cooperatives (for admin/system use)
     return this.prisma.cooperative.findMany({
       orderBy: { createdAt: 'desc' },
     });
@@ -50,6 +90,16 @@ export class CooperativesService {
   }
 
   async create(dto: CreateCooperativeDto, createdBy?: string) {
+    //allow each member create only one cooperative but they can join others
+    if (createdBy) {
+      const existingCoop = await this.prisma.member.findFirst({
+        where: { userId: createdBy },
+        include: { cooperative: true },
+      });
+      if (existingCoop) {
+        throw new ConflictException('You have already created a cooperative. You can only create one cooperative.');
+      }
+    }
     const code = await this.generateUniqueCode();
     
     const created = await this.prisma.cooperative.create({
@@ -281,22 +331,23 @@ export class CooperativesService {
   }
 
   //implement getMembers
-  async getMembers(cooperativeId: string, adminUserId: string) {
-    // Check if the requesting user is an admin of this cooperative
-    const adminMember = await this.prisma.member.findFirst({
+  async getMembers(cooperativeId: string, requestingUserId: string) {
+    // Check if the requesting user is a member of this cooperative
+    const requestingMember = await this.prisma.member.findFirst({
       where: {
         cooperativeId,
-        userId: adminUserId,
-        role: 'admin',
+        userId: requestingUserId,
         status: 'active',
       },
     });
 
-    if (!adminMember) {
-      throw new BadRequestException('You are not authorized to view members for this cooperative');
+    if (!requestingMember) {
+      throw new BadRequestException('You are not a member of this cooperative');
     }
 
-    return this.prisma.member.findMany({
+    const isAdmin = requestingMember.role === 'admin';
+
+    const members = await this.prisma.member.findMany({
       where: {
         cooperativeId,
         status: 'active',
@@ -315,5 +366,22 @@ export class CooperativesService {
       },
       orderBy: { joinedAt: 'asc' },
     });
+
+    // If not admin, hide financial data (virtualBalance) from other members
+    if (!isAdmin) {
+      return members.map((member) => ({
+        ...member,
+        // Only show virtualBalance for the requesting user's own record
+        virtualBalance: member.userId === requestingUserId ? member.virtualBalance : null,
+        // Add a flag to indicate if financial data is hidden
+        isFinancialDataHidden: member.userId !== requestingUserId,
+      }));
+    }
+
+    // Admin can see all data
+    return members.map((member) => ({
+      ...member,
+      isFinancialDataHidden: false,
+    }));
   }
 }

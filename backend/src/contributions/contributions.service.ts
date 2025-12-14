@@ -1397,4 +1397,277 @@ export class ContributionsService {
       });
     }
   }
+
+  // ==================== BULK APPROVAL METHODS ====================
+
+  // Get schedules for bulk approval preview (admin only)
+  async getBulkApprovalPreview(
+    cooperativeId: string,
+    month: number,
+    year: number,
+    userId: string,
+    planId?: string,
+  ) {
+    await this.verifyAdmin(cooperativeId, userId);
+
+    // Calculate date range for the month
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0, 23, 59, 59, 999);
+
+    const whereClause: any = {
+      dueDate: {
+        gte: startDate,
+        lte: endDate,
+      },
+      status: { in: ['pending', 'overdue'] },
+      subscription: {
+        plan: {
+          cooperativeId,
+        },
+        status: 'active',
+      },
+    };
+
+    if (planId) {
+      whereClause.subscription.planId = planId;
+    }
+
+    const schedules = await this.prisma.paymentSchedule.findMany({
+      where: whereClause,
+      include: {
+        subscription: {
+          include: {
+            plan: {
+              select: {
+                id: true,
+                name: true,
+              },
+            },
+            member: {
+              include: {
+                user: {
+                  select: {
+                    id: true,
+                    firstName: true,
+                    lastName: true,
+                    email: true,
+                    avatarUrl: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+      orderBy: [
+        { subscription: { member: { user: { firstName: 'asc' } } } },
+        { dueDate: 'asc' },
+      ],
+    });
+
+    // Group by member for easier viewing
+    const groupedByMember = schedules.reduce((acc, schedule) => {
+      const memberId = schedule.subscription.memberId;
+      if (!acc[memberId]) {
+        acc[memberId] = {
+          member: schedule.subscription.member,
+          schedules: [],
+          totalAmount: 0,
+        };
+      }
+      acc[memberId].schedules.push(schedule);
+      acc[memberId].totalAmount += schedule.amount;
+      return acc;
+    }, {} as Record<string, { member: any; schedules: any[]; totalAmount: number }>);
+
+    return {
+      month,
+      year,
+      monthLabel: new Date(year, month - 1, 1).toLocaleString('default', { month: 'long', year: 'numeric' }),
+      totalSchedules: schedules.length,
+      totalAmount: schedules.reduce((sum, s) => sum + s.amount, 0),
+      memberCount: Object.keys(groupedByMember).length,
+      members: Object.values(groupedByMember),
+    };
+  }
+
+  // Bulk approve schedules for a month (admin only)
+  async bulkApproveSchedules(
+    cooperativeId: string,
+    dto: {
+      month: number;
+      year: number;
+      planId?: string;
+      excludeMemberIds?: string[];
+      paymentMethod?: string;
+      notes?: string;
+    },
+    userId: string,
+  ) {
+    await this.verifyAdmin(cooperativeId, userId);
+
+    // Calculate date range for the month
+    const startDate = new Date(dto.year, dto.month - 1, 1);
+    const endDate = new Date(dto.year, dto.month, 0, 23, 59, 59, 999);
+
+    const whereClause: any = {
+      dueDate: {
+        gte: startDate,
+        lte: endDate,
+      },
+      status: { in: ['pending', 'overdue'] },
+      subscription: {
+        plan: {
+          cooperativeId,
+        },
+        status: 'active',
+      },
+    };
+
+    if (dto.planId) {
+      whereClause.subscription.planId = dto.planId;
+    }
+
+    if (dto.excludeMemberIds && dto.excludeMemberIds.length > 0) {
+      whereClause.subscription.memberId = {
+        notIn: dto.excludeMemberIds,
+      };
+    }
+
+    const schedules = await this.prisma.paymentSchedule.findMany({
+      where: whereClause,
+      include: {
+        subscription: {
+          include: {
+            plan: true,
+            member: {
+              include: {
+                user: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (schedules.length === 0) {
+      return {
+        success: true,
+        message: 'No pending schedules found for the specified criteria',
+        approvedCount: 0,
+        totalAmount: 0,
+      };
+    }
+
+    const monthLabel = new Date(dto.year, dto.month - 1, 1).toLocaleString('default', { month: 'long', year: 'numeric' });
+    let approvedCount = 0;
+    let totalAmount = 0;
+
+    // Process each schedule in a transaction
+    for (const schedule of schedules) {
+      try {
+        await this.prisma.$transaction(async (tx) => {
+          // Create payment record
+          const payment = await tx.contributionPayment.create({
+            data: {
+              subscriptionId: schedule.subscriptionId,
+              memberId: schedule.subscription.memberId,
+              amount: schedule.amount,
+              paymentDate: new Date(),
+              dueDate: schedule.dueDate,
+              paymentMethod: dto.paymentMethod || 'bulk_approval',
+              notes: dto.notes || `Bulk approved for ${monthLabel}`,
+              status: 'approved',
+              approvedBy: userId,
+              approvedAt: new Date(),
+            },
+          });
+
+          // Update schedule
+          await tx.paymentSchedule.update({
+            where: { id: schedule.id },
+            data: {
+              status: 'paid',
+              paidAmount: schedule.amount,
+              paidAt: new Date(),
+              paymentId: payment.id,
+            },
+          });
+
+          // Update subscription totalPaid
+          await tx.contributionSubscription.update({
+            where: { id: schedule.subscriptionId },
+            data: {
+              totalPaid: {
+                increment: schedule.amount,
+              },
+            },
+          });
+
+          // Update member's virtual balance
+          await tx.member.update({
+            where: { id: schedule.subscription.memberId },
+            data: {
+              virtualBalance: {
+                increment: schedule.amount,
+              },
+            },
+          });
+
+          // Update cooperative's total contributions
+          await tx.cooperative.update({
+            where: { id: cooperativeId },
+            data: {
+              totalContributions: {
+                increment: schedule.amount,
+              },
+            },
+          });
+
+          // Get updated member for ledger
+          const member = await tx.member.findUnique({
+            where: { id: schedule.subscription.memberId },
+          });
+
+          // Create ledger entry
+          await tx.ledgerEntry.create({
+            data: {
+              cooperativeId,
+              memberId: schedule.subscription.memberId,
+              type: 'contribution',
+              amount: schedule.amount,
+              balanceAfter: member!.virtualBalance,
+              referenceId: payment.id,
+              referenceType: 'contribution_payment',
+              description: `Bulk approved contribution for "${schedule.subscription.plan.name}" - ${schedule.periodLabel || monthLabel}`,
+              createdBy: userId,
+            },
+          });
+
+          approvedCount++;
+          totalAmount += schedule.amount;
+        });
+      } catch (error) {
+        // Log error but continue with other schedules
+        console.error(`Failed to approve schedule ${schedule.id}:`, error);
+      }
+    }
+
+    // Log activity
+    await this.activitiesService.log(
+      userId,
+      'contribution.bulk_approve',
+      `Bulk approved ${approvedCount} contribution schedules for ${monthLabel} (₦${totalAmount.toLocaleString()})`,
+      cooperativeId,
+      { month: dto.month, year: dto.year, approvedCount, totalAmount, excludedMembers: dto.excludeMemberIds?.length || 0 },
+    );
+
+    return {
+      success: true,
+      message: `Successfully approved ${approvedCount} schedules`,
+      approvedCount,
+      totalAmount,
+      monthLabel,
+    };
+  }
 }

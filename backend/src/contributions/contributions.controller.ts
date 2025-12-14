@@ -10,10 +10,11 @@ import {
   Request,
   HttpException,
   HttpStatus,
+  Query,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ContributionsService } from './contributions.service';
-import { CreateContributionPlanDto, SubscribeToContributionDto, UpdateSubscriptionDto, RecordPaymentDto, ApprovePaymentDto } from './dto';
+import { CreateContributionPlanDto, SubscribeToContributionDto, UpdateSubscriptionDto, RecordPaymentDto, ApprovePaymentDto, BulkApproveSchedulesDto } from './dto';
 
 @Controller('contributions')
 @UseGuards(AuthGuard('jwt'))
@@ -390,6 +391,69 @@ export class ContributionsController {
     } catch (error: any) {
       throw new HttpException(
         { success: false, message: error.message || 'Failed to extend schedules', data: null },
+        error.status || HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  // ==================== BULK APPROVAL ENDPOINTS ====================
+
+  // Get preview of schedules for bulk approval (admin only)
+  @Get('cooperatives/:cooperativeId/bulk-approval-preview')
+  async getBulkApprovalPreview(
+    @Param('cooperativeId') cooperativeId: string,
+    @Query('month') month: string,
+    @Query('year') year: string,
+    @Query('planId') planId: string,
+    @Request() req: any,
+  ) {
+    try {
+      const monthNum = parseInt(month, 10);
+      const yearNum = parseInt(year, 10);
+      
+      if (isNaN(monthNum) || monthNum < 1 || monthNum > 12) {
+        throw new HttpException(
+          { success: false, message: 'Invalid month. Must be between 1 and 12.', data: null },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      
+      if (isNaN(yearNum) || yearNum < 2020 || yearNum > 2100) {
+        throw new HttpException(
+          { success: false, message: 'Invalid year.', data: null },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const data = await this.service.getBulkApprovalPreview(
+        cooperativeId,
+        monthNum,
+        yearNum,
+        req.user.id,
+        planId || undefined,
+      );
+      return { success: true, message: 'Bulk approval preview retrieved successfully', data };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to get bulk approval preview', data: null },
+        error.status || HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  // Bulk approve schedules for a month (admin only)
+  @Post('cooperatives/:cooperativeId/bulk-approve')
+  async bulkApproveSchedules(
+    @Param('cooperativeId') cooperativeId: string,
+    @Body() dto: BulkApproveSchedulesDto,
+    @Request() req: any,
+  ) {
+    try {
+      const data = await this.service.bulkApproveSchedules(cooperativeId, dto, req.user.id);
+      return { success: true, message: data.message, data };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to bulk approve schedules', data: null },
         error.status || HttpStatus.BAD_REQUEST,
       );
     }

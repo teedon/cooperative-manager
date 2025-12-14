@@ -69,6 +69,9 @@ export interface Cooperative {
   totalContributions: number;
   createdAt: string;
   updatedAt: string;
+  // User-specific fields (returned when fetching user's cooperatives)
+  memberRole?: MemberRole;
+  userTotalContributions?: number;
 }
 
 export interface CooperativeMember {
@@ -78,8 +81,9 @@ export interface CooperativeMember {
   user: User;
   role: MemberRole;
   joinedAt: string;
-  virtualBalance: number;
+  virtualBalance: number | null; // null when hidden from non-admin users
   status: 'active' | 'pending' | 'suspended' | 'removed';
+  isFinancialDataHidden?: boolean;
 }
 
 // Contribution Types

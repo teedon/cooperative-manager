@@ -98,7 +98,9 @@ const LoanDecisionScreen: React.FC<Props> = ({ route, navigation }) => {
           source={{
             uri:
               (loan as unknown as { member?: { user?: { avatarUrl: string } } })?.member?.user
-                ?.avatarUrl || 'https://i.pravatar.cc/150',
+                ?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                  `${(loan as unknown as { member?: { user?: { firstName: string; lastName: string } } })?.member?.user?.firstName || ''} ${(loan as unknown as { member?: { user?: { firstName: string; lastName: string } } })?.member?.user?.lastName || ''}`
+                )}&background=4f46e5&color=fff&size=150`,
           }}
           style={styles.avatar}
         />

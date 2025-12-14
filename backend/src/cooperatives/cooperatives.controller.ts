@@ -7,10 +7,12 @@ import { CreateCooperativeDto } from './dto/create-cooperative.dto';
 export class CooperativesController {
   constructor(private readonly service: CooperativesService) {}
 
+  @UseGuards(AuthGuard('jwt'))
   @Get()
-  async findAll() {
+  async findAll(@Request() req: any) {
     try {
-      const data = await this.service.findAll();
+      const user = req.user;
+      const data = await this.service.findAll(user?.id);
       return { success: true, message: 'Cooperatives retrieved successfully', data };
     } catch (error: any) {
       throw new HttpException(

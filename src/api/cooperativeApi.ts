@@ -56,8 +56,8 @@ export const cooperativeApi = {
     return response.data;
   },
 
-  joinByCode: async (code: string): Promise<ApiResponse<Cooperative>> => {
-    const response = await apiClient.post<ApiResponse<Cooperative>>('/cooperatives/join', {
+  joinByCode: async (code: string): Promise<ApiResponse<{ cooperative: Cooperative; member: CooperativeMember }>> => {
+    const response = await apiClient.post<ApiResponse<{ cooperative: Cooperative; member: CooperativeMember }>>('/cooperatives/join', {
       code,
     });
     return response.data;

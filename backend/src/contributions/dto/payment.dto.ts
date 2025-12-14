@@ -1,4 +1,4 @@
-import { IsInt, IsOptional, IsString, IsIn, Min, IsDateString } from 'class-validator';
+import { IsInt, IsOptional, IsString, IsIn, Min, IsDateString, IsArray } from 'class-validator';
 
 export class RecordPaymentDto {
   @IsInt()
@@ -33,4 +33,29 @@ export class ApprovePaymentDto {
   @IsOptional()
   @IsString()
   rejectionReason?: string;
+}
+
+export class BulkApproveSchedulesDto {
+  @IsInt()
+  month!: number; // 1-12
+
+  @IsInt()
+  year!: number;
+
+  @IsOptional()
+  @IsString()
+  planId?: string; // Optional: filter by specific plan
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  excludeMemberIds?: string[]; // Member IDs to exclude from bulk approval
+
+  @IsOptional()
+  @IsIn(['bank_transfer', 'cash', 'mobile_money', 'card', 'bulk_approval'])
+  paymentMethod?: string;
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
 }

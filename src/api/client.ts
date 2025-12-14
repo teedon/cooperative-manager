@@ -3,15 +3,25 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import logger from '../utils/logger';
 
+// Production API URL
+const PRODUCTION_API_URL = 'https://cooperative-manager-production.up.railway.app/api';
+// Development API URL
+const DEVELOPMENT_API_URL = 'http://localhost:3001/api';
+
 // For Android emulator, localhost on the host machine is accessible at 10.0.2.2
 const getApiBaseUrl = () => {
-  const envUrl = process.env.API_BASE_URL || 'http://localhost:3001/api';
-
-  if (Platform.OS === 'android' && envUrl.includes('localhost')) {
-    return envUrl.replace('localhost', '10.0.2.2');
+  // Use production URL for release builds, development URL for debug builds
+  if (!__DEV__) {
+    return PRODUCTION_API_URL;
   }
 
-  return envUrl;
+  const devUrl = DEVELOPMENT_API_URL;
+
+  if (Platform.OS === 'android' && devUrl.includes('localhost')) {
+    return devUrl.replace('localhost', '10.0.2.2');
+  }
+
+  return devUrl;
 };
 
 const API_BASE_URL = getApiBaseUrl();
@@ -141,7 +151,7 @@ apiClient.interceptors.response.use(
       }
     }
 
-    return Promise.reject(error);
+    return Promise.reject(error.response?.data || error);
   }
 );
 

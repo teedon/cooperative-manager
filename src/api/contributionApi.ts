@@ -39,6 +39,49 @@ export interface ApprovePaymentData {
   rejectionReason?: string;
 }
 
+// Bulk approval types
+export interface BulkApprovalSchedule {
+  id: string;
+  dueDate: string;
+  amount: number;
+  status: string;
+  member: {
+    id: string;
+    user: {
+      id: string;
+      firstName: string;
+      lastName: string;
+      email: string;
+    };
+  };
+  subscription: {
+    id: string;
+    plan: {
+      id: string;
+      name: string;
+    };
+  };
+}
+
+export interface BulkApprovalPreview {
+  schedules: BulkApprovalSchedule[];
+  totalCount: number;
+  totalAmount: number;
+}
+
+export interface BulkApproveData {
+  month: number;
+  year: number;
+  planId?: string;
+  excludeScheduleIds?: string[];
+}
+
+export interface BulkApprovalResult {
+  approvedCount: number;
+  totalAmount: number;
+  payments: ContributionPayment[];
+}
+
 export const contributionApi = {
   // Plans
   getPlans: async (cooperativeId: string): Promise<ApiResponse<ContributionPlan[]>> => {
@@ -315,6 +358,38 @@ export const contributionApi = {
   ): Promise<ApiResponse<{ schedulesGenerated: number }>> => {
     const response = await apiClient.post<ApiResponse<{ schedulesGenerated: number }>>(
       `/contributions/subscriptions/${subscriptionId}/extend-schedules`
+    );
+    return response.data;
+  },
+
+  // ==================== BULK APPROVAL API ====================
+
+  // Get schedules for bulk approval preview (admin only)
+  getSchedulesForBulkApproval: async (
+    cooperativeId: string,
+    params: { month: number; year: number; planId?: string }
+  ): Promise<ApiResponse<BulkApprovalPreview>> => {
+    const queryParams = new URLSearchParams({
+      month: params.month.toString(),
+      year: params.year.toString(),
+    });
+    if (params.planId) {
+      queryParams.append('planId', params.planId);
+    }
+    const response = await apiClient.get<ApiResponse<BulkApprovalPreview>>(
+      `/contributions/cooperatives/${cooperativeId}/bulk-approval-preview?${queryParams.toString()}`
+    );
+    return response.data;
+  },
+
+  // Bulk approve schedules (admin only)
+  bulkApproveSchedules: async (
+    cooperativeId: string,
+    data: BulkApproveData
+  ): Promise<ApiResponse<BulkApprovalResult>> => {
+    const response = await apiClient.post<ApiResponse<BulkApprovalResult>>(
+      `/contributions/cooperatives/${cooperativeId}/bulk-approve`,
+      data
     );
     return response.data;
   },

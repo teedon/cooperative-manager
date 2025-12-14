@@ -71,10 +71,17 @@ const CooperativeCard: React.FC<{
         </View>
         <View style={styles.statDivider} />
         <View style={styles.statItem}>
-          <Text style={styles.statValue}>₦{cooperative.totalContributions.toLocaleString()}</Text>
-          <Text style={styles.statLabel}>Total Contributions</Text>
+          <Text style={styles.statValue}>₦{(cooperative.userTotalContributions ?? 0).toLocaleString()}</Text>
+          <Text style={styles.statLabel}>My Contributions</Text>
         </View>
       </View>
+      {cooperative.memberRole && (
+        <View style={styles.roleContainer}>
+          <Text style={styles.roleText}>
+            {cooperative.memberRole === 'admin' ? '👑 Admin' : cooperative.memberRole === 'moderator' ? '🛡️ Moderator' : '👤 Member'}
+          </Text>
+        </View>
+      )}
     </View>
   </TouchableOpacity>
 );
@@ -137,8 +144,11 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       await dispatch(joinCooperativeByCode(cooperativeCode.trim())).unwrap();
       setShowJoinModal(false);
       setCooperativeCode('');
-      Alert.alert('Success', 'You have successfully joined the cooperative!');
-      loadCooperatives();
+      Alert.alert(
+        'Request Submitted! 🎉',
+        'Your membership request has been submitted successfully. Please wait for an admin to approve your request.',
+        [{ text: 'OK' }]
+      );
     } catch (err: any) {
       const errorMessage = err?.response?.data?.message || err?.message || 'Invalid cooperative code or you are already a member';
       Alert.alert('Error', errorMessage);
@@ -168,6 +178,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       );
       loadCooperatives();
     } catch (err: any) {
+      logger.debug('ui.createCoop.failure', { message: err, response: err?.response?.data });
       const errorMessage = err?.response?.data?.message || err?.message || 'Failed to create cooperative';
       logger.error('ui.createCoop.failure', { message: err?.message, response: err?.response?.data });
       Alert.alert('Error', errorMessage);
@@ -688,6 +699,17 @@ const styles = StyleSheet.create({
     height: 32,
     backgroundColor: colors.border.light,
     marginHorizontal: spacing.lg,
+  },
+  roleContainer: {
+    marginTop: spacing.md,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border.light,
+  },
+  roleText: {
+    fontSize: 12,
+    color: colors.text.secondary,
+    fontWeight: '500',
   },
   emptyState: {
     alignItems: 'center',

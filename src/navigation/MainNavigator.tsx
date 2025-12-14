@@ -18,6 +18,7 @@ import RecordSubscriptionPaymentScreen from '../screens/contributions/RecordSubs
 import PaymentApprovalScreen from '../screens/contributions/PaymentApprovalScreen';
 import PaymentScheduleScreen from '../screens/contributions/PaymentScheduleScreen';
 import RecordSchedulePaymentScreen from '../screens/contributions/RecordSchedulePaymentScreen';
+import BulkApprovalScreen from '../screens/contributions/BulkApprovalScreen';
 import GroupBuyListScreen from '../screens/groupbuys/GroupBuyListScreen';
 import GroupBuyDetailScreen from '../screens/groupbuys/GroupBuyDetailScreen';
 import GroupBuyManagementScreen from '../screens/groupbuys/GroupBuyManagementScreen';
@@ -68,6 +69,7 @@ export type HomeStackParamList = {
     dueDate?: string;
     periodLabel?: string;
   };
+  BulkApproval: { cooperativeId: string };
   GroupBuyList: { cooperativeId: string };
   GroupBuyDetail: { groupBuyId: string };
   GroupBuyManagement: { groupBuyId?: string; cooperativeId?: string };
@@ -143,6 +145,11 @@ const HomeStackNavigator: React.FC = () => {
         name="RecordSchedulePayment"
         component={RecordSchedulePaymentScreen}
         options={{ title: 'Record Payment' }}
+      />
+      <HomeStack.Screen
+        name="BulkApproval"
+        component={BulkApprovalScreen}
+        options={{ title: 'Bulk Approval' }}
       />
       <HomeStack.Screen
         name="GroupBuyList"
@@ -249,6 +256,11 @@ const CoopsStackNavigator: React.FC = () => {
         name="RecordSchedulePayment"
         component={RecordSchedulePaymentScreen}
         options={{ title: 'Record Payment' }}
+      />
+      <CoopsStack.Screen
+        name="BulkApproval"
+        component={BulkApprovalScreen}
+        options={{ title: 'Bulk Approval' }}
       />
       <CoopsStack.Screen
         name="GroupBuyList"

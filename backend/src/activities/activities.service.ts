@@ -72,10 +72,11 @@ export class ActivitiesService {
 
     return this.prisma.activity.findMany({
       where: {
-        OR: [
-          { userId },
-          { cooperativeId: { in: cooperativeIds } },
-        ],
+        // OR: [
+        //   { userId },
+        //   { cooperativeId: { in: cooperativeIds } },
+        // ],
+        userId
       },
       orderBy: { createdAt: 'desc' },
       take: limit,

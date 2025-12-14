@@ -28,9 +28,12 @@ export const fetchCooperatives = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       const response = await cooperativeApi.getAll();
+      if (!response || !response.success) {
+        return rejectWithValue(response?.message || 'Failed to fetch cooperatives');
+      }
       return response.data;
-    } catch (error) {
-      return rejectWithValue((error as Error).message);
+    } catch (error: any) {
+      return rejectWithValue(error?.message || 'Failed to fetch cooperatives');
     }
   }
 );
@@ -40,9 +43,12 @@ export const fetchCooperative = createAsyncThunk(
   async (id: string, { rejectWithValue }) => {
     try {
       const response = await cooperativeApi.getById(id);
+      if (!response || !response.success) {
+        return rejectWithValue(response?.message || 'Failed to fetch cooperative');
+      }
       return response.data;
-    } catch (error) {
-      return rejectWithValue((error as Error).message);
+    } catch (error: any) {
+      return rejectWithValue(error?.message || 'Failed to fetch cooperative');
     }
   }
 );
@@ -70,9 +76,12 @@ export const fetchMembers = createAsyncThunk(
   async (cooperativeId: string, { rejectWithValue }) => {
     try {
       const response = await cooperativeApi.getMembers(cooperativeId);
+      if (!response || !response.success) {
+        return rejectWithValue(response?.message || 'Failed to fetch members');
+      }
       return response.data;
-    } catch (error) {
-      return rejectWithValue((error as Error).message);
+    } catch (error: any) {
+      return rejectWithValue(error?.message || 'Failed to fetch members');
     }
   }
 );
@@ -82,9 +91,12 @@ export const joinCooperativeByCode = createAsyncThunk(
   async (code: string, { rejectWithValue }) => {
     try {
       const response = await cooperativeApi.joinByCode(code);
+      if (!response || !response.success) {
+        return rejectWithValue(response?.message || 'Failed to join cooperative');
+      }
       return response.data;
-    } catch (error) {
-      return rejectWithValue((error as Error).message);
+    } catch (error: any) {
+      return rejectWithValue(error?.message || 'Failed to join cooperative');
     }
   }
 );
@@ -94,9 +106,12 @@ export const fetchPendingMembers = createAsyncThunk(
   async (cooperativeId: string, { rejectWithValue }) => {
     try {
       const response = await cooperativeApi.getPendingMembers(cooperativeId);
+      if (!response || !response.success) {
+        return rejectWithValue(response?.message || 'Failed to fetch pending members');
+      }
       return response.data;
-    } catch (error) {
-      return rejectWithValue((error as Error).message);
+    } catch (error: any) {
+      return rejectWithValue(error?.message || 'Failed to fetch pending members');
     }
   }
 );
@@ -106,9 +121,12 @@ export const approveMember = createAsyncThunk(
   async (memberId: string, { rejectWithValue }) => {
     try {
       const response = await cooperativeApi.approveMember(memberId);
+      if (!response || !response.success) {
+        return rejectWithValue(response?.message || 'Failed to approve member');
+      }
       return response.data;
-    } catch (error) {
-      return rejectWithValue((error as Error).message);
+    } catch (error: any) {
+      return rejectWithValue(error?.message || 'Failed to approve member');
     }
   }
 );
@@ -186,10 +204,9 @@ const cooperativeSlice = createSlice({
       })
       .addCase(joinCooperativeByCode.fulfilled, (state, action) => {
         state.isLoading = false;
-        if (!state.cooperatives) {
-          state.cooperatives = [];
-        }
-        state.cooperatives.push(action.payload);
+        // Note: The user joins with 'pending' status, so we don't add the cooperative
+        // to the list yet. They need to be approved by an admin first.
+        // The cooperative will appear in their list after approval and they refetch.
       })
       .addCase(joinCooperativeByCode.rejected, (state, action) => {
         state.isLoading = false;

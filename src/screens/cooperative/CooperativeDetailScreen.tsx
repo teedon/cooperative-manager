@@ -203,6 +203,17 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.actionButton}
+            onPress={() => navigation.navigate('BulkApproval', { cooperativeId })}
+          >
+            <Icon name="CheckCheck" size={24} color={colors.success.main} style={styles.actionIcon} />
+            <View style={styles.actionContent}>
+              <Text style={styles.actionTitle}>Bulk Approve Schedules</Text>
+              <Text style={styles.actionSubtitle}>Approve all payments for a month</Text>
+            </View>
+            <Icon name="ChevronRight" size={20} color={colors.text.disabled} style={styles.actionArrow} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.actionButton}
             onPress={() => navigation.navigate('Ledger', { cooperativeId })}
           >
             <Icon name="BarChart" size={24} color={colors.primary.main} style={styles.actionIcon} />
@@ -257,7 +268,7 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               <View key={member.id} style={styles.pendingMemberCard}>
                 <Image
                   source={{
-                    uri: memberUser?.avatarUrl || 'https://i.pravatar.cc/150',
+                    uri: memberUser?.avatarUrl || `https://ui-avatars.com/api/?name=${encodeURIComponent(memberName)}&background=4f46e5&color=fff&size=150`,
                   }}
                   style={styles.memberAvatar}
                 />
@@ -294,6 +305,8 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           key={member.id}
           style={styles.memberCard}
           onPress={() =>
+            // Only allow navigation to member dashboard if admin or viewing own profile
+            (isAdmin || member.userId === user?.id) &&
             navigation.navigate('MemberDashboard', {
               cooperativeId,
               memberId: member.id,
@@ -304,7 +317,9 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             source={{
               uri:
                 (member as unknown as { user?: { avatarUrl: string } }).user?.avatarUrl ||
-                'https://i.pravatar.cc/150',
+                `https://ui-avatars.com/api/?name=${encodeURIComponent(
+                  `${(member as unknown as { user?: { firstName: string; lastName: string } }).user?.firstName || ''} ${(member as unknown as { user?: { firstName: string; lastName: string } }).user?.lastName || ''}`
+                )}&background=4f46e5&color=fff&size=150`,
             }}
             style={styles.memberAvatar}
           />
@@ -322,8 +337,17 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             <Text style={styles.memberRole}>{member.role}</Text>
           </View>
           <View style={styles.memberBalance}>
-            <Text style={styles.balanceValue}>₦{member.virtualBalance.toLocaleString()}</Text>
-            <Text style={styles.balanceLabel}>Balance</Text>
+            {member.isFinancialDataHidden ? (
+              <>
+                <Text style={styles.balanceHidden}>--</Text>
+                <Text style={styles.balanceLabel}>Balance</Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.balanceValue}>₦{(member.virtualBalance ?? 0).toLocaleString()}</Text>
+                <Text style={styles.balanceLabel}>Balance</Text>
+              </>
+            )}
           </View>
         </TouchableOpacity>
       ))}
@@ -806,6 +830,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.primary.main,
   },
+  balanceHidden: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text.disabled,
+  },
   balanceLabel: {
     fontSize: 10,
     color: colors.text.disabled,
@@ -1035,10 +1064,6 @@ const styles = StyleSheet.create({
   emptyText: {
     fontSize: 14,
     color: colors.text.secondary,
-  },
-  planDetailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
   },
   smallIcon: {
     marginRight: spacing.xs,

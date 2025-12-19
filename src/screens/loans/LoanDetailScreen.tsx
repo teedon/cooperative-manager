@@ -10,7 +10,8 @@ import {
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { HomeStackParamList } from '../../navigation/MainNavigator';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { fetchLoan, fetchRepayments } from '../../store/slices/loanSlice';
+import { fetchLoan, fetchRepaymentSchedule } from '../../store/slices/loanSlice';
+import { formatCurrency, formatDate } from '../../utils';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'LoanDetail'>;
 
@@ -19,10 +20,10 @@ const LoanDetailScreen: React.FC<Props> = ({ route }) => {
   const dispatch = useAppDispatch();
   const [refreshing, setRefreshing] = React.useState(false);
 
-  const { currentLoan, repayments, isLoading } = useAppSelector((state) => state.loan);
+  const { currentLoan, repaymentSchedule, isLoading } = useAppSelector((state) => state.loan);
 
   const loadData = useCallback(async () => {
-    await Promise.all([dispatch(fetchLoan(loanId)), dispatch(fetchRepayments(loanId))]);
+    await Promise.all([dispatch(fetchLoan(loanId)), dispatch(fetchRepaymentSchedule(loanId))]);
   }, [dispatch, loanId]);
 
   useEffect(() => {
@@ -77,12 +78,18 @@ const LoanDetailScreen: React.FC<Props> = ({ route }) => {
       <View style={styles.header}>
         <View style={styles.amountSection}>
           <Text style={styles.amountLabel}>Loan Amount</Text>
-          <Text style={styles.amountValue}>₦{currentLoan.amount.toLocaleString()}</Text>
+          <Text style={styles.amountValue}>{formatCurrency(currentLoan.amount)}</Text>
         </View>
         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(currentLoan.status) }]}>
           <Text style={styles.statusText}>{currentLoan.status}</Text>
         </View>
       </View>
+
+      {currentLoan.loanType && (
+        <View style={styles.loanTypeTag}>
+          <Text style={styles.loanTypeText}>{currentLoan.loanType.name}</Text>
+        </View>
+      )}
 
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Loan Details</Text>
@@ -96,18 +103,52 @@ const LoanDetailScreen: React.FC<Props> = ({ route }) => {
         </View>
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Interest Rate</Text>
-          <Text style={styles.detailValue}>{currentLoan.interestRate}%</Text>
+          <Text style={styles.detailValue}>
+            {currentLoan.interestRate}%
+            {currentLoan.loanType?.interestType === 'reducing_balance' ? ' (Reducing)' : ' (Flat)'}
+          </Text>
         </View>
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Monthly Repayment</Text>
-          <Text style={styles.detailValue}>₦{currentLoan.monthlyRepayment.toLocaleString()}</Text>
+          <Text style={styles.detailValue}>{formatCurrency(currentLoan.monthlyRepayment)}</Text>
         </View>
         <View style={styles.detailRow}>
           <Text style={styles.detailLabel}>Total Repayment</Text>
           <Text style={[styles.detailValue, styles.totalValue]}>
-            ₦{currentLoan.totalRepayment.toLocaleString()}
+            {formatCurrency(currentLoan.totalRepayment)}
           </Text>
         </View>
+        {currentLoan.deductionStartDate && (
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Deductions Start</Text>
+            <Text style={styles.detailValue}>{formatDate(currentLoan.deductionStartDate)}</Text>
+          </View>
+        )}
+        {currentLoan.deductionStartDate && currentLoan.duration && (
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Expected End Date</Text>
+            <Text style={styles.detailValue}>
+              {formatDate(
+                new Date(
+                  new Date(currentLoan.deductionStartDate).setMonth(
+                    new Date(currentLoan.deductionStartDate).getMonth() + currentLoan.duration
+                  )
+                ).toISOString()
+              )}
+            </Text>
+          </View>
+        )}
+        {currentLoan.outstandingBalance > 0 && (
+          <View style={[styles.detailRow, styles.balanceRow]}>
+            <Text style={styles.balanceLabel}>Outstanding Balance</Text>
+            <Text style={styles.balanceValue}>{formatCurrency(currentLoan.outstandingBalance)}</Text>
+          </View>
+        )}
+        {currentLoan.initiatedBy === 'admin' && (
+          <View style={styles.adminInitiatedTag}>
+            <Text style={styles.adminInitiatedText}>Admin Initiated Loan</Text>
+          </View>
+        )}
       </View>
 
       <View style={styles.card}>
@@ -157,13 +198,15 @@ const LoanDetailScreen: React.FC<Props> = ({ route }) => {
         )}
       </View>
 
-      {repayments.length > 0 && (
+      {repaymentSchedule.length > 0 && (
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Repayment Schedule</Text>
-          {repayments.map((repayment, index) => (
+          {repaymentSchedule.map((repayment) => (
             <View key={repayment.id} style={styles.repaymentItem}>
               <View style={styles.repaymentHeader}>
-                <Text style={styles.repaymentNumber}>Payment {index + 1}</Text>
+                <Text style={styles.repaymentNumber}>
+                  Payment {repayment.installmentNumber}
+                </Text>
                 <View
                   style={[
                     styles.repaymentStatus,
@@ -173,7 +216,9 @@ const LoanDetailScreen: React.FC<Props> = ({ route }) => {
                           ? '#dcfce7'
                           : repayment.status === 'overdue'
                             ? '#fee2e2'
-                            : '#f1f5f9',
+                            : repayment.status === 'partial'
+                              ? '#fef3c7'
+                              : '#f1f5f9',
                     },
                   ]}
                 >
@@ -186,7 +231,9 @@ const LoanDetailScreen: React.FC<Props> = ({ route }) => {
                             ? '#16a34a'
                             : repayment.status === 'overdue'
                               ? '#dc2626'
-                              : '#64748b',
+                              : repayment.status === 'partial'
+                                ? '#d97706'
+                                : '#64748b',
                       },
                     ]}
                   >
@@ -195,12 +242,26 @@ const LoanDetailScreen: React.FC<Props> = ({ route }) => {
                 </View>
               </View>
               <View style={styles.repaymentDetails}>
-                <Text style={styles.repaymentDate}>
-                  Due: {new Date(repayment.dueDate).toLocaleDateString()}
-                </Text>
-                <Text style={styles.repaymentAmount}>
-                  ₦{repayment.totalAmount.toLocaleString()}
-                </Text>
+                <View>
+                  <Text style={styles.repaymentDate}>
+                    Due: {formatDate(repayment.dueDate)}
+                  </Text>
+                  {repayment.paidAt && (
+                    <Text style={styles.repaymentPaidDate}>
+                      Paid: {formatDate(repayment.paidAt)}
+                    </Text>
+                  )}
+                </View>
+                <View style={styles.repaymentAmounts}>
+                  <Text style={styles.repaymentAmount}>
+                    {formatCurrency(repayment.totalAmount)}
+                  </Text>
+                  {repayment.paidAmount > 0 && repayment.paidAmount < repayment.totalAmount && (
+                    <Text style={styles.repaymentPaid}>
+                      Paid: {formatCurrency(repayment.paidAmount)}
+                    </Text>
+                  )}
+                </View>
               </View>
             </View>
           ))}
@@ -256,6 +317,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     textTransform: 'capitalize',
+  },
+  loanTypeTag: {
+    backgroundColor: '#f0f9ff',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  loanTypeText: {
+    color: '#0ea5e9',
+    fontSize: 14,
+    fontWeight: '600',
   },
   card: {
     backgroundColor: '#fff',
@@ -368,15 +443,63 @@ const styles = StyleSheet.create({
   repaymentDetails: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
   },
   repaymentDate: {
     fontSize: 12,
     color: '#64748b',
   },
+  repaymentPaidDate: {
+    fontSize: 11,
+    color: '#22c55e',
+    marginTop: 2,
+  },
+  repaymentAmounts: {
+    alignItems: 'flex-end',
+  },
   repaymentAmount: {
     fontSize: 14,
     fontWeight: '600',
     color: '#0f172a',
+  },
+  repaymentPaid: {
+    fontSize: 11,
+    color: '#22c55e',
+    marginTop: 2,
+  },
+  balanceRow: {
+    backgroundColor: '#fef3c7',
+    marginHorizontal: -20,
+    paddingHorizontal: 20,
+    marginTop: 12,
+    paddingTop: 12,
+    paddingBottom: 12,
+    marginBottom: -20,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+  },
+  balanceLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#92400e',
+  },
+  balanceValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#d97706',
+  },
+  adminInitiatedTag: {
+    backgroundColor: '#f0f9ff',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginTop: 12,
+    alignSelf: 'flex-start',
+  },
+  adminInitiatedText: {
+    fontSize: 12,
+    color: '#0ea5e9',
+    fontWeight: '500',
   },
 });
 

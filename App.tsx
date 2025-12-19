@@ -7,9 +7,13 @@ import { RootNavigator } from './src/navigation';
 import { AppThemeProvider } from './src/theme/ThemeProvider';
 import ErrorBoundary from './src/components/common/ErrorBoundary';
 import logger from './src/utils/logger';
+import { initializeNotifications } from './src/services/notificationService';
 
 export default function App() {
   useEffect(() => {
+    // Initialize notification service
+    initializeNotifications(store);
+
     // capture unhandled promise rejections
     const rejectionHandler = (e: any) => {
       logger.error('Unhandled promise rejection', e);

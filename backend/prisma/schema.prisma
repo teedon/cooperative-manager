@@ -16,10 +16,18 @@ model User {
   phone      String?
   avatarUrl  String?
   refreshToken String?
+  
+  // Password reset
+  passwordResetToken    String?
+  passwordResetExpires  DateTime?
+  
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
   members    Member[]
   activities Activity[]
+  notifications           Notification[] @relation("UserNotifications")
+  fcmTokens               FcmToken[] @relation("UserFcmTokens")
+  notificationPreferences NotificationPreference? @relation("UserNotificationPreferences")
 }
 
 model Cooperative {
@@ -38,15 +46,29 @@ model Cooperative {
   contributionPlans  ContributionPlan[]
   groupBuys          GroupBuy[]
   activities         Activity[]
+  notifications      Notification[] @relation("CooperativeNotifications")
+  subscription       Subscription?
 }
 
 model Member {
   id            String   @id @default(cuid())
   cooperative   Cooperative @relation(fields: [cooperativeId], references: [id])
   cooperativeId String
-  user          User       @relation(fields: [userId], references: [id])
-  userId        String
-  role          String
+  user          User?      @relation(fields: [userId], references: [id])
+  userId        String?
+  
+  // For offline/proxy members (when userId is null)
+  isOfflineMember Boolean  @default(false)
+  firstName       String?  // Required for offline members
+  lastName        String?  // Required for offline members
+  email           String?  // Optional for offline members
+  phone           String?  // Optional for offline members
+  memberCode      String?  // Unique identifier within cooperative (e.g., membership number)
+  notes           String?  // Admin notes about this member
+  addedBy         String?  // userId of admin who added this offline member
+  
+  role          String     // 'admin' | 'moderator' | 'member'
+  permissions   String?    // JSON string of permissions array
   joinedAt      DateTime
   virtualBalance Int     @default(0)
   status        String
@@ -55,6 +77,8 @@ model Member {
   contributionPayments ContributionPayment[]
   loans         Loan[]
   groupBuyOrders GroupBuyOrder[]
+  
+  @@unique([cooperativeId, memberCode])
 }
 
 model ContributionPlan {
@@ -254,19 +278,127 @@ model Loan {
   cooperativeId String
   memberId      String
   member        Member @relation(fields: [memberId], references: [id])
+  
+  // Loan type reference (optional for legacy loans)
+  loanTypeId    String?
+  loanType      LoanType? @relation(fields: [loanTypeId], references: [id])
+  
+  // Loan details
   amount        Int
   purpose       String
-  duration      Int
-  interestRate  Int
+  duration      Int           // in months
+  interestRate  Float         // percentage (e.g., 5 for 5%)
+  interestAmount Int          // calculated interest amount
   monthlyRepayment Int
   totalRepayment Int
-  status        String
+  
+  // Balance tracking
+  amountDisbursed  Int @default(0)
+  amountRepaid     Int @default(0)
+  outstandingBalance Int @default(0)
+  
+  // Status and workflow
+  status        String        // 'pending' | 'approved' | 'rejected' | 'disbursed' | 'repaying' | 'completed' | 'defaulted'
+  initiatedBy   String        // 'member' | 'admin'
+  initiatedByUserId String?   // userId of admin who initiated (for admin-initiated loans)
+  
+  // Repayment settings
+  deductionStartDate DateTime?  // When deductions should commence
+  
+  // Timeline
   requestedAt   DateTime @default(now())
   reviewedBy    String?
   reviewedAt    DateTime?
+  rejectionReason String?
   disbursedAt   DateTime?
+  completedAt   DateTime?
+  
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+  
+  // Relations
+  repaymentSchedules LoanRepaymentSchedule[]
+  
+  @@index([cooperativeId])
+  @@index([memberId])
+  @@index([status])
+}
+
+// Loan types configuration for cooperatives
+model LoanType {
+  id              String @id @default(cuid())
+  cooperativeId   String
+  
+  // Basic info
+  name            String        // e.g., "Emergency Loan", "Education Loan"
+  description     String?
+  
+  // Loan limits
+  minAmount       Int           // Minimum loan amount
+  maxAmount       Int           // Maximum loan amount
+  
+  // Duration limits
+  minDuration     Int           // Minimum repayment duration in months
+  maxDuration     Int           // Maximum repayment duration in months
+  
+  // Interest configuration
+  interestRate    Float         // Base interest rate percentage
+  interestType    String        // 'flat' | 'reducing_balance'
+  
+  // Eligibility criteria
+  minMembershipDuration Int?    // Minimum months as member to be eligible
+  minSavingsBalance     Int?    // Minimum savings/balance to be eligible
+  maxActiveLoans        Int @default(1)  // Maximum concurrent loans of this type
+  
+  // Guarantor requirements
+  requiresGuarantor     Boolean @default(false)
+  minGuarantors         Int @default(0)
+  
+  // Admin settings
+  isActive        Boolean @default(true)
+  requiresApproval Boolean @default(true)  // false = auto-approve
+  
+  createdBy       String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  // Relations
+  loans           Loan[]
+  
+  @@unique([cooperativeId, name])
+  @@index([cooperativeId])
+}
+
+// Loan repayment schedule
+model LoanRepaymentSchedule {
+  id            String @id @default(cuid())
+  loanId        String
+  loan          Loan @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  
+  // Schedule details
+  installmentNumber Int       // 1, 2, 3...
+  dueDate       DateTime
+  
+  // Amounts
+  principalAmount Int         // Principal portion of this installment
+  interestAmount  Int         // Interest portion of this installment
+  totalAmount     Int         // Total due for this installment
+  
+  // Payment tracking
+  paidAmount    Int @default(0)
+  paidAt        DateTime?
+  status        String @default("pending")  // 'pending' | 'partial' | 'paid' | 'overdue' | 'waived'
+  
+  // Notes
+  notes         String?
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  
+  @@unique([loanId, installmentNumber])
+  @@index([loanId])
+  @@index([dueDate])
+  @@index([status])
 }
 
 model LedgerEntry {
@@ -297,4 +429,189 @@ model Activity {
   @@index([userId])
   @@index([cooperativeId])
   @@index([createdAt])
+}
+
+// Push Notification Models
+model Notification {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], name: "UserNotifications")
+  cooperativeId String?
+  cooperative   Cooperative? @relation(fields: [cooperativeId], references: [id], name: "CooperativeNotifications")
+  type          String   // notification type
+  title         String
+  body          String
+  data          Json?    // Additional data for navigation/actions
+  isRead        Boolean  @default(false)
+  actionType    String?  // view, approve, reject, pay, navigate
+  actionRoute   String?  // screen/route to navigate to
+  actionParams  Json?    // route parameters
+  createdAt     DateTime @default(now())
+  readAt        DateTime?
+
+  @@index([userId])
+  @@index([cooperativeId])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+model FcmToken {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], name: "UserFcmTokens")
+  token     String   @unique
+  platform  String   // ios, android
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([token])
+}
+
+model NotificationPreference {
+  id                     String  @id @default(cuid())
+  userId                 String  @unique
+  user                   User    @relation(fields: [userId], references: [id], name: "UserNotificationPreferences")
+  pushEnabled            Boolean @default(true)
+  contributionReminders  Boolean @default(true)
+  loanUpdates            Boolean @default(true)
+  groupBuyUpdates        Boolean @default(true)
+  memberUpdates          Boolean @default(true)
+  announcements          Boolean @default(true)
+  mentions               Boolean @default(true)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+}
+
+// ========== SUBSCRIPTION & BILLING MODELS ==========
+
+// Subscription plans available in the system
+model SubscriptionPlan {
+  id              String   @id @default(cuid())
+  name            String   @unique  // 'free', 'starter', 'business', 'enterprise'
+  displayName     String             // 'Free', 'Starter', 'Business', 'Enterprise'
+  description     String?
+  
+  // Pricing
+  monthlyPrice    Int      @default(0)  // Price in kobo (Nigerian currency smallest unit)
+  yearlyPrice     Int      @default(0)  // Annual price with discount
+  currency        String   @default("NGN")
+  
+  // Limits
+  maxMembers      Int      @default(20)      // Max members per cooperative
+  maxContributionPlans Int @default(1)       // Max contribution plans
+  maxLoansPerMonth Int     @default(0)       // Max loan requests per month (0 = disabled)
+  maxGroupBuys    Int      @default(0)       // Max active group buys (0 = disabled)
+  
+  // Features (JSON for flexibility)
+  features        Json?    // Array of feature strings for display
+  
+  // Flags
+  isActive        Boolean  @default(true)
+  isPopular       Boolean  @default(false)  // Highlight as recommended
+  sortOrder       Int      @default(0)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  subscriptions   Subscription[]
+}
+
+// Active subscriptions for cooperatives
+model Subscription {
+  id              String   @id @default(cuid())
+  
+  // Link to cooperative
+  cooperativeId   String   @unique
+  cooperative     Cooperative @relation(fields: [cooperativeId], references: [id])
+  
+  // Link to plan
+  planId          String
+  plan            SubscriptionPlan @relation(fields: [planId], references: [id])
+  
+  // Subscription status
+  status          String   @default("active")  // 'active', 'cancelled', 'expired', 'past_due', 'trialing'
+  
+  // Billing cycle
+  billingCycle    String   @default("monthly") // 'monthly', 'yearly'
+  currentPeriodStart DateTime @default(now())
+  currentPeriodEnd   DateTime
+  
+  // Trial period
+  trialEndsAt     DateTime?
+  
+  // Cancellation
+  cancelledAt     DateTime?
+  cancelReason    String?
+  cancelAtPeriodEnd Boolean @default(false)
+  
+  // Paystack integration
+  paystackCustomerCode String?
+  paystackSubscriptionCode String?
+  
+  // Metadata
+  createdBy       String   // userId of admin who subscribed
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  payments        SubscriptionPayment[]
+  
+  @@index([cooperativeId])
+  @@index([status])
+}
+
+// Payment records for subscriptions
+model SubscriptionPayment {
+  id              String   @id @default(cuid())
+  
+  subscriptionId  String
+  subscription    Subscription @relation(fields: [subscriptionId], references: [id])
+  
+  // Payment details
+  amount          Int      // Amount in kobo
+  currency        String   @default("NGN")
+  status          String   @default("pending") // 'pending', 'success', 'failed', 'refunded'
+  
+  // Paystack transaction details
+  paystackReference String  @unique
+  paystackTransactionId String?
+  paystackPaidAt  DateTime?
+  paystackChannel String?  // 'card', 'bank', 'ussd', etc.
+  
+  // Card details (masked)
+  cardLast4       String?
+  cardBrand       String?  // 'visa', 'mastercard', etc.
+  cardExpMonth    String?
+  cardExpYear     String?
+  
+  // Invoice period
+  periodStart     DateTime
+  periodEnd       DateTime
+  
+  // Metadata
+  metadata        Json?
+  failureReason   String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([subscriptionId])
+  @@index([paystackReference])
+  @@index([status])
+}
+
+// Paystack webhook events log
+model PaystackWebhookEvent {
+  id              String   @id @default(cuid())
+  eventType       String   // 'charge.success', 'subscription.create', etc.
+  eventId         String   @unique  // Paystack event ID for idempotency
+  payload         Json     // Full webhook payload
+  processed       Boolean  @default(false)
+  processedAt     DateTime?
+  error           String?
+  createdAt       DateTime @default(now())
+  
+  @@index([eventType])
+  @@index([processed])
 }

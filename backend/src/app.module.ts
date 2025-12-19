@@ -5,8 +5,21 @@ import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { ActivitiesModule } from './activities/activities.module';
 import { ContributionsModule } from './contributions/contributions.module';
+import { LoansModule } from './loans/loans.module';
+import { NotificationsModule } from './notifications/notifications.module';
+import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 
 @Module({
-  imports: [PrismaModule, UsersModule, AuthModule, CooperativesModule, ActivitiesModule, ContributionsModule],
+  imports: [
+    PrismaModule,
+    UsersModule,
+    AuthModule,
+    CooperativesModule,
+    ActivitiesModule,
+    ContributionsModule,
+    LoansModule,
+    NotificationsModule,
+    SubscriptionsModule,
+  ],
 })
 export class AppModule {}

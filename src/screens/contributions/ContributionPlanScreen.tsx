@@ -482,11 +482,16 @@ const ContributionPlanScreen: React.FC<Props> = ({ route, navigation }) => {
       {isAdmin && planSubscriptions.length > 0 && (
         <View style={styles.subscribersSection}>
           <Text style={styles.sectionTitle}>All Subscribers ({planSubscriptions.length})</Text>
-          {planSubscriptions.map((sub) => (
+          {planSubscriptions.map((sub) => {
+            const member = sub.member as any;
+            const memberName = member?.user 
+              ? `${member.user.firstName} ${member.user.lastName}`
+              : `${member?.firstName || ''} ${member?.lastName || ''}`.trim() || 'Unknown Member';
+            return (
             <View key={sub.id} style={styles.subscriberCard}>
               <View style={styles.subscriberInfo}>
                 <Text style={styles.subscriberName}>
-                  {(sub.member as any)?.user?.firstName} {(sub.member as any)?.user?.lastName}
+                  {memberName}
                 </Text>
                 <Text style={styles.subscriberAmount}>₦{sub.amount.toLocaleString()}</Text>
               </View>
@@ -500,13 +505,13 @@ const ContributionPlanScreen: React.FC<Props> = ({ route, navigation }) => {
                   <View style={styles.adminActionButtons}>
                     <TouchableOpacity
                       style={styles.adminActionBtn}
-                      onPress={() => handleAdminUpdateSubscription(sub.id, 'pause', (sub.member as any)?.user?.firstName)}
+                      onPress={() => handleAdminUpdateSubscription(sub.id, 'pause', member?.user?.firstName || member?.firstName)}
                     >
                       <Icon name="Pause" size={14} color={colors.warning.main} />
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={styles.adminActionBtn}
-                      onPress={() => handleAdminUpdateSubscription(sub.id, 'cancel', (sub.member as any)?.user?.firstName)}
+                      onPress={() => handleAdminUpdateSubscription(sub.id, 'cancel', member?.user?.firstName || member?.firstName)}
                     >
                       <Icon name="X" size={14} color={colors.error.main} />
                     </TouchableOpacity>
@@ -515,14 +520,15 @@ const ContributionPlanScreen: React.FC<Props> = ({ route, navigation }) => {
                 {(sub.status === 'paused' || sub.status === 'cancelled') && (
                   <TouchableOpacity
                     style={styles.adminActionBtn}
-                    onPress={() => handleAdminUpdateSubscription(sub.id, 'resume', (sub.member as any)?.user?.firstName)}
+                    onPress={() => handleAdminUpdateSubscription(sub.id, 'resume', member?.user?.firstName || member?.firstName)}
                   >
                     <Icon name="Play" size={14} color={colors.success.main} />
                   </TouchableOpacity>
                 )}
               </View>
             </View>
-          ))}
+            );
+          })}
         </View>
       )}
 

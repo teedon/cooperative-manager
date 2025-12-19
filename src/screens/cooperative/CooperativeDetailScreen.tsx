@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Image,
   Alert,
+  TextInput,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { HomeStackParamList } from '../../navigation/MainNavigator';
@@ -17,8 +18,10 @@ import { fetchCooperative, fetchMembers, fetchPendingMembers, approveMember, rej
 import { fetchPlans } from '../../store/slices/contributionSlice';
 import { fetchGroupBuys } from '../../store/slices/groupBuySlice';
 import { fetchLoans } from '../../store/slices/loanSlice';
+import { fetchSubscription } from '../../store/slices/subscriptionSlice';
 import { colors, spacing, borderRadius, shadows } from '../../theme';
 import Icon from '../../components/common/Icon';
+import { usePermissions } from '../../hooks/usePermissions';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'CooperativeDetail'>;
 
@@ -29,15 +32,29 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const dispatch = useAppDispatch();
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [refreshing, setRefreshing] = useState(false);
+  const [memberSearchQuery, setMemberSearchQuery] = useState('');
+  const [memberFilter, setMemberFilter] = useState<'all' | 'online' | 'offline'>('all');
 
   const { currentCooperative, members, pendingMembers, isLoading } = useAppSelector((state) => state.cooperative);
   const { plans } = useAppSelector((state) => state.contribution);
   const { groupBuys } = useAppSelector((state) => state.groupBuy);
   const { loans } = useAppSelector((state) => state.loan);
   const { user } = useAppSelector((state) => state.auth);
+  const { currentSubscription } = useAppSelector((state) => state.subscription);
 
-  const currentMember = members.find((m) => m.userId === user?.id);
-  const isAdmin = currentMember?.role === 'admin';
+  // Use permission hook
+  const {
+    currentMember,
+    isAdmin,
+    isAdminOrModerator,
+    canCreateContributionPlan,
+    canApprovePayments,
+    canBulkApprove,
+    canViewLedger,
+    canViewAdmins,
+    canApproveMembers,
+    canEditSettings,
+  } = usePermissions(cooperativeId);
 
   const loadData = useCallback(async () => {
     const promises = [
@@ -46,16 +63,17 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       dispatch(fetchPlans(cooperativeId)),
       dispatch(fetchGroupBuys(cooperativeId)),
       dispatch(fetchLoans(cooperativeId)),
+      dispatch(fetchSubscription(cooperativeId)),
     ];
     await Promise.all(promises);
   }, [dispatch, cooperativeId]);
 
-  // Fetch pending members when admin and tab is members
+  // Fetch pending members when user can approve members
   useEffect(() => {
-    if (isAdmin) {
+    if (canApproveMembers) {
       dispatch(fetchPendingMembers(cooperativeId));
     }
-  }, [dispatch, cooperativeId, isAdmin]);
+  }, [dispatch, cooperativeId, canApproveMembers]);
 
   useEffect(() => {
     loadData();
@@ -64,7 +82,7 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const onRefresh = async () => {
     setRefreshing(true);
     await loadData();
-    if (isAdmin) {
+    if (canApproveMembers) {
       await dispatch(fetchPendingMembers(cooperativeId));
     }
     setRefreshing(false);
@@ -165,64 +183,134 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         </View>
       </View>
 
-      {isAdmin && (
+      {/* Admin/Moderator Actions - Show based on permissions */}
+      {isAdminOrModerator && (
         <View style={styles.adminSection}>
           <Text style={styles.sectionTitle}>Admin Actions</Text>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => navigation.navigate('CreateContribution', { cooperativeId })}
-          >
-            <Icon name="Plus" size={24} color={colors.primary.main} style={styles.actionIcon} />
-            <View style={styles.actionContent}>
-              <Text style={styles.actionTitle}>Create Contribution</Text>
-              <Text style={styles.actionSubtitle}>Set up a new contribution plan</Text>
-            </View>
-            <Icon name="ChevronRight" size={20} color={colors.text.disabled} style={styles.actionArrow} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => navigation.navigate('PaymentVerification', { cooperativeId })}
-          >
-            <Icon name="Check" size={24} color={colors.primary.main} style={styles.actionIcon} />
-            <View style={styles.actionContent}>
-              <Text style={styles.actionTitle}>Verify Payments</Text>
-              <Text style={styles.actionSubtitle}>Review pending payment records</Text>
-            </View>
-            <Icon name="ChevronRight" size={20} color={colors.text.disabled} style={styles.actionArrow} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => navigation.navigate('PaymentApproval', { cooperativeId })}
-          >
-            <Icon name="CreditCard" size={24} color={colors.primary.main} style={styles.actionIcon} />
-            <View style={styles.actionContent}>
-              <Text style={styles.actionTitle}>Approve Subscription Payments</Text>
-              <Text style={styles.actionSubtitle}>Review member subscription payments</Text>
-            </View>
-            <Icon name="ChevronRight" size={20} color={colors.text.disabled} style={styles.actionArrow} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => navigation.navigate('BulkApproval', { cooperativeId })}
-          >
-            <Icon name="CheckCheck" size={24} color={colors.success.main} style={styles.actionIcon} />
-            <View style={styles.actionContent}>
-              <Text style={styles.actionTitle}>Bulk Approve Schedules</Text>
-              <Text style={styles.actionSubtitle}>Approve all payments for a month</Text>
-            </View>
-            <Icon name="ChevronRight" size={20} color={colors.text.disabled} style={styles.actionArrow} />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => navigation.navigate('Ledger', { cooperativeId })}
-          >
-            <Icon name="BarChart" size={24} color={colors.primary.main} style={styles.actionIcon} />
-            <View style={styles.actionContent}>
-              <Text style={styles.actionTitle}>View Ledger</Text>
-              <Text style={styles.actionSubtitle}>Full cooperative financial records</Text>
-            </View>
-            <Icon name="ChevronRight" size={20} color={colors.text.disabled} style={styles.actionArrow} />
-          </TouchableOpacity>
+          
+          {/* Create Contribution - requires canCreateContributionPlan */}
+          {canCreateContributionPlan && (
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => navigation.navigate('CreateContribution', { cooperativeId })}
+            >
+              <Icon name="Plus" size={24} color={colors.primary.main} style={styles.actionIcon} />
+              <View style={styles.actionContent}>
+                <Text style={styles.actionTitle}>Create Contribution</Text>
+                <Text style={styles.actionSubtitle}>Set up a new contribution plan</Text>
+              </View>
+              <Icon name="ChevronRight" size={20} color={colors.text.disabled} style={styles.actionArrow} />
+            </TouchableOpacity>
+          )}
+          
+          {/* Verify Payments - Hidden for now
+          {canApprovePayments && (
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => navigation.navigate('PaymentVerification', { cooperativeId })}
+            >
+              <Icon name="Check" size={24} color={colors.primary.main} style={styles.actionIcon} />
+              <View style={styles.actionContent}>
+                <Text style={styles.actionTitle}>Verify Payments</Text>
+                <Text style={styles.actionSubtitle}>Review pending payment records</Text>
+              </View>
+              <Icon name="ChevronRight" size={20} color={colors.text.disabled} style={styles.actionArrow} />
+            </TouchableOpacity>
+          )}
+          */}
+          
+          {/* Approve Subscription Payments - requires canApprovePayments */}
+          {canApprovePayments && (
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => navigation.navigate('PaymentApproval', { cooperativeId })}
+            >
+              <Icon name="CreditCard" size={24} color={colors.primary.main} style={styles.actionIcon} />
+              <View style={styles.actionContent}>
+                <Text style={styles.actionTitle}>Approve Subscription Payments</Text>
+                <Text style={styles.actionSubtitle}>Review member subscription payments</Text>
+              </View>
+              <Icon name="ChevronRight" size={20} color={colors.text.disabled} style={styles.actionArrow} />
+            </TouchableOpacity>
+          )}
+          
+          {/* Bulk Approve - requires canBulkApprove */}
+          {canBulkApprove && (
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => navigation.navigate('BulkApproval', { cooperativeId })}
+            >
+              <Icon name="CheckCheck" size={24} color={colors.success.main} style={styles.actionIcon} />
+              <View style={styles.actionContent}>
+                <Text style={styles.actionTitle}>Bulk Approve Schedules</Text>
+                <Text style={styles.actionSubtitle}>Approve all payments for a month</Text>
+              </View>
+              <Icon name="ChevronRight" size={20} color={colors.text.disabled} style={styles.actionArrow} />
+            </TouchableOpacity>
+          )}
+          
+          {/* View Ledger - requires canViewLedger */}
+          {canViewLedger && (
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => navigation.navigate('Ledger', { cooperativeId })}
+            >
+              <Icon name="BarChart" size={24} color={colors.primary.main} style={styles.actionIcon} />
+              <View style={styles.actionContent}>
+                <Text style={styles.actionTitle}>View Ledger</Text>
+                <Text style={styles.actionSubtitle}>Full cooperative financial records</Text>
+              </View>
+              <Icon name="ChevronRight" size={20} color={colors.text.disabled} style={styles.actionArrow} />
+            </TouchableOpacity>
+          )}
+          
+          {/* Manage Admins - requires canViewAdmins */}
+          {canViewAdmins && (
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => navigation.navigate('AdminManagement', { cooperativeId })}
+            >
+              <Icon name="UserCog" size={24} color={colors.warning.main} style={styles.actionIcon} />
+              <View style={styles.actionContent}>
+                <Text style={styles.actionTitle}>Manage Admins</Text>
+                <Text style={styles.actionSubtitle}>Add and configure admin permissions</Text>
+              </View>
+              <Icon name="ChevronRight" size={20} color={colors.text.disabled} style={styles.actionArrow} />
+            </TouchableOpacity>
+          )}
+
+          {/* Manage Offline Members - requires canApproveMembers */}
+          {canApproveMembers && (
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => navigation.navigate('OfflineMembers', { 
+                cooperativeId, 
+                cooperativeName: currentCooperative?.name || 'Cooperative'
+              })}
+            >
+              <Icon name="Users" size={24} color={colors.info?.main || '#3B82F6'} style={styles.actionIcon} />
+              <View style={styles.actionContent}>
+                <Text style={styles.actionTitle}>Offline Members</Text>
+                <Text style={styles.actionSubtitle}>Manage members without mobile devices</Text>
+              </View>
+              <Icon name="ChevronRight" size={20} color={colors.text.disabled} style={styles.actionArrow} />
+            </TouchableOpacity>
+          )}
+
+          {/* Subscription Management - requires canEditSettings */}
+          {canEditSettings && (
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => navigation.navigate('SubscriptionManagement', { cooperativeId })}
+            >
+              <Icon name="CreditCard" size={24} color={colors.accent?.main || '#26A69A'} style={styles.actionIcon} />
+              <View style={styles.actionContent}>
+                <Text style={styles.actionTitle}>Subscription</Text>
+                <Text style={styles.actionSubtitle}>Manage plan and billing</Text>
+              </View>
+              <Icon name="ChevronRight" size={20} color={colors.text.disabled} style={styles.actionArrow} />
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
@@ -250,10 +338,63 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     </View>
   );
 
-  const renderMembers = () => (
+  const renderMembers = () => {
+    // Filter members based on search and filter type
+    const filteredMembers = members.filter((member) => {
+      const memberUser = (member as unknown as { user?: { firstName: string; lastName: string } }).user;
+      const memberName = member.isOfflineMember 
+        ? `${member.firstName || ''} ${member.lastName || ''}`.toLowerCase()
+        : `${memberUser?.firstName || ''} ${memberUser?.lastName || ''}`.toLowerCase();
+      
+      // Search filter
+      const matchesSearch = memberSearchQuery === '' || 
+        memberName.includes(memberSearchQuery.toLowerCase()) ||
+        (member.email || '').toLowerCase().includes(memberSearchQuery.toLowerCase());
+      
+      // Type filter
+      const matchesType = memberFilter === 'all' || 
+        (memberFilter === 'offline' && member.isOfflineMember) ||
+        (memberFilter === 'online' && !member.isOfflineMember);
+      
+      return matchesSearch && matchesType;
+    });
+
+    return (
     <View style={styles.section}>
-      {/* Pending Members Section for Admin */}
-      {isAdmin && pendingMembers.length > 0 && (
+      {/* Search and Filter */}
+      <View style={styles.memberFilterContainer}>
+        <View style={styles.memberSearchBar}>
+          <Icon name="Search" size={18} color={colors.text.disabled} />
+          <TextInput
+            style={styles.memberSearchInput}
+            placeholder="Search members..."
+            placeholderTextColor={colors.text.disabled}
+            value={memberSearchQuery}
+            onChangeText={setMemberSearchQuery}
+          />
+          {memberSearchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setMemberSearchQuery('')}>
+              <Icon name="X" size={18} color={colors.text.disabled} />
+            </TouchableOpacity>
+          )}
+        </View>
+        <View style={styles.filterTabs}>
+          {(['all', 'online', 'offline'] as const).map((filter) => (
+            <TouchableOpacity
+              key={filter}
+              style={[styles.filterTab, memberFilter === filter && styles.filterTabActive]}
+              onPress={() => setMemberFilter(filter)}
+            >
+              <Text style={[styles.filterTabText, memberFilter === filter && styles.filterTabTextActive]}>
+                {filter.charAt(0).toUpperCase() + filter.slice(1)}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
+      {/* Pending Members Section - requires canApproveMembers permission */}
+      {canApproveMembers && pendingMembers.length > 0 && (
         <View style={styles.pendingSection}>
           <View style={styles.pendingHeader}>
             <Icon name="Clock" size={20} color={colors.warning.main} />
@@ -299,60 +440,74 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       )}
 
       {/* Active Members */}
-      <Text style={styles.sectionTitle}>Active Members ({members.length})</Text>
-      {members.map((member) => (
-        <TouchableOpacity
-          key={member.id}
-          style={styles.memberCard}
-          onPress={() =>
-            // Only allow navigation to member dashboard if admin or viewing own profile
-            (isAdmin || member.userId === user?.id) &&
-            navigation.navigate('MemberDashboard', {
-              cooperativeId,
-              memberId: member.id,
-            })
-          }
-        >
-          <Image
-            source={{
-              uri:
-                (member as unknown as { user?: { avatarUrl: string } }).user?.avatarUrl ||
-                `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                  `${(member as unknown as { user?: { firstName: string; lastName: string } }).user?.firstName || ''} ${(member as unknown as { user?: { firstName: string; lastName: string } }).user?.lastName || ''}`
-                )}&background=4f46e5&color=fff&size=150`,
-            }}
-            style={styles.memberAvatar}
-          />
-          <View style={styles.memberInfo}>
-            <Text style={styles.memberName}>
-              {
-                (member as unknown as { user?: { firstName: string; lastName: string } }).user
-                  ?.firstName
-              }{' '}
-              {
-                (member as unknown as { user?: { firstName: string; lastName: string } }).user
-                  ?.lastName
-              }
-            </Text>
-            <Text style={styles.memberRole}>{member.role}</Text>
-          </View>
-          <View style={styles.memberBalance}>
-            {member.isFinancialDataHidden ? (
-              <>
-                <Text style={styles.balanceHidden}>--</Text>
-                <Text style={styles.balanceLabel}>Balance</Text>
-              </>
-            ) : (
-              <>
-                <Text style={styles.balanceValue}>₦{(member.virtualBalance ?? 0).toLocaleString()}</Text>
-                <Text style={styles.balanceLabel}>Balance</Text>
-              </>
-            )}
-          </View>
-        </TouchableOpacity>
-      ))}
+      <Text style={styles.sectionTitle}>
+        {memberFilter === 'all' ? 'Active Members' : memberFilter === 'online' ? 'Online Members' : 'Offline Members'} ({filteredMembers.length})
+      </Text>
+      {filteredMembers.map((member) => {
+        // Helper to get member name - handles both online and offline members
+        const memberUser = (member as unknown as { user?: { firstName: string; lastName: string; avatarUrl?: string } }).user;
+        const memberName = member.isOfflineMember 
+          ? `${member.firstName || ''} ${member.lastName || ''}`.trim()
+          : `${memberUser?.firstName || ''} ${memberUser?.lastName || ''}`.trim();
+        const avatarUrl = memberUser?.avatarUrl || 
+          `https://ui-avatars.com/api/?name=${encodeURIComponent(memberName || 'U')}&background=4f46e5&color=fff&size=150`;
+
+        return (
+          <TouchableOpacity
+            key={member.id}
+            style={styles.memberCard}
+            onPress={() =>
+              // Only allow navigation to member dashboard if admin or viewing own profile
+              (isAdmin || member.userId === user?.id) &&
+              navigation.navigate('MemberDashboard', {
+                cooperativeId,
+                memberId: member.id,
+              })
+            }
+          >
+            <Image
+              source={{ uri: avatarUrl }}
+              style={styles.memberAvatar}
+            />
+            <View style={styles.memberInfo}>
+              <View style={styles.memberNameRow}>
+                <Text style={styles.memberName}>{memberName || 'Unknown Member'}</Text>
+                {member.isOfflineMember && (
+                  <View style={styles.offlineBadge}>
+                    <Text style={styles.offlineBadgeText}>Offline</Text>
+                  </View>
+                )}
+              </View>
+              <Text style={styles.memberRole}>{member.role}</Text>
+            </View>
+            <View style={styles.memberBalance}>
+              {member.isFinancialDataHidden ? (
+                <>
+                  <Text style={styles.balanceHidden}>--</Text>
+                  <Text style={styles.balanceLabel}>Balance</Text>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.balanceValue}>₦{(member.virtualBalance ?? 0).toLocaleString()}</Text>
+                  <Text style={styles.balanceLabel}>Balance</Text>
+                </>
+              )}
+            </View>
+          </TouchableOpacity>
+        );
+      })}
+
+      {filteredMembers.length === 0 && (
+        <View style={styles.emptyState}>
+          <Icon name="Users" size={48} color={colors.text.disabled} />
+          <Text style={styles.emptyText}>
+            {memberSearchQuery ? 'No members match your search' : 'No members found'}
+          </Text>
+        </View>
+      )}
     </View>
   );
+  };
 
   const getCategoryBadgeStyle = (category: string) => {
     return category === 'compulsory' 
@@ -485,6 +640,33 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const renderLoans = () => (
     <View style={styles.section}>
+      {/* Admin Actions */}
+      {isAdmin && (
+        <View style={styles.adminLoanActions}>
+          <TouchableOpacity
+            style={styles.adminLoanAction}
+            onPress={() => navigation.navigate('LoanTypes', { cooperativeId })}
+          >
+            <Icon name="Settings" size={20} color={colors.primary.main} />
+            <Text style={styles.adminLoanActionText}>Configure Loan Types</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.adminLoanAction}
+            onPress={() => navigation.navigate('LoanApprovalList', { cooperativeId })}
+          >
+            <Icon name="CheckCircle" size={20} color={colors.primary.main} />
+            <Text style={styles.adminLoanActionText}>Pending Approvals</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.adminLoanAction, styles.adminLoanActionPrimary]}
+            onPress={() => navigation.navigate('LoanInitiate', { cooperativeId })}
+          >
+            <Icon name="Plus" size={20} color={colors.text.inverse} />
+            <Text style={styles.adminLoanActionTextPrimary}>Initiate Loan for Member</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <TouchableOpacity
         style={styles.requestButton}
         onPress={() => navigation.navigate('LoanRequest', { cooperativeId })}
@@ -517,10 +699,20 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                 <Text style={styles.loanStatusText}>{loan.status}</Text>
               </View>
             </View>
+            {loan.loanType && (
+              <View style={styles.loanTypeTag}>
+                <Text style={styles.loanTypeTagText}>{loan.loanType.name}</Text>
+              </View>
+            )}
             <Text style={styles.loanPurpose}>{loan.purpose}</Text>
             <Text style={styles.loanDetails}>
               {loan.duration} months • {loan.interestRate}% interest
             </Text>
+            {loan.initiatedBy === 'admin' && (
+              <View style={styles.adminInitiatedBadge}>
+                <Text style={styles.adminInitiatedText}>Admin Initiated</Text>
+              </View>
+            )}
           </TouchableOpacity>
         ))
       )}
@@ -555,11 +747,34 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               </View>
             )}
           </View>
-          {currentMember && (
-            <View style={styles.roleBadge}>
-              <Text style={styles.roleBadgeText}>{currentMember.role}</Text>
-            </View>
-          )}
+          <View style={styles.headerBadgesRow}>
+            {currentMember && (
+              <View style={styles.roleBadge}>
+                <Text style={styles.roleBadgeText}>{currentMember.role}</Text>
+              </View>
+            )}
+            {currentSubscription && (
+              <TouchableOpacity 
+                style={[
+                  styles.subscriptionBadge,
+                  currentSubscription.status === 'active' && styles.subscriptionBadgeActive,
+                  currentSubscription.status === 'past_due' && styles.subscriptionBadgePastDue,
+                  currentSubscription.status === 'cancelled' && styles.subscriptionBadgeCancelled,
+                ]}
+                onPress={() => navigation.navigate('SubscriptionManagement', { cooperativeId })}
+              >
+                <Icon 
+                  name="Crown" 
+                  size={12} 
+                  color={colors.text.inverse} 
+                  style={styles.subscriptionBadgeIcon} 
+                />
+                <Text style={styles.subscriptionBadgeText}>
+                  {currentSubscription.plan?.name || 'Free'} Plan
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
       </View>
 
@@ -631,6 +846,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     letterSpacing: 1,
   },
+  headerBadgesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    flexWrap: 'wrap',
+  },
   roleBadge: {
     backgroundColor: colors.primary.main,
     paddingHorizontal: spacing.md,
@@ -642,6 +863,31 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     textTransform: 'capitalize',
+  },
+  subscriptionBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.neutral?.[500] || '#6B7280',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.lg,
+  },
+  subscriptionBadgeActive: {
+    backgroundColor: colors.success.main,
+  },
+  subscriptionBadgePastDue: {
+    backgroundColor: colors.warning.main,
+  },
+  subscriptionBadgeCancelled: {
+    backgroundColor: colors.error.main,
+  },
+  subscriptionBadgeIcon: {
+    marginRight: spacing.xs,
+  },
+  subscriptionBadgeText: {
+    color: colors.text.inverse,
+    fontSize: 12,
+    fontWeight: '600',
   },
   tabContainer: {
     backgroundColor: colors.background.paper,
@@ -821,6 +1067,62 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.text.secondary,
     textTransform: 'capitalize',
+  },
+  memberNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  offlineBadge: {
+    backgroundColor: colors.warning.light,
+    paddingHorizontal: spacing.xs,
+    paddingVertical: 2,
+    borderRadius: borderRadius.sm,
+  },
+  offlineBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.warning.dark,
+  },
+  memberFilterContainer: {
+    marginBottom: spacing.md,
+  },
+  memberSearchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background.paper,
+    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginBottom: spacing.sm,
+    ...shadows.sm,
+  },
+  memberSearchInput: {
+    flex: 1,
+    marginLeft: spacing.sm,
+    fontSize: 14,
+    color: colors.text.primary,
+  },
+  filterTabs: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  filterTab: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.full,
+    backgroundColor: colors.secondary.main,
+  },
+  filterTabActive: {
+    backgroundColor: colors.primary.main,
+  },
+  filterTabText: {
+    fontSize: 12,
+    color: colors.text.secondary,
+    fontWeight: '500',
+  },
+  filterTabTextActive: {
+    color: colors.primary.contrast,
   },
   memberBalance: {
     alignItems: 'flex-end',
@@ -1007,6 +1309,38 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
+  adminLoanActions: {
+    backgroundColor: colors.background.paper,
+    borderRadius: borderRadius.lg,
+    padding: spacing.md,
+    marginBottom: spacing.lg,
+    ...shadows.md,
+  },
+  adminLoanAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.sm,
+    backgroundColor: colors.background.main,
+  },
+  adminLoanActionPrimary: {
+    backgroundColor: colors.primary.main,
+    marginBottom: 0,
+  },
+  adminLoanActionText: {
+    marginLeft: spacing.sm,
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.primary.main,
+  },
+  adminLoanActionTextPrimary: {
+    marginLeft: spacing.sm,
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text.inverse,
+  },
   loanCard: {
     backgroundColor: colors.background.paper,
     borderRadius: borderRadius.lg,
@@ -1045,6 +1379,19 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     textTransform: 'capitalize',
   },
+  loanTypeTag: {
+    backgroundColor: '#f0f9ff',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: borderRadius.sm,
+    alignSelf: 'flex-start',
+    marginBottom: spacing.xs,
+  },
+  loanTypeTagText: {
+    fontSize: 11,
+    color: '#0ea5e9',
+    fontWeight: '500',
+  },
   loanPurpose: {
     fontSize: 14,
     color: colors.text.primary,
@@ -1053,6 +1400,19 @@ const styles = StyleSheet.create({
   loanDetails: {
     fontSize: 12,
     color: colors.text.secondary,
+  },
+  adminInitiatedBadge: {
+    backgroundColor: '#f0fdf4',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: borderRadius.sm,
+    alignSelf: 'flex-start',
+    marginTop: spacing.xs,
+  },
+  adminInitiatedText: {
+    fontSize: 10,
+    color: '#22c55e',
+    fontWeight: '500',
   },
   emptyState: {
     alignItems: 'center',

@@ -120,4 +120,165 @@ export const cooperativeApi = {
     );
     return response.data;
   },
+
+  // ==================== ADMIN MANAGEMENT ====================
+
+  // Get all admins/moderators for a cooperative
+  getAdmins: async (cooperativeId: string): Promise<ApiResponse<CooperativeMember[]>> => {
+    const response = await apiClient.get<ApiResponse<CooperativeMember[]>>(
+      `/cooperatives/${cooperativeId}/admins`
+    );
+    return response.data;
+  },
+
+  // Update member role (promote/demote)
+  updateMemberRoleWithPermissions: async (
+    cooperativeId: string,
+    memberId: string,
+    role: string,
+    permissions?: string[]
+  ): Promise<ApiResponse<CooperativeMember>> => {
+    const response = await apiClient.put<ApiResponse<CooperativeMember>>(
+      `/cooperatives/${cooperativeId}/members/${memberId}/role`,
+      { role, permissions }
+    );
+    return response.data;
+  },
+
+  // Update member permissions (for moderators)
+  updateMemberPermissions: async (
+    cooperativeId: string,
+    memberId: string,
+    permissions: string[]
+  ): Promise<ApiResponse<CooperativeMember>> => {
+    const response = await apiClient.put<ApiResponse<CooperativeMember>>(
+      `/cooperatives/${cooperativeId}/members/${memberId}/permissions`,
+      { permissions }
+    );
+    return response.data;
+  },
+
+  // Remove admin status (demote to member)
+  removeAdmin: async (
+    cooperativeId: string,
+    memberId: string
+  ): Promise<ApiResponse<CooperativeMember>> => {
+    const response = await apiClient.post<ApiResponse<CooperativeMember>>(
+      `/cooperatives/${cooperativeId}/members/${memberId}/remove-admin`
+    );
+    return response.data;
+  },
+
+  // Get available permissions
+  getAvailablePermissions: async (): Promise<ApiResponse<{
+    permissions: string[];
+    defaultRolePermissions: Record<string, string[]>;
+  }>> => {
+    const response = await apiClient.get<ApiResponse<{
+      permissions: string[];
+      defaultRolePermissions: Record<string, string[]>;
+    }>>('/cooperatives/permissions/available');
+    return response.data;
+  },
+
+  // ==================== OFFLINE MEMBER MANAGEMENT ====================
+
+  // Get all offline members
+  getOfflineMembers: async (cooperativeId: string): Promise<ApiResponse<CooperativeMember[]>> => {
+    const response = await apiClient.get<ApiResponse<CooperativeMember[]>>(
+      `/cooperatives/${cooperativeId}/offline-members`
+    );
+    return response.data;
+  },
+
+  // Create an offline member
+  createOfflineMember: async (
+    cooperativeId: string,
+    data: {
+      firstName: string;
+      lastName: string;
+      email?: string;
+      phone?: string;
+      initialBalance?: number;
+      autoSubscribe?: boolean;
+    }
+  ): Promise<ApiResponse<CooperativeMember>> => {
+    const response = await apiClient.post<ApiResponse<CooperativeMember>>(
+      `/cooperatives/${cooperativeId}/offline-members`,
+      data
+    );
+    return response.data;
+  },
+
+  // Update an offline member
+  updateOfflineMember: async (
+    cooperativeId: string,
+    memberId: string,
+    data: {
+      firstName?: string;
+      lastName?: string;
+      email?: string;
+      phone?: string;
+    }
+  ): Promise<ApiResponse<CooperativeMember>> => {
+    const response = await apiClient.put<ApiResponse<CooperativeMember>>(
+      `/cooperatives/${cooperativeId}/offline-members/${memberId}`,
+      data
+    );
+    return response.data;
+  },
+
+  // Delete an offline member
+  deleteOfflineMember: async (
+    cooperativeId: string,
+    memberId: string
+  ): Promise<ApiResponse<{ message: string }>> => {
+    const response = await apiClient.delete<ApiResponse<{ message: string }>>(
+      `/cooperatives/${cooperativeId}/offline-members/${memberId}`
+    );
+    return response.data;
+  },
+
+  // Subscribe offline member to a plan
+  subscribeOfflineMemberToPlan: async (
+    cooperativeId: string,
+    memberId: string,
+    planId: string
+  ): Promise<ApiResponse<any>> => {
+    const response = await apiClient.post<ApiResponse<any>>(
+      `/cooperatives/${cooperativeId}/offline-members/${memberId}/subscribe/${planId}`
+    );
+    return response.data;
+  },
+
+  // Bulk create offline members
+  bulkCreateOfflineMembers: async (
+    cooperativeId: string,
+    members: Array<{
+      firstName: string;
+      lastName: string;
+      email?: string;
+      phone?: string;
+      memberCode?: string;
+      notes?: string;
+    }>
+  ): Promise<ApiResponse<{
+    totalProcessed: number;
+    successCount: number;
+    failedCount: number;
+    successful: any[];
+    failed: Array<{ member: any; error: string }>;
+  }>> => {
+    const response = await apiClient.post<ApiResponse<{
+      totalProcessed: number;
+      successCount: number;
+      failedCount: number;
+      successful: any[];
+      failed: Array<{ member: any; error: string }>;
+    }>>(
+      `/cooperatives/${cooperativeId}/offline-members/bulk`,
+      { members }
+    );
+    return response.data;
+  },
 };

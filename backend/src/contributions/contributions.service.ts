@@ -1,18 +1,69 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ActivitiesService } from '../activities/activities.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateContributionPlanDto } from './dto/create-contribution-plan.dto';
 import { SubscribeToContributionDto, UpdateSubscriptionDto } from './dto/subscription.dto';
 import { RecordPaymentDto, ApprovePaymentDto } from './dto/payment.dto';
+import { PERMISSIONS, Permission, hasPermission, parsePermissions } from '../common/permissions';
 
 @Injectable()
 export class ContributionsService {
   constructor(
     private prisma: PrismaService,
     private activitiesService: ActivitiesService,
+    private notificationsService: NotificationsService,
   ) {}
 
-  // Verify user is admin of the cooperative
+  // Get member with permissions
+  private async getMemberWithPermissions(cooperativeId: string, userId: string) {
+    const member = await this.prisma.member.findFirst({
+      where: {
+        cooperativeId,
+        userId,
+        status: 'active',
+      },
+      select: {
+        id: true,
+        role: true,
+        permissions: true,
+        userId: true,
+        cooperativeId: true,
+      },
+    });
+
+    if (!member) {
+      throw new ForbiddenException('You are not a member of this cooperative');
+    }
+
+    return {
+      ...member,
+      parsedPermissions: parsePermissions(member.permissions),
+    };
+  }
+
+  // Check if member has a specific permission
+  private checkPermission(
+    member: { role: string; parsedPermissions: string[] },
+    requiredPermission: Permission,
+  ): boolean {
+    return hasPermission(member.role, member.parsedPermissions, requiredPermission);
+  }
+
+  // Verify member has permission or throw
+  private requirePermission(
+    member: { role: string; parsedPermissions: string[] },
+    requiredPermission: Permission,
+    errorMessage?: string,
+  ) {
+    if (!this.checkPermission(member, requiredPermission)) {
+      throw new ForbiddenException(
+        errorMessage || 'You do not have permission to perform this action',
+      );
+    }
+  }
+
+  // Verify user is admin of the cooperative (legacy - kept for backward compatibility)
   private async verifyAdmin(cooperativeId: string, userId: string) {
     const member = await this.prisma.member.findFirst({
       where: {
@@ -47,9 +98,10 @@ export class ContributionsService {
     return member;
   }
 
-  // Create a new contribution plan (admin only)
+  // Create a new contribution plan (requires CONTRIBUTIONS_CREATE_PLAN permission)
   async createPlan(cooperativeId: string, dto: CreateContributionPlanDto, userId: string) {
-    await this.verifyAdmin(cooperativeId, userId);
+    const member = await this.getMemberWithPermissions(cooperativeId, userId);
+    this.requirePermission(member, PERMISSIONS.CONTRIBUTIONS_CREATE_PLAN, 'You do not have permission to create contribution plans');
 
     // Validate fixed amount is provided for fixed type
     if (dto.amountType === 'fixed' && !dto.fixedAmount) {
@@ -78,7 +130,8 @@ export class ContributionsService {
         maxAmount: dto.maxAmount,
         contributionType: dto.contributionType,
         frequency: dto.frequency,
-        startDate: dto.startDate ? new Date(dto.startDate) : null,
+        //if no start date use, the date the plan is created
+        startDate: dto.startDate ? new Date(dto.startDate) : new Date(),
         endDate: dto.endDate ? new Date(dto.endDate) : null,
         isActive: dto.isActive ?? true,
         createdBy: userId,
@@ -162,7 +215,7 @@ export class ContributionsService {
     return plan;
   }
 
-  // Update a contribution plan (admin only)
+  // Update a contribution plan (requires CONTRIBUTIONS_EDIT_PLAN permission)
   async updatePlan(planId: string, dto: Partial<CreateContributionPlanDto>, userId: string) {
     const plan = await this.prisma.contributionPlan.findUnique({
       where: { id: planId },
@@ -172,7 +225,8 @@ export class ContributionsService {
       throw new NotFoundException('Contribution plan not found');
     }
 
-    await this.verifyAdmin(plan.cooperativeId, userId);
+    const member = await this.getMemberWithPermissions(plan.cooperativeId, userId);
+    this.requirePermission(member, PERMISSIONS.CONTRIBUTIONS_EDIT_PLAN, 'You do not have permission to edit contribution plans');
 
     const updatedPlan = await this.prisma.contributionPlan.update({
       where: { id: planId },
@@ -195,7 +249,7 @@ export class ContributionsService {
     return updatedPlan;
   }
 
-  // Delete a contribution plan (admin only)
+  // Delete a contribution plan (requires CONTRIBUTIONS_DELETE_PLAN permission)
   async deletePlan(planId: string, userId: string) {
     const plan = await this.prisma.contributionPlan.findUnique({
       where: { id: planId },
@@ -210,7 +264,8 @@ export class ContributionsService {
       throw new NotFoundException('Contribution plan not found');
     }
 
-    await this.verifyAdmin(plan.cooperativeId, userId);
+    const member = await this.getMemberWithPermissions(plan.cooperativeId, userId);
+    this.requirePermission(member, PERMISSIONS.CONTRIBUTIONS_DELETE_PLAN, 'You do not have permission to delete contribution plans');
 
     if (plan._count.subscriptions > 0) {
       throw new BadRequestException('Cannot delete a plan with active subscriptions. Deactivate it instead.');
@@ -430,7 +485,7 @@ export class ContributionsService {
     });
   }
 
-  // Get all subscriptions for a plan (admin only)
+  // Get all subscriptions for a plan (requires CONTRIBUTIONS_VIEW permission)
   async getPlanSubscriptions(planId: string, userId: string) {
     const plan = await this.prisma.contributionPlan.findUnique({
       where: { id: planId },
@@ -440,7 +495,8 @@ export class ContributionsService {
       throw new NotFoundException('Contribution plan not found');
     }
 
-    await this.verifyAdmin(plan.cooperativeId, userId);
+    const member = await this.getMemberWithPermissions(plan.cooperativeId, userId);
+    this.requirePermission(member, PERMISSIONS.CONTRIBUTIONS_VIEW, 'You do not have permission to view plan subscriptions');
 
     return this.prisma.contributionSubscription.findMany({
       where: { planId },
@@ -602,9 +658,10 @@ export class ContributionsService {
     });
   }
 
-  // Get pending payments for admin approval
+  // Get pending payments for admin approval (requires CONTRIBUTIONS_APPROVE_PAYMENTS permission)
   async getPendingPayments(cooperativeId: string, userId: string) {
-    await this.verifyAdmin(cooperativeId, userId);
+    const member = await this.getMemberWithPermissions(cooperativeId, userId);
+    this.requirePermission(member, PERMISSIONS.CONTRIBUTIONS_APPROVE_PAYMENTS, 'You do not have permission to view pending payments');
 
     return this.prisma.contributionPayment.findMany({
       where: {
@@ -645,7 +702,7 @@ export class ContributionsService {
     });
   }
 
-  // Approve or reject a payment (admin only)
+  // Approve or reject a payment (requires CONTRIBUTIONS_APPROVE_PAYMENTS permission)
   async approvePayment(paymentId: string, dto: ApprovePaymentDto, userId: string) {
     const payment = await this.prisma.contributionPayment.findUnique({
       where: { id: paymentId },
@@ -671,7 +728,8 @@ export class ContributionsService {
       throw new BadRequestException('Payment has already been processed');
     }
 
-    const admin = await this.verifyAdmin(payment.subscription.plan.cooperativeId, userId);
+    const member = await this.getMemberWithPermissions(payment.subscription.plan.cooperativeId, userId);
+    this.requirePermission(member, PERMISSIONS.CONTRIBUTIONS_APPROVE_PAYMENTS, 'You do not have permission to approve payments');
 
     if (dto.status === 'rejected' && !dto.rejectionReason) {
       throw new BadRequestException('Rejection reason is required');
@@ -722,7 +780,7 @@ export class ContributionsService {
         });
 
         // Create ledger entry
-        const member = await tx.member.findUnique({
+        const paymentMember = await tx.member.findUnique({
           where: { id: payment.subscription.memberId },
         });
 
@@ -732,7 +790,7 @@ export class ContributionsService {
             memberId: payment.subscription.memberId,
             type: 'contribution',
             amount: payment.amount,
-            balanceAfter: member!.virtualBalance,
+            balanceAfter: paymentMember!.virtualBalance,
             referenceId: paymentId,
             referenceType: 'contribution_payment',
             description: `Contribution payment for "${payment.subscription.plan.name}"`,
@@ -750,9 +808,13 @@ export class ContributionsService {
     }
 
     // Log activity
+    const paymentMember = payment.subscription.member;
+    const memberName = paymentMember.user 
+      ? `${paymentMember.user.firstName} ${paymentMember.user.lastName}`
+      : `${paymentMember.firstName ?? 'Unknown'} ${paymentMember.lastName ?? 'Member'}`;
     const actionDescription = dto.status === 'approved'
-      ? `Approved payment of ₦${payment.amount.toLocaleString()} from ${payment.subscription.member.user.firstName} ${payment.subscription.member.user.lastName}`
-      : `Rejected payment of ₦${payment.amount.toLocaleString()} from ${payment.subscription.member.user.firstName} ${payment.subscription.member.user.lastName}: ${dto.rejectionReason}`;
+      ? `Approved payment of ₦${payment.amount.toLocaleString()} from ${memberName}`
+      : `Rejected payment of ₦${payment.amount.toLocaleString()} from ${memberName}: ${dto.rejectionReason}`;
 
     await this.activitiesService.create({
       userId,
@@ -761,6 +823,29 @@ export class ContributionsService {
       description: actionDescription,
       metadata: { paymentId, amount: payment.amount, status: dto.status },
     });
+
+    // Notify the member about payment approval/rejection
+    if (payment.subscription.member.userId) {
+      if (dto.status === 'approved') {
+        await this.notificationsService.createNotification({
+          userId: payment.subscription.member.userId,
+          cooperativeId: payment.subscription.plan.cooperativeId,
+          type: 'contribution_approved',
+          title: 'Payment Approved',
+          body: `Your contribution payment of ₦${payment.amount.toLocaleString()} for "${payment.subscription.plan.name}" has been approved.`,
+          data: { paymentId, planId: payment.subscription.planId },
+        });
+      } else {
+        await this.notificationsService.createNotification({
+          userId: payment.subscription.member.userId,
+          cooperativeId: payment.subscription.plan.cooperativeId,
+          type: 'contribution_rejected',
+          title: 'Payment Rejected',
+          body: `Your contribution payment of ₦${payment.amount.toLocaleString()} was rejected. Reason: ${dto.rejectionReason}`,
+          data: { paymentId, planId: payment.subscription.planId },
+        });
+      }
+    }
 
     return result;
   }
@@ -1159,9 +1244,10 @@ export class ContributionsService {
     }));
   }
 
-  // Get overdue schedules for a cooperative (admin)
+  // Get overdue schedules for a cooperative (requires CONTRIBUTIONS_VIEW permission)
   async getOverdueSchedules(cooperativeId: string, userId: string) {
-    await this.verifyAdmin(cooperativeId, userId);
+    const member = await this.getMemberWithPermissions(cooperativeId, userId);
+    this.requirePermission(member, PERMISSIONS.CONTRIBUTIONS_VIEW, 'You do not have permission to view overdue schedules');
 
     const now = new Date();
 
@@ -1400,7 +1486,7 @@ export class ContributionsService {
 
   // ==================== BULK APPROVAL METHODS ====================
 
-  // Get schedules for bulk approval preview (admin only)
+  // Get schedules for bulk approval preview (requires CONTRIBUTIONS_BULK_APPROVE permission)
   async getBulkApprovalPreview(
     cooperativeId: string,
     month: number,
@@ -1408,7 +1494,8 @@ export class ContributionsService {
     userId: string,
     planId?: string,
   ) {
-    await this.verifyAdmin(cooperativeId, userId);
+    const member = await this.getMemberWithPermissions(cooperativeId, userId);
+    this.requirePermission(member, PERMISSIONS.CONTRIBUTIONS_BULK_APPROVE, 'You do not have permission to access bulk approval');
 
     // Calculate date range for the month
     const startDate = new Date(year, month - 1, 1);
@@ -1491,7 +1578,7 @@ export class ContributionsService {
     };
   }
 
-  // Bulk approve schedules for a month (admin only)
+  // Bulk approve schedules for a month (requires CONTRIBUTIONS_BULK_APPROVE permission)
   async bulkApproveSchedules(
     cooperativeId: string,
     dto: {
@@ -1504,7 +1591,8 @@ export class ContributionsService {
     },
     userId: string,
   ) {
-    await this.verifyAdmin(cooperativeId, userId);
+    const member = await this.getMemberWithPermissions(cooperativeId, userId);
+    this.requirePermission(member, PERMISSIONS.CONTRIBUTIONS_BULK_APPROVE, 'You do not have permission to bulk approve payments');
 
     // Calculate date range for the month
     const startDate = new Date(dto.year, dto.month - 1, 1);

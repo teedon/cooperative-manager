@@ -1,5 +1,6 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException, NotFoundException } from '@nestjs/common';
 import { UsersService } from '../users/users.service';
+import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
 import { randomBytes } from 'crypto';
@@ -11,6 +12,7 @@ type TokenPair = { accessToken: string; refreshToken: string };
 export class AuthService {
   constructor(
     private users: UsersService,
+    private prisma: PrismaService,
     private jwt: JwtService,
     private activitiesService: ActivitiesService,
   ) {}
@@ -48,7 +50,12 @@ export class AuthService {
   async register(createDto: any) {
     const existing = await this.users.findByEmail(createDto.email);
     if (existing) throw new UnauthorizedException('Email already in use');
+    
     const user = await this.users.create(createDto);
+    
+    // Link any offline members that match this user's email or phone
+    await this.linkOfflineMembers(user.id, user.email, user.phone);
+    
     // @ts-ignore
     const { password, ...safe } = user;
     // issue tokens similar to login
@@ -67,6 +74,59 @@ export class AuthService {
     );
 
     return { user: safe, accessToken, refreshToken };
+  }
+
+  /**
+   * Link offline members to a newly registered user based on email or phone match.
+   * This allows offline members added by admins to take over their accounts.
+   */
+  private async linkOfflineMembers(userId: string, email: string, phone?: string | null) {
+    // Find offline members with matching email
+    const emailMatches = email ? await this.prisma.member.findMany({
+      where: {
+        isOfflineMember: true,
+        userId: null,
+        email: { equals: email, mode: 'insensitive' },
+      },
+    }) : [];
+
+    // Find offline members with matching phone (if phone is provided)
+    const phoneMatches = phone ? await this.prisma.member.findMany({
+      where: {
+        isOfflineMember: true,
+        userId: null,
+        phone: phone,
+      },
+    }) : [];
+
+    // Combine and deduplicate by member id
+    const allMatches = [...emailMatches, ...phoneMatches];
+    const uniqueMatches = allMatches.filter((member, index, self) =>
+      index === self.findIndex(m => m.id === member.id)
+    );
+
+    // Link each matching offline member to the new user
+    for (const member of uniqueMatches) {
+      await this.prisma.member.update({
+        where: { id: member.id },
+        data: {
+          userId: userId,
+          isOfflineMember: false,
+          status: 'active', // Automatically activate since they verified their identity
+        },
+      });
+
+      // Log the account takeover
+      await this.activitiesService.log(
+        userId,
+        'member.account_linked',
+        `Linked account to existing membership in cooperative`,
+        member.cooperativeId,
+        { memberId: member.id },
+      );
+    }
+
+    return uniqueMatches.length;
   }
 
   async refresh(oldRefreshToken: string) {
@@ -101,5 +161,125 @@ export class AuthService {
   async logout(userId: string) {
     await this.users.clearRefreshToken(userId);
     return { success: true };
+  }
+
+  /**
+   * Initiate forgot password flow - generates a reset token
+   */
+  async forgotPassword(email: string) {
+    const user = await this.users.findByEmail(email);
+    
+    // Don't reveal if email exists or not for security
+    if (!user) {
+      return { message: 'If an account with this email exists, a password reset link has been sent.' };
+    }
+
+    // Generate a secure reset token
+    const resetToken = randomBytes(32).toString('hex');
+    const hashedToken = await bcrypt.hash(resetToken, 10);
+    
+    // Set token expiry to 1 hour from now
+    const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
+
+    // Save the hashed token and expiry
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordResetToken: hashedToken,
+        passwordResetExpires: expiresAt,
+      },
+    });
+
+    // Log activity
+    await this.activitiesService.log(
+      user.id,
+      'auth.forgot_password',
+      'Requested password reset',
+      undefined,
+      { email: user.email },
+    );
+
+    // In production, you would send an email here with the reset link
+    // For now, we return the token (in production, never return the token directly!)
+    // The token should be sent via email with a link like: /reset-password?token=xxx
+    
+    return { 
+      message: 'If an account with this email exists, a password reset link has been sent.',
+      // Remove this in production - only for development/testing
+      resetToken: process.env.NODE_ENV === 'development' ? resetToken : undefined,
+    };
+  }
+
+  /**
+   * Verify if a reset token is valid
+   */
+  async verifyResetToken(token: string) {
+    // Find users with non-expired reset tokens
+    const users = await this.prisma.user.findMany({
+      where: {
+        passwordResetToken: { not: null },
+        passwordResetExpires: { gt: new Date() },
+      },
+    });
+
+    // Check each user's token (since they're hashed)
+    for (const user of users) {
+      if (user.passwordResetToken && await bcrypt.compare(token, user.passwordResetToken)) {
+        return { valid: true, email: user.email };
+      }
+    }
+
+    throw new BadRequestException('Invalid or expired reset token');
+  }
+
+  /**
+   * Reset password with a valid token
+   */
+  async resetPassword(token: string, newPassword: string) {
+    // Find users with non-expired reset tokens
+    const users = await this.prisma.user.findMany({
+      where: {
+        passwordResetToken: { not: null },
+        passwordResetExpires: { gt: new Date() },
+      },
+    });
+
+    // Find the user with matching token
+    let matchedUser = null;
+    for (const user of users) {
+      if (user.passwordResetToken && await bcrypt.compare(token, user.passwordResetToken)) {
+        matchedUser = user;
+        break;
+      }
+    }
+
+    if (!matchedUser) {
+      throw new BadRequestException('Invalid or expired reset token');
+    }
+
+    // Hash the new password
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // Update password and clear reset token
+    await this.prisma.user.update({
+      where: { id: matchedUser.id },
+      data: {
+        password: hashedPassword,
+        passwordResetToken: null,
+        passwordResetExpires: null,
+        refreshToken: null, // Invalidate all sessions
+      },
+    });
+
+    // Log activity
+    await this.activitiesService.log(
+      matchedUser.id,
+      'auth.password_reset',
+      'Password was reset successfully',
+      undefined,
+      { email: matchedUser.email },
+    );
+
+    return { message: 'Password reset successfully. Please login with your new password.' };
   }
 }

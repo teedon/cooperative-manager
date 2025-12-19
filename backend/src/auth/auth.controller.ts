@@ -1,6 +1,7 @@
 import { Body, Controller, Post, Request, UseGuards, Get, HttpException, HttpStatus } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { CreateUserDto } from '../users/dto/create-user.dto';
+import { ForgotPasswordDto, ResetPasswordDto, VerifyResetTokenDto } from './dto/forgot-password.dto';
 import { AuthGuard } from '@nestjs/passport';
 
 type ApiResponse<T> = { success: boolean; data: T; message: string };
@@ -94,6 +95,45 @@ export class AuthController {
     } catch (error: any) {
       throw new HttpException(
         { success: false, message: error.message || 'Logout failed', data: null },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @Post('forgot-password')
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    try {
+      const result = await this.auth.forgotPassword(dto.email);
+      return { success: true, message: result.message, data: result.resetToken ? { resetToken: result.resetToken } : null };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to process forgot password request', data: null },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @Post('verify-reset-token')
+  async verifyResetToken(@Body() dto: VerifyResetTokenDto) {
+    try {
+      const result = await this.auth.verifyResetToken(dto.token);
+      return { success: true, message: 'Token is valid', data: result };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Invalid or expired token', data: null },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @Post('reset-password')
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    try {
+      const result = await this.auth.resetPassword(dto.token, dto.newPassword);
+      return { success: true, message: result.message, data: null };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to reset password', data: null },
         HttpStatus.BAD_REQUEST,
       );
     }

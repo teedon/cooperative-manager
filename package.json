@@ -17,7 +17,8 @@
     "mock-server": "npx tsc mock-server/server.ts --outDir mock-server/dist --esModuleInterop --resolveJsonModule --skipLibCheck && node mock-server/dist/server.js",
     "mock-server:dev": "npx tsx mock-server/server.ts",
     "build-storybook": "echo 'Storybook build placeholder'",
-    "prepare": "husky install"
+    "prepare": "husky install",
+    "postinstall": "patch-package"
   },
   "lint-staged": {
     "*.{ts,tsx}": [
@@ -28,6 +29,8 @@
   "dependencies": {
     "@react-native-async-storage/async-storage": "^2.2.0",
     "@react-native-community/datetimepicker": "^8.5.1",
+    "@react-native-firebase/app": "^23.7.0",
+    "@react-native-firebase/messaging": "^23.7.0",
     "@react-native/new-app-screen": "0.82.1",
     "@react-navigation/bottom-tabs": "^7.8.7",
     "@react-navigation/native": "^7.1.22",
@@ -40,12 +43,16 @@
     "react-dom": "^19.1.1",
     "react-native": "0.82.1",
     "react-native-app-intro-slider": "^4.0.4",
+    "react-native-blob-util": "^0.24.5",
+    "react-native-document-picker": "^9.3.1",
     "react-native-image-picker": "^7.2.0",
     "react-native-safe-area-context": "^5.5.2",
     "react-native-screens": "^4.18.0",
     "react-native-svg": "^15.15.1",
+    "react-native-webview": "^13.16.0",
     "react-redux": "^9.2.0",
-    "styled-components": "^6.1.19"
+    "styled-components": "^6.1.19",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
@@ -78,6 +85,7 @@
     "jest": "^29.6.3",
     "lint-staged": "^16.2.7",
     "metro-cache": "^0.83.3",
+    "patch-package": "^8.0.1",
     "prettier": "^3.7.0",
     "react-test-renderer": "^19.1.1",
     "sharp": "^0.33.5",

@@ -5,6 +5,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Text, View, StyleSheet } from 'react-native';
 import { colors, spacing } from '../theme';
 import CustomTabBar from '../components/navigation/CustomTabBar';
+import NotificationBell from '../components/common/NotificationBell';
 
 import HomeScreen from '../screens/home/HomeScreen';
 import LandingScreen from '../screens/home/LandingScreen';
@@ -25,9 +26,21 @@ import GroupBuyManagementScreen from '../screens/groupbuys/GroupBuyManagementScr
 import LoanRequestScreen from '../screens/loans/LoanRequestScreen';
 import LoanDetailScreen from '../screens/loans/LoanDetailScreen';
 import LoanDecisionScreen from '../screens/loans/LoanDecisionScreen';
+import LoanTypesScreen from '../screens/loans/LoanTypesScreen';
+import LoanApprovalListScreen from '../screens/loans/LoanApprovalListScreen';
+import LoanInitiateScreen from '../screens/loans/LoanInitiateScreen';
 import LedgerScreen from '../screens/ledger/LedgerScreen';
 import MemberDashboardScreen from '../screens/cooperative/MemberDashboardScreen';
+import AdminManagementScreen from '../screens/cooperative/AdminManagementScreen';
+import OfflineMembersScreen from '../screens/cooperative/OfflineMembersScreen';
 import ProfileScreen from '../screens/home/ProfileScreen';
+import NotificationsScreen from '../screens/notifications/NotificationsScreen';
+import NotificationSettingsScreen from '../screens/notifications/NotificationSettingsScreen';
+import {
+  SubscriptionPlansScreen,
+  SubscriptionManagementScreen,
+  PaymentWebViewScreen,
+} from '../screens/subscription';
 
 export type MainTabParamList = {
   HomeTab: undefined;
@@ -76,8 +89,18 @@ export type HomeStackParamList = {
   LoanRequest: { cooperativeId: string };
   LoanDetail: { loanId: string };
   LoanDecision: { loanId: string };
+  LoanTypes: { cooperativeId: string };
+  LoanApprovalList: { cooperativeId: string };
+  LoanInitiate: { cooperativeId: string };
   Ledger: { cooperativeId: string; memberId?: string };
   MemberDashboard: { cooperativeId: string; memberId: string };
+  AdminManagement: { cooperativeId: string };
+  OfflineMembers: { cooperativeId: string; cooperativeName: string };
+  Notifications: undefined;
+  NotificationSettings: undefined;
+  SubscriptionPlans: { cooperativeId: string; currentPlanId?: string };
+  SubscriptionManagement: { cooperativeId: string };
+  PaymentWebView: { authorizationUrl: string; reference: string; cooperativeId: string };
 };
 
 const HomeStackNavigator: React.FC = () => {
@@ -91,6 +114,7 @@ const HomeStackNavigator: React.FC = () => {
         headerTitleStyle: {
           fontWeight: 'bold',
         },
+        headerRight: () => <NotificationBell color={colors.primary.contrast} />,
       }}
       initialRouteName="Landing"
     >
@@ -181,11 +205,61 @@ const HomeStackNavigator: React.FC = () => {
         component={LoanDecisionScreen}
         options={{ title: 'Review Loan' }}
       />
+      <HomeStack.Screen
+        name="LoanTypes"
+        component={LoanTypesScreen}
+        options={{ title: 'Loan Types' }}
+      />
+      <HomeStack.Screen
+        name="LoanApprovalList"
+        component={LoanApprovalListScreen}
+        options={{ title: 'Pending Loan Requests' }}
+      />
+      <HomeStack.Screen
+        name="LoanInitiate"
+        component={LoanInitiateScreen}
+        options={{ title: 'Initiate Loan' }}
+      />
       <HomeStack.Screen name="Ledger" component={LedgerScreen} options={{ title: 'Ledger' }} />
       <HomeStack.Screen
         name="MemberDashboard"
         component={MemberDashboardScreen}
         options={{ title: 'Member Dashboard' }}
+      />
+      <HomeStack.Screen
+        name="AdminManagement"
+        component={AdminManagementScreen}
+        options={{ title: 'Admin Management' }}
+      />
+      <HomeStack.Screen
+        name="OfflineMembers"
+        component={OfflineMembersScreen}
+        options={{ title: 'Offline Members', headerShown: false }}
+      />
+      <HomeStack.Screen
+        name="Notifications"
+        component={NotificationsScreen}
+        options={{ title: 'Notifications' }}
+      />
+      <HomeStack.Screen
+        name="NotificationSettings"
+        component={NotificationSettingsScreen}
+        options={{ title: 'Notification Settings' }}
+      />
+      <HomeStack.Screen
+        name="SubscriptionPlans"
+        component={SubscriptionPlansScreen}
+        options={{ title: 'Subscription Plans', headerShown: false }}
+      />
+      <HomeStack.Screen
+        name="SubscriptionManagement"
+        component={SubscriptionManagementScreen}
+        options={{ title: 'Subscription', headerShown: false }}
+      />
+      <HomeStack.Screen
+        name="PaymentWebView"
+        component={PaymentWebViewScreen}
+        options={{ title: 'Payment', headerShown: false }}
       />
     </HomeStack.Navigator>
   );
@@ -203,6 +277,7 @@ const CoopsStackNavigator: React.FC = () => {
         headerTitleStyle: {
           fontWeight: 'bold',
         },
+        headerRight: () => <NotificationBell color={colors.primary.contrast} />,
       }}
       initialRouteName="Home"
     >
@@ -292,11 +367,61 @@ const CoopsStackNavigator: React.FC = () => {
         component={LoanDecisionScreen}
         options={{ title: 'Review Loan' }}
       />
+      <CoopsStack.Screen
+        name="LoanTypes"
+        component={LoanTypesScreen}
+        options={{ title: 'Loan Types' }}
+      />
+      <CoopsStack.Screen
+        name="LoanApprovalList"
+        component={LoanApprovalListScreen}
+        options={{ title: 'Pending Loan Requests' }}
+      />
+      <CoopsStack.Screen
+        name="LoanInitiate"
+        component={LoanInitiateScreen}
+        options={{ title: 'Initiate Loan' }}
+      />
       <CoopsStack.Screen name="Ledger" component={LedgerScreen} options={{ title: 'Ledger' }} />
       <CoopsStack.Screen
         name="MemberDashboard"
         component={MemberDashboardScreen}
         options={{ title: 'Member Dashboard' }}
+      />
+      <CoopsStack.Screen
+        name="AdminManagement"
+        component={AdminManagementScreen}
+        options={{ title: 'Admin Management' }}
+      />
+      <CoopsStack.Screen
+        name="OfflineMembers"
+        component={OfflineMembersScreen}
+        options={{ title: 'Offline Members', headerShown: false }}
+      />
+      <CoopsStack.Screen
+        name="Notifications"
+        component={NotificationsScreen}
+        options={{ title: 'Notifications' }}
+      />
+      <CoopsStack.Screen
+        name="NotificationSettings"
+        component={NotificationSettingsScreen}
+        options={{ title: 'Notification Settings' }}
+      />
+      <CoopsStack.Screen
+        name="SubscriptionPlans"
+        component={SubscriptionPlansScreen}
+        options={{ title: 'Subscription Plans', headerShown: false }}
+      />
+      <CoopsStack.Screen
+        name="SubscriptionManagement"
+        component={SubscriptionManagementScreen}
+        options={{ title: 'Subscription', headerShown: false }}
+      />
+      <CoopsStack.Screen
+        name="PaymentWebView"
+        component={PaymentWebViewScreen}
+        options={{ title: 'Payment', headerShown: false }}
       />
     </CoopsStack.Navigator>
   );

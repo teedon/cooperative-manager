@@ -5,6 +5,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
 import { restoreSession } from '../store/slices/authSlice';
+import { notificationService } from '../services/notificationService';
 
 import AuthNavigator from './AuthNavigator';
 import MainNavigator from './MainNavigator';
@@ -32,6 +33,20 @@ const RootNavigator: React.FC = () => {
     };
     
     checkOnboardingState();
+  }, [isAuthenticated, user?.id]);
+
+  // Initialize notifications when user is authenticated
+  useEffect(() => {
+    if (isAuthenticated && user?.id) {
+      notificationService.initialize();
+    }
+    
+    return () => {
+      // Cleanup notification listeners when user logs out
+      if (!isAuthenticated) {
+        notificationService.cleanup();
+      }
+    };
   }, [isAuthenticated, user?.id]);
 
   useEffect(() => {

@@ -4,6 +4,8 @@
   "private": true,
   "scripts": {
     "start": "node dist/main.js",
+    "start:prod": "node dist/main.js",
+    "postinstall": "npm run build",
     "start:dev": "ts-node-dev --respawn --transpile-only src/main.ts",
     "build": "prisma generate && tsc -p tsconfig.build.json",
     "prisma:generate": "prisma generate",

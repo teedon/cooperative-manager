@@ -38,6 +38,14 @@ export const PERMISSIONS = {
   GROUP_BUYS_DELETE: 'group_buys:delete',
   GROUP_BUYS_MANAGE_ORDERS: 'group_buys:manage_orders',
 
+  // Expense Management
+  EXPENSES_VIEW: 'expenses:view',
+  EXPENSES_CREATE: 'expenses:create',
+  EXPENSES_EDIT: 'expenses:edit',
+  EXPENSES_DELETE: 'expenses:delete',
+  EXPENSES_APPROVE: 'expenses:approve',
+  EXPENSES_MANAGE_CATEGORIES: 'expenses:manage_categories',
+
   // Ledger & Reports
   LEDGER_VIEW: 'ledger:view',
   REPORTS_VIEW: 'reports:view',
@@ -87,6 +95,14 @@ export const PERMISSION_GROUPS = {
     PERMISSIONS.GROUP_BUYS_EDIT,
     PERMISSIONS.GROUP_BUYS_DELETE,
     PERMISSIONS.GROUP_BUYS_MANAGE_ORDERS,
+  ],
+  EXPENSE_MANAGEMENT: [
+    PERMISSIONS.EXPENSES_VIEW,
+    PERMISSIONS.EXPENSES_CREATE,
+    PERMISSIONS.EXPENSES_EDIT,
+    PERMISSIONS.EXPENSES_DELETE,
+    PERMISSIONS.EXPENSES_APPROVE,
+    PERMISSIONS.EXPENSES_MANAGE_CATEGORIES,
   ],
   REPORTS: [
     PERMISSIONS.LEDGER_VIEW,
@@ -208,6 +224,12 @@ export function getPermissionLabel(permission: Permission): string {
     [PERMISSIONS.GROUP_BUYS_EDIT]: 'Edit Group Buys',
     [PERMISSIONS.GROUP_BUYS_DELETE]: 'Delete Group Buys',
     [PERMISSIONS.GROUP_BUYS_MANAGE_ORDERS]: 'Manage Group Buy Orders',
+    [PERMISSIONS.EXPENSES_VIEW]: 'View Expenses',
+    [PERMISSIONS.EXPENSES_CREATE]: 'Create Expenses',
+    [PERMISSIONS.EXPENSES_EDIT]: 'Edit Expenses',
+    [PERMISSIONS.EXPENSES_DELETE]: 'Delete Expenses',
+    [PERMISSIONS.EXPENSES_APPROVE]: 'Approve Expenses',
+    [PERMISSIONS.EXPENSES_MANAGE_CATEGORIES]: 'Manage Expense Categories',
     [PERMISSIONS.LEDGER_VIEW]: 'View Ledger',
     [PERMISSIONS.REPORTS_VIEW]: 'View Reports',
     [PERMISSIONS.REPORTS_EXPORT]: 'Export Reports',
@@ -228,6 +250,7 @@ export function getPermissionGroupLabel(group: keyof typeof PERMISSION_GROUPS): 
     CONTRIBUTION_MANAGEMENT: 'Contribution Management',
     LOAN_MANAGEMENT: 'Loan Management',
     GROUP_BUY_MANAGEMENT: 'Group Buy Management',
+    EXPENSE_MANAGEMENT: 'Expense Management',
     REPORTS: 'Reports & Ledger',
     SETTINGS: 'Settings',
     ADMIN_MANAGEMENT: 'Admin Management',

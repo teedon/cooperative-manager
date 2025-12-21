@@ -8,3 +8,4 @@ export * from './ledgerApi';
 export * from './activityApi';
 export * from './notificationApi';
 export * from './subscriptionApi';
+export * from './expenseApi';

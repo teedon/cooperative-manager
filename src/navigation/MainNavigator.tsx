@@ -49,6 +49,11 @@ import {
   HelpSupportScreen,
   AboutScreen,
 } from '../screens/profile';
+import {
+  ExpenseListScreen,
+  CreateExpenseScreen,
+  ExpenseDetailScreen,
+} from '../screens/expenses';
 
 export type MainTabParamList = {
   HomeTab: undefined;
@@ -118,6 +123,10 @@ export type HomeStackParamList = {
   PrivacySecurity: undefined;
   HelpSupport: undefined;
   About: undefined;
+  // Expense screens
+  ExpenseList: { cooperativeId: string };
+  CreateExpense: { cooperativeId: string };
+  ExpenseDetail: { expenseId: string; cooperativeId: string; canApprove?: boolean };
 };
 
 const HomeStackNavigator: React.FC = () => {
@@ -308,6 +317,22 @@ const HomeStackNavigator: React.FC = () => {
         name="About"
         component={AboutScreen}
         options={{ title: 'About' }}
+      />
+      {/* Expense Screens */}
+      <HomeStack.Screen
+        name="ExpenseList"
+        component={ExpenseListScreen}
+        options={{ title: 'Expenses' }}
+      />
+      <HomeStack.Screen
+        name="CreateExpense"
+        component={CreateExpenseScreen}
+        options={{ title: 'Record Expense' }}
+      />
+      <HomeStack.Screen
+        name="ExpenseDetail"
+        component={ExpenseDetailScreen}
+        options={{ title: 'Expense Details' }}
       />
     </HomeStack.Navigator>
   );
@@ -501,6 +526,22 @@ const CoopsStackNavigator: React.FC = () => {
         name="About"
         component={AboutScreen}
         options={{ title: 'About' }}
+      />
+      {/* Expense Screens */}
+      <CoopsStack.Screen
+        name="ExpenseList"
+        component={ExpenseListScreen}
+        options={{ title: 'Expenses' }}
+      />
+      <CoopsStack.Screen
+        name="CreateExpense"
+        component={CreateExpenseScreen}
+        options={{ title: 'Record Expense' }}
+      />
+      <CoopsStack.Screen
+        name="ExpenseDetail"
+        component={ExpenseDetailScreen}
+        options={{ title: 'Expense Details' }}
       />
     </CoopsStack.Navigator>
   );

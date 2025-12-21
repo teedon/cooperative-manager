@@ -57,6 +57,8 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     canViewAdmins,
     canApproveMembers,
     canEditSettings,
+    canViewExpenses,
+    canApproveExpenses,
   } = usePermissions(cooperativeId);
 
   const loadData = useCallback(async () => {
@@ -262,6 +264,21 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               <View style={styles.actionContent}>
                 <Text style={styles.actionTitle}>View Ledger</Text>
                 <Text style={styles.actionSubtitle}>Full cooperative financial records</Text>
+              </View>
+              <Icon name="ChevronRight" size={20} color={colors.text.disabled} style={styles.actionArrow} />
+            </TouchableOpacity>
+          )}
+
+          {/* Manage Expenses - requires canViewExpenses */}
+          {canViewExpenses && (
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => navigation.navigate('ExpenseList', { cooperativeId })}
+            >
+              <Icon name="Receipt" size={24} color={colors.error.main} style={styles.actionIcon} />
+              <View style={styles.actionContent}>
+                <Text style={styles.actionTitle}>Manage Expenses</Text>
+                <Text style={styles.actionSubtitle}>Track and record cooperative expenses</Text>
               </View>
               <Icon name="ChevronRight" size={20} color={colors.text.disabled} style={styles.actionArrow} />
             </TouchableOpacity>

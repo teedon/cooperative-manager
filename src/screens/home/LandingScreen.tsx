@@ -18,6 +18,7 @@ import Icon from '../../components/common/Icon';
 import { useNavigation } from '@react-navigation/native';
 import logger from '../../utils/logger';
 import { activityApi } from '../../api/activityApi';
+import { loanApi } from '../../api/loanApi';
 import { Activity } from '../../models';
 import Svg, { Path, Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 
@@ -240,6 +241,7 @@ const LandingScreen: React.FC = () => {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [activitiesLoading, setActivitiesLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loanCount, setLoanCount] = useState<number>(0);
 
   const headerAnim = useRef(new Animated.Value(0)).current;
 
@@ -258,11 +260,34 @@ const LandingScreen: React.FC = () => {
     }
   };
 
+  // Fetch loan counts for all cooperatives
+  const fetchLoanCounts = async (coops: typeof cooperatives) => {
+    if (coops.length === 0) {
+      setLoanCount(0);
+      return;
+    }
+    
+    try {
+      const loanPromises = coops.map((coop) => loanApi.getMyLoans(coop.id));
+      const results = await Promise.all(loanPromises);
+      const totalLoans = results.reduce((count, result) => {
+        if (result.success && result.data) {
+          return count + result.data.length;
+        }
+        return count;
+      }, 0);
+      setLoanCount(totalLoans);
+    } catch (err) {
+      logger.error('ui.landing', 'Failed to fetch loan counts', { error: err });
+    }
+  };
+
   useEffect(() => {
     logger.info('ui.landing.mounted', { userId: user?.id });
     // Reset local state for new user
     setActivities([]);
     setActivitiesLoading(true);
+    setLoanCount(0);
     fetchData();
     
     // Animate header
@@ -272,6 +297,13 @@ const LandingScreen: React.FC = () => {
       useNativeDriver: true,
     }).start();
   }, [dispatch, user?.id]);
+
+  // Fetch loans when cooperatives are loaded
+  useEffect(() => {
+    if (cooperatives.length > 0) {
+      fetchLoanCounts(cooperatives);
+    }
+  }, [cooperatives]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -404,7 +436,7 @@ const LandingScreen: React.FC = () => {
           <FeatureCard
             title="Loans"
             subtitle="Request & manage loans"
-            value="—"
+            value={loanCount > 0 ? loanCount : '—'}
             icon={<LoansIcon size={28} />}
             gradientColors={['#f59e0b', '#d97706']}
             onPress={handleLoans}

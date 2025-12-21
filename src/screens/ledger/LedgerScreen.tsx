@@ -76,7 +76,10 @@ const LedgerScreen: React.FC<Props> = ({ route }) => {
     }
   };
 
-  const totalBalance = memberBalances.reduce((sum, b) => sum + b.currentBalance, 0);
+  const totalMemberBalance = memberBalances.reduce((sum, b) => sum + b.currentBalance, 0);
+  const totalExpenses = currentCooperative?.totalExpenses || 0;
+  // Cooperative balance = sum of member balances minus cooperative-level expenses
+  const totalBalance = memberId ? totalMemberBalance : totalMemberBalance - totalExpenses;
 
   const renderHeader = () => (
     <View style={styles.header}>
@@ -99,6 +102,12 @@ const LedgerScreen: React.FC<Props> = ({ route }) => {
             <Text style={styles.breakdownLabel}>Contributions</Text>
           </View>
           <View style={styles.breakdownItem}>
+            <Text style={[styles.breakdownValue, { color: '#EF4444' }]}>
+              ₦{totalExpenses.toLocaleString()}
+            </Text>
+            <Text style={styles.breakdownLabel}>Expenses</Text>
+          </View>
+          <View style={styles.breakdownItem}>
             <Text style={styles.breakdownValue}>
               ₦
               {memberBalances
@@ -106,12 +115,6 @@ const LedgerScreen: React.FC<Props> = ({ route }) => {
                 .toLocaleString()}
             </Text>
             <Text style={styles.breakdownLabel}>Loans Out</Text>
-          </View>
-          <View style={styles.breakdownItem}>
-            <Text style={styles.breakdownValue}>
-              ₦{memberBalances.reduce((sum, b) => sum + b.totalGroupBuyOutlays, 0).toLocaleString()}
-            </Text>
-            <Text style={styles.breakdownLabel}>Group Buys</Text>
           </View>
         </View>
       )}

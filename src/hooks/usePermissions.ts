@@ -91,6 +91,14 @@ export function usePermissions(cooperativeId?: string) {
     canAddAdmins: can(PERMISSIONS.ADMINS_ADD),
     canRemoveAdmins: can(PERMISSIONS.ADMINS_REMOVE),
     canEditAdminPermissions: can(PERMISSIONS.ADMINS_EDIT_PERMISSIONS),
+
+    // Expense permissions
+    canViewExpenses: can(PERMISSIONS.EXPENSES_VIEW),
+    canCreateExpenses: can(PERMISSIONS.EXPENSES_CREATE),
+    canEditExpenses: can(PERMISSIONS.EXPENSES_EDIT),
+    canDeleteExpenses: can(PERMISSIONS.EXPENSES_DELETE),
+    canApproveExpenses: can(PERMISSIONS.EXPENSES_APPROVE),
+    canManageExpenseCategories: can(PERMISSIONS.EXPENSES_MANAGE_CATEGORIES),
   }), [can, currentMember?.role]);
 
   return {

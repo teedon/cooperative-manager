@@ -10,7 +10,6 @@
     "start:prod": "node dist/main.js",
     "prebuild": "rm -rf dist",
     "build": "prisma generate && tsc -p tsconfig.build.json",
-    "postinstall": "npm run build",
     "start:dev": "ts-node-dev --respawn --transpile-only src/main.ts",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",

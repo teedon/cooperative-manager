@@ -1,7 +1,8 @@
-import { Body, Controller, Get, Param, Post, Put, Delete, UseGuards, Request, HttpException, HttpStatus, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Put, Patch, Delete, UseGuards, Request, HttpException, HttpStatus, Query } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { CooperativesService } from './cooperatives.service';
 import { CreateCooperativeDto } from './dto/create-cooperative.dto';
+import { UpdateCooperativeDto } from './dto/update-cooperative.dto';
 import { UpdateMemberRoleDto, UpdateMemberPermissionsDto } from './dto/update-member.dto';
 import { CreateOfflineMemberDto, UpdateOfflineMemberDto } from './dto/offline-member.dto';
 
@@ -55,6 +56,21 @@ export class CooperativesController {
       throw new HttpException(
         { success: false, message: error.message || 'Failed to create cooperative', data: null },
         HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Patch(':id')
+  async update(@Param('id') id: string, @Request() req: any, @Body() dto: UpdateCooperativeDto) {
+    try {
+      const user = req.user;
+      const data = await this.service.update(id, dto, user.id);
+      return { success: true, message: 'Cooperative updated successfully', data };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to update cooperative', data: null },
+        error.status || HttpStatus.BAD_REQUEST,
       );
     }
   }

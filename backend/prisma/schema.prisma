@@ -36,6 +36,8 @@ model Cooperative {
   code               String   @unique
   description        String?
   imageUrl           String?
+  useGradient        Boolean  @default(true)
+  gradientPreset     String   @default("ocean")
   status             String
   createdBy          String?
   memberCount        Int      @default(0)

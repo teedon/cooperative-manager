@@ -144,7 +144,7 @@ export class PaystackService {
       if (!response.data.status) {
         throw new BadRequestException(response.data.message);
       }
-
+      // console.log('Paystack initialize response data:', response.data.data);
       return response.data.data;
     } catch (error: any) {
       this.logger.error('Failed to initialize transaction', error.response?.data || error.message);
@@ -166,6 +166,8 @@ export class PaystackService {
       if (!response.data.status) {
         throw new BadRequestException(response.data.message);
       }
+
+      console.log('Paystack verify response data:', response.data);
 
       return response.data.data;
     } catch (error: any) {

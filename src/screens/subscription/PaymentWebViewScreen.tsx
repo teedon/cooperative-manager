@@ -45,8 +45,30 @@ export default function PaymentWebViewScreen({ navigation, route }: Props) {
     if (isVerifying) return;
 
     setIsVerifying(true);
+    
+    // Add a timeout for the verification
+    const timeoutId = setTimeout(() => {
+      setIsVerifying(false);
+      Alert.alert(
+        'Verification Timeout',
+        'Payment verification is taking longer than expected. The payment may still be processing. Please try again or check your subscription status later.',
+        [
+          {
+            text: 'Try Again',
+            onPress: () => handlePaymentVerification(),
+          },
+          {
+            text: 'Go Back',
+            onPress: () => navigation.goBack(),
+            style: 'cancel',
+          },
+        ]
+      );
+    }, 30000); // 30 second timeout
+
     try {
-      await dispatch(verifyPayment(reference)).unwrap();
+      const result = await dispatch(verifyPayment(reference)).unwrap();
+      clearTimeout(timeoutId);
 
       Alert.alert(
         'Payment Successful',
@@ -65,21 +87,45 @@ export default function PaymentWebViewScreen({ navigation, route }: Props) {
         ]
       );
     } catch (err: any) {
-      Alert.alert(
-        'Verification Failed',
-        err.message || 'Failed to verify payment. Please contact support.',
-        [
-          {
-            text: 'Try Again',
-            onPress: () => setIsVerifying(false),
-          },
-          {
-            text: 'Go Back',
-            onPress: () => navigation.goBack(),
-            style: 'cancel',
-          },
-        ]
-      );
+      clearTimeout(timeoutId);
+      setIsVerifying(false);
+      
+      const errorMessage = err?.message || err || 'Failed to verify payment';
+      
+      // Check if payment is still pending
+      if (errorMessage.includes('pending') || errorMessage.includes('not found')) {
+        Alert.alert(
+          'Payment Pending',
+          'Your payment is still being processed. Please wait a moment and try again.',
+          [
+            {
+              text: 'Try Again',
+              onPress: () => handlePaymentVerification(),
+            },
+            {
+              text: 'Cancel',
+              onPress: () => navigation.goBack(),
+              style: 'cancel',
+            },
+          ]
+        );
+      } else {
+        Alert.alert(
+          'Verification Failed',
+          errorMessage,
+          [
+            {
+              text: 'Try Again',
+              onPress: () => handlePaymentVerification(),
+            },
+            {
+              text: 'Go Back',
+              onPress: () => navigation.goBack(),
+              style: 'cancel',
+            },
+          ]
+        );
+      }
     }
   };
 
@@ -124,6 +170,22 @@ export default function PaymentWebViewScreen({ navigation, route }: Props) {
         <Text style={styles.verifyingSubtitle}>
           Please wait while we confirm your payment
         </Text>
+        <TouchableOpacity 
+          style={styles.cancelVerifyButton}
+          onPress={() => {
+            setIsVerifying(false);
+            Alert.alert(
+              'Cancel Verification',
+              'Are you sure you want to cancel? Your payment may have already been processed.',
+              [
+                { text: 'Continue Verifying', style: 'cancel', onPress: () => setIsVerifying(true) },
+                { text: 'Go Back', style: 'destructive', onPress: () => navigation.goBack() },
+              ]
+            );
+          }}
+        >
+          <Text style={styles.cancelVerifyText}>Cancel</Text>
+        </TouchableOpacity>
       </SafeAreaView>
     );
   }
@@ -198,6 +260,16 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     textAlign: 'center',
     paddingHorizontal: spacing.xl,
+  },
+  cancelVerifyButton: {
+    marginTop: spacing.xl,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xl,
+  },
+  cancelVerifyText: {
+    color: colors.text.secondary,
+    fontSize: 14,
+    textDecorationLine: 'underline',
   },
   header: {
     flexDirection: 'row',

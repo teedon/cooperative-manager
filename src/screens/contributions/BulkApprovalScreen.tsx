@@ -9,152 +9,246 @@ import {
   ActivityIndicator,
   Alert,
   TextInput,
-  ScrollView,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { HomeStackParamList } from '../../navigation/MainNavigator';
 import { colors, spacing, borderRadius, shadows } from '../../theme';
 import Icon from '../../components/common/Icon';
-import { contributionApi, BulkApprovalSchedule, BulkApprovalPreview } from '../../api/contributionApi';
+import { 
+  contributionApi, 
+  ScheduleDateInfo, 
+  ScheduleDateMember,
+  ScheduleDateMembersResponse,
+} from '../../api/contributionApi';
 import { ContributionPlan } from '../../models';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'BulkApproval'>;
 
-const MONTHS = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December'
-];
+type Step = 'select-plan' | 'select-date' | 'select-members';
 
 const BulkApprovalScreen: React.FC<Props> = ({ route, navigation }) => {
   const { cooperativeId } = route.params;
   
-  // State
+  // Navigation state
+  const [currentStep, setCurrentStep] = useState<Step>('select-plan');
+  
+  // Plan selection state
   const [plans, setPlans] = useState<ContributionPlan[]>([]);
-  const [selectedPlanId, setSelectedPlanId] = useState<string | undefined>(undefined);
-  const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
-  const [preview, setPreview] = useState<BulkApprovalPreview | null>(null);
-  const [excludedIds, setExcludedIds] = useState<Set<string>>(new Set());
+  const [selectedPlan, setSelectedPlan] = useState<ContributionPlan | null>(null);
+  const [loadingPlans, setLoadingPlans] = useState(true);
+  
+  // Date selection state
+  const [scheduleDates, setScheduleDates] = useState<ScheduleDateInfo[]>([]);
+  const [selectedDate, setSelectedDate] = useState<ScheduleDateInfo | null>(null);
+  const [loadingDates, setLoadingDates] = useState(false);
+  
+  // Member selection state
+  const [members, setMembers] = useState<ScheduleDateMember[]>([]);
+  const [membersData, setMembersData] = useState<ScheduleDateMembersResponse | null>(null);
+  const [excludedMemberIds, setExcludedMemberIds] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [loadingMembers, setLoadingMembers] = useState(false);
+  
+  // General state
   const [isApproving, setIsApproving] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [showMonthPicker, setShowMonthPicker] = useState(false);
-  const [showPlanPicker, setShowPlanPicker] = useState(false);
 
   // Load contribution plans
   useEffect(() => {
     const loadPlans = async () => {
+      setLoadingPlans(true);
       try {
         const response = await contributionApi.getPlans(cooperativeId);
         if (response.success) {
-          setPlans(response.data);
+          // Filter plans that have continuous frequency (scheduled contributions)
+          const continuousPlans = response.data.filter(
+            plan => plan.contributionType === 'continuous' && plan.frequency && plan.isActive
+          );
+          setPlans(continuousPlans);
         }
       } catch (error) {
         console.error('Error loading plans:', error);
+        Alert.alert('Error', 'Failed to load contribution plans');
       }
+      setLoadingPlans(false);
     };
     loadPlans();
   }, [cooperativeId]);
 
-  // Load preview data
-  const loadPreview = useCallback(async () => {
-    setIsLoading(true);
+  // Load schedule dates when plan is selected
+  const loadScheduleDates = useCallback(async () => {
+    if (!selectedPlan) return;
+    
+    setLoadingDates(true);
     try {
-      const response = await contributionApi.getSchedulesForBulkApproval(cooperativeId, {
-        month: selectedMonth,
-        year: selectedYear,
-        planId: selectedPlanId,
-      });
+      const response = await contributionApi.getPlanScheduleDates(cooperativeId, selectedPlan.id);
       if (response.success) {
-        setPreview(response.data);
-        setExcludedIds(new Set()); // Reset exclusions on new preview
+        setScheduleDates(response.data.scheduleDates);
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to load schedules');
+      Alert.alert('Error', error.message || 'Failed to load schedule dates');
     }
-    setIsLoading(false);
-  }, [cooperativeId, selectedMonth, selectedYear, selectedPlanId]);
+    setLoadingDates(false);
+  }, [cooperativeId, selectedPlan]);
 
   useEffect(() => {
-    loadPreview();
-  }, [loadPreview]);
+    if (selectedPlan && currentStep === 'select-date') {
+      loadScheduleDates();
+    }
+  }, [selectedPlan, currentStep, loadScheduleDates]);
+
+  // Load members when date is selected
+  const loadMembers = useCallback(async () => {
+    if (!selectedPlan || !selectedDate) return;
+    
+    setLoadingMembers(true);
+    try {
+      const response = await contributionApi.getMembersForScheduleDate(
+        cooperativeId,
+        selectedPlan.id,
+        selectedDate.date
+      );
+      if (response.success) {
+        setMembersData(response.data);
+        setMembers(response.data.members);
+        setExcludedMemberIds(new Set()); // Reset exclusions
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to load members');
+    }
+    setLoadingMembers(false);
+  }, [cooperativeId, selectedPlan, selectedDate]);
+
+  useEffect(() => {
+    if (selectedDate && currentStep === 'select-members') {
+      loadMembers();
+    }
+  }, [selectedDate, currentStep, loadMembers]);
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadPreview();
+    if (currentStep === 'select-plan') {
+      // Reload plans
+    } else if (currentStep === 'select-date') {
+      await loadScheduleDates();
+    } else if (currentStep === 'select-members') {
+      await loadMembers();
+    }
     setRefreshing(false);
   };
 
-  // Filter schedules by search query
-  const filteredSchedules = useMemo(() => {
-    if (!preview?.schedules) return [];
-    if (!searchQuery.trim()) return preview.schedules;
+  // Filter members by search query
+  const filteredMembers = useMemo(() => {
+    if (!searchQuery.trim()) return members;
     
     const query = searchQuery.toLowerCase();
-    return preview.schedules.filter(schedule => {
-      const memberName = `${schedule.member.user.firstName} ${schedule.member.user.lastName}`.toLowerCase();
-      const email = schedule.member.user.email.toLowerCase();
+    return members.filter(item => {
+      const memberName = `${item.member.firstName} ${item.member.lastName}`.toLowerCase();
+      const email = item.member.email?.toLowerCase() || '';
       return memberName.includes(query) || email.includes(query);
     });
-  }, [preview?.schedules, searchQuery]);
+  }, [members, searchQuery]);
 
-  // Calculate totals excluding excluded items
+  // Calculate totals for pending members (including those with missing schedules)
   const calculatedTotals = useMemo(() => {
-    if (!preview?.schedules) return { count: 0, amount: 0 };
-    const includedSchedules = preview.schedules.filter(s => !excludedIds.has(s.id));
+    const pendingMembers = members.filter(m => m.status === 'pending' || m.status === 'overdue' || m.status === 'missing');
+    const includedMembers = pendingMembers.filter(m => !excludedMemberIds.has(m.memberId));
+    const missingCount = includedMembers.filter(m => m.status === 'missing').length;
     return {
-      count: includedSchedules.length,
-      amount: includedSchedules.reduce((sum, s) => sum + s.amount, 0),
+      count: includedMembers.length,
+      amount: includedMembers.reduce((sum, m) => sum + m.amount, 0),
+      missingCount,
     };
-  }, [preview?.schedules, excludedIds]);
+  }, [members, excludedMemberIds]);
 
-  // Toggle exclusion
-  const toggleExclude = (scheduleId: string) => {
-    setExcludedIds(prev => {
+  // Toggle member exclusion
+  const toggleExclude = (memberId: string) => {
+    setExcludedMemberIds(prev => {
       const newSet = new Set(prev);
-      if (newSet.has(scheduleId)) {
-        newSet.delete(scheduleId);
+      if (newSet.has(memberId)) {
+        newSet.delete(memberId);
       } else {
-        newSet.add(scheduleId);
+        newSet.add(memberId);
       }
       return newSet;
     });
   };
 
-  // Select/Deselect all visible
+  // Select/Deselect all pending members (including those with missing schedules)
   const toggleSelectAll = () => {
-    const allVisibleIds = filteredSchedules.map(s => s.id);
-    const allExcluded = allVisibleIds.every(id => excludedIds.has(id));
+    const pendingMemberIds = filteredMembers
+      .filter(m => m.status === 'pending' || m.status === 'overdue' || m.status === 'missing')
+      .map(m => m.memberId);
+    const allExcluded = pendingMemberIds.every(id => excludedMemberIds.has(id));
     
     if (allExcluded) {
-      // Include all visible
-      setExcludedIds(prev => {
+      setExcludedMemberIds(prev => {
         const newSet = new Set(prev);
-        allVisibleIds.forEach(id => newSet.delete(id));
+        pendingMemberIds.forEach(id => newSet.delete(id));
         return newSet;
       });
     } else {
-      // Exclude all visible
-      setExcludedIds(prev => {
+      setExcludedMemberIds(prev => {
         const newSet = new Set(prev);
-        allVisibleIds.forEach(id => newSet.add(id));
+        pendingMemberIds.forEach(id => newSet.add(id));
         return newSet;
       });
     }
   };
 
+  // Navigation handlers
+  const handleSelectPlan = (plan: ContributionPlan) => {
+    setSelectedPlan(plan);
+    setCurrentStep('select-date');
+    setSelectedDate(null);
+    setScheduleDates([]);
+  };
+
+  const handleSelectDate = (dateInfo: ScheduleDateInfo) => {
+    if (dateInfo.pendingCount === 0) {
+      Alert.alert('No Pending Payments', 'All members have already paid for this date.');
+      return;
+    }
+    setSelectedDate(dateInfo);
+    setCurrentStep('select-members');
+    setMembers([]);
+    setSearchQuery('');
+  };
+
+  const handleBack = () => {
+    if (currentStep === 'select-date') {
+      setCurrentStep('select-plan');
+      setSelectedPlan(null);
+    } else if (currentStep === 'select-members') {
+      setCurrentStep('select-date');
+      setSelectedDate(null);
+    }
+  };
+
   // Perform bulk approval
   const handleBulkApprove = async () => {
+    if (!selectedPlan || !selectedDate) return;
+    
     const toApprove = calculatedTotals.count;
     if (toApprove === 0) {
-      Alert.alert('No Schedules', 'There are no schedules to approve.');
+      Alert.alert('No Members', 'There are no members to approve payments for.');
       return;
     }
 
+    const dateLabel = new Date(selectedDate.date).toLocaleDateString('en-US', {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+
+    const missingNote = calculatedTotals.missingCount > 0 
+      ? `\n\n⚠️ ${calculatedTotals.missingCount} member(s) have no schedule and will have schedules created.`
+      : '';
+
     Alert.alert(
       'Confirm Bulk Approval',
-      `You are about to approve ${toApprove} payment schedule(s) totaling ₦${calculatedTotals.amount.toLocaleString()}.\n\nThis action cannot be undone.`,
+      `You are about to mark ${toApprove} member(s) as paid for "${selectedPlan.name}" on ${dateLabel}.\n\nTotal: ₦${calculatedTotals.amount.toLocaleString()}${missingNote}\n\nThis action cannot be undone.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -163,17 +257,20 @@ const BulkApprovalScreen: React.FC<Props> = ({ route, navigation }) => {
           onPress: async () => {
             setIsApproving(true);
             try {
-              const response = await contributionApi.bulkApproveSchedules(cooperativeId, {
-                month: selectedMonth,
-                year: selectedYear,
-                planId: selectedPlanId,
-                excludeScheduleIds: Array.from(excludedIds),
+              const response = await contributionApi.bulkApproveByDate(cooperativeId, {
+                planId: selectedPlan.id,
+                scheduleDate: selectedDate.date,
+                excludeMemberIds: Array.from(excludedMemberIds),
+                includeMissingSchedules: true,
               });
               
               if (response.success) {
+                const createdNote = response.data.createdSchedulesCount > 0
+                  ? `\n${response.data.createdSchedulesCount} schedule(s) were created.`
+                  : '';
                 Alert.alert(
                   'Success',
-                  `Successfully approved ${response.data.approvedCount} payments totaling ₦${response.data.totalAmount.toLocaleString()}`,
+                  `Successfully marked ${response.data.approvedCount} payments as paid.\nTotal: ₦${response.data.totalAmount.toLocaleString()}${createdNote}`,
                   [{ text: 'OK', onPress: () => navigation.goBack() }]
                 );
               }
@@ -187,268 +284,417 @@ const BulkApprovalScreen: React.FC<Props> = ({ route, navigation }) => {
     );
   };
 
-  const renderScheduleItem = ({ item }: { item: BulkApprovalSchedule }) => {
-    const isExcluded = excludedIds.has(item.id);
-    const memberName = `${item.member.user.firstName} ${item.member.user.lastName}`;
+  // Format date for display
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', {
+      weekday: 'short',
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    });
+  };
+
+  // Format frequency for display
+  const formatFrequency = (frequency?: string) => {
+    switch (frequency) {
+      case 'daily': return 'Daily';
+      case 'weekly': return 'Weekly';
+      case 'monthly': return 'Monthly';
+      case 'yearly': return 'Yearly';
+      default: return frequency || 'N/A';
+    }
+  };
+
+  // Render plan item
+  const renderPlanItem = ({ item }: { item: ContributionPlan }) => (
+    <TouchableOpacity
+      style={styles.planItem}
+      onPress={() => handleSelectPlan(item)}
+      activeOpacity={0.7}
+    >
+      <View style={styles.planIcon}>
+        <Icon name="wallet" size={24} color={colors.primary.main} />
+      </View>
+      <View style={styles.planInfo}>
+        <Text style={styles.planName}>{item.name}</Text>
+        <Text style={styles.planMeta}>
+          {formatFrequency(item.frequency)} • {item.amountType === 'fixed' ? `₦${item.fixedAmount?.toLocaleString()}` : 'Variable'}
+        </Text>
+        {item._count?.subscriptions !== undefined && (
+          <Text style={styles.planSubscribers}>
+            {item._count.subscriptions} subscriber{item._count.subscriptions !== 1 ? 's' : ''}
+          </Text>
+        )}
+      </View>
+      <Icon name="chevron-right" size={20} color={colors.text.secondary} />
+    </TouchableOpacity>
+  );
+
+  // Render date item
+  const renderDateItem = ({ item }: { item: ScheduleDateInfo }) => {
+    const isPending = item.pendingCount > 0;
+    const isComplete = item.pendingCount === 0 && item.paidCount > 0;
     
     return (
       <TouchableOpacity
-        style={[styles.scheduleItem, isExcluded && styles.excludedItem]}
-        onPress={() => toggleExclude(item.id)}
+        style={[
+          styles.dateItem,
+          isComplete && styles.dateItemComplete,
+          item.isToday && styles.dateItemToday,
+        ]}
+        onPress={() => handleSelectDate(item)}
         activeOpacity={0.7}
       >
-        <View style={styles.checkboxContainer}>
-          <View style={[styles.checkbox, !isExcluded && styles.checkboxChecked]}>
-            {!isExcluded && <Icon name="check" size={14} color={colors.primary.contrast} />}
+        <View style={styles.dateLeft}>
+          <View style={[
+            styles.dateIndicator,
+            isComplete ? styles.dateIndicatorComplete : 
+            isPending ? styles.dateIndicatorPending : styles.dateIndicatorNone,
+          ]}>
+            <Icon 
+              name={isComplete ? 'check' : 'calendar'} 
+              size={16} 
+              color={isComplete ? colors.success.contrast : colors.primary.main} 
+            />
+          </View>
+          <View>
+            <Text style={[styles.dateText, isComplete && styles.dateTextComplete]}>
+              {formatDate(item.date)}
+            </Text>
+            {item.isToday && (
+              <Text style={styles.todayBadge}>Today</Text>
+            )}
           </View>
         </View>
         
+        <View style={styles.dateRight}>
+          <View style={styles.dateStats}>
+            {item.pendingCount > 0 && (
+              <View style={styles.statBadge}>
+                <Text style={styles.statBadgeText}>{item.pendingCount} pending</Text>
+              </View>
+            )}
+            {item.paidCount > 0 && (
+              <View style={[styles.statBadge, styles.statBadgePaid]}>
+                <Text style={[styles.statBadgeText, styles.statBadgeTextPaid]}>{item.paidCount} paid</Text>
+              </View>
+            )}
+          </View>
+          {item.pendingAmount > 0 && (
+            <Text style={styles.dateAmount}>₦{item.pendingAmount.toLocaleString()}</Text>
+          )}
+        </View>
+      </TouchableOpacity>
+    );
+  };
+
+  // Render member item
+  const renderMemberItem = ({ item }: { item: ScheduleDateMember }) => {
+    const isPending = item.status === 'pending' || item.status === 'overdue' || item.status === 'missing';
+    const isPaid = item.status === 'paid';
+    const isMissing = item.status === 'missing';
+    const isExcluded = excludedMemberIds.has(item.memberId);
+    const memberName = `${item.member.firstName || ''} ${item.member.lastName || ''}`.trim() || 'Unknown';
+    
+    return (
+      <TouchableOpacity
+        style={[
+          styles.memberItem,
+          isPaid && styles.memberItemPaid,
+          isMissing && styles.memberItemMissing,
+          isExcluded && isPending && styles.memberItemExcluded,
+        ]}
+        onPress={() => isPending && toggleExclude(item.memberId)}
+        activeOpacity={isPending ? 0.7 : 1}
+        disabled={isPaid}
+      >
+        {isPending && (
+          <View style={styles.checkboxContainer}>
+            <View style={[styles.checkbox, !isExcluded && styles.checkboxChecked]}>
+              {!isExcluded && <Icon name="check" size={14} color={colors.primary.contrast} />}
+            </View>
+          </View>
+        )}
+        
+        {isPaid && (
+          <View style={styles.paidBadgeContainer}>
+            <View style={styles.paidBadge}>
+              <Icon name="check-circle" size={20} color={colors.success.main} />
+            </View>
+          </View>
+        )}
+        
         <View style={styles.memberInfo}>
-          <Text style={[styles.memberName, isExcluded && styles.excludedText]}>{memberName}</Text>
-          <Text style={[styles.memberEmail, isExcluded && styles.excludedText]}>
-            {item.member.user.email}
+          <Text style={[
+            styles.memberName,
+            isPaid && styles.memberNamePaid,
+            isExcluded && styles.memberNameExcluded,
+          ]}>
+            {memberName}
+            {item.member.isOfflineMember && (
+              <Text style={styles.offlineBadge}> (Offline)</Text>
+            )}
           </Text>
-          {item.subscription?.plan && (
-            <Text style={[styles.planName, isExcluded && styles.excludedText]}>
-              {item.subscription.plan.name}
+          {item.member.email && (
+            <Text style={[
+              styles.memberEmail,
+              isPaid && styles.memberEmailPaid,
+            ]}>
+              {item.member.email}
             </Text>
+          )}
+          {isMissing && (
+            <View style={styles.missingBadge}>
+              <Icon name="alert-circle" size={12} color={colors.warning.main} />
+              <Text style={styles.missingBadgeText}>No schedule - will be created</Text>
+            </View>
           )}
         </View>
         
-        <View style={styles.amountContainer}>
-          <Text style={[styles.amount, isExcluded && styles.excludedText]}>
+        <View style={styles.memberAmountContainer}>
+          <Text style={[
+            styles.memberAmount,
+            isPaid && styles.memberAmountPaid,
+            isExcluded && styles.memberAmountExcluded,
+          ]}>
             ₦{item.amount.toLocaleString()}
           </Text>
-          <Text style={[styles.dueDate, isExcluded && styles.excludedText]}>
-            Due: {new Date(item.dueDate).toLocaleDateString()}
+          <Text style={[
+            styles.memberStatus, 
+            isPaid && styles.memberStatusPaid,
+            isMissing && styles.memberStatusMissing,
+          ]}>
+            {isPaid ? 'Paid' : isMissing ? 'Missing' : item.status === 'overdue' ? 'Overdue' : 'Pending'}
           </Text>
         </View>
       </TouchableOpacity>
     );
   };
 
-  const selectedPlan = plans.find(p => p.id === selectedPlanId);
+  // Step indicator component
+  const renderStepIndicator = () => (
+    <View style={styles.stepIndicator}>
+      <View style={[styles.step, styles.stepActive]}>
+        <Text style={styles.stepNumber}>1</Text>
+      </View>
+      <View style={[styles.stepLine, currentStep !== 'select-plan' && styles.stepLineActive]} />
+      <View style={[styles.step, currentStep !== 'select-plan' && styles.stepActive]}>
+        <Text style={[styles.stepNumber, currentStep === 'select-plan' && styles.stepNumberInactive]}>2</Text>
+      </View>
+      <View style={[styles.stepLine, currentStep === 'select-members' && styles.stepLineActive]} />
+      <View style={[styles.step, currentStep === 'select-members' && styles.stepActive]}>
+        <Text style={[styles.stepNumber, currentStep !== 'select-members' && styles.stepNumberInactive]}>3</Text>
+      </View>
+    </View>
+  );
 
   return (
     <View style={styles.container}>
-      {/* Filters Section */}
-      <View style={styles.filtersSection}>
-        {/* Month/Year Picker */}
-        <TouchableOpacity
-          style={styles.filterButton}
-          onPress={() => setShowMonthPicker(!showMonthPicker)}
-        >
-          <Icon name="calendar-outline" size={18} color={colors.primary.main} />
-          <Text style={styles.filterButtonText}>
-            {MONTHS[selectedMonth - 1]} {selectedYear}
-          </Text>
-          <Icon name={showMonthPicker ? 'chevron-up' : 'chevron-down'} size={18} color={colors.text.secondary} />
-        </TouchableOpacity>
-
-        {/* Plan Picker */}
-        <TouchableOpacity
-          style={styles.filterButton}
-          onPress={() => setShowPlanPicker(!showPlanPicker)}
-        >
-          <Icon name="document-text-outline" size={18} color={colors.primary.main} />
-          <Text style={styles.filterButtonText} numberOfLines={1}>
-            {selectedPlan?.name || 'All Plans'}
-          </Text>
-          <Icon name={showPlanPicker ? 'chevron-up' : 'chevron-down'} size={18} color={colors.text.secondary} />
-        </TouchableOpacity>
-      </View>
-
-      {/* Month Picker Dropdown */}
-      {showMonthPicker && (
-        <View style={styles.dropdown}>
-          <ScrollView style={styles.dropdownScroll} nestedScrollEnabled>
-            {MONTHS.map((month, index) => (
-              <TouchableOpacity
-                key={month}
-                style={[
-                  styles.dropdownItem,
-                  selectedMonth === index + 1 && styles.dropdownItemSelected
-                ]}
-                onPress={() => {
-                  setSelectedMonth(index + 1);
-                  setShowMonthPicker(false);
-                }}
-              >
-                <Text style={[
-                  styles.dropdownItemText,
-                  selectedMonth === index + 1 && styles.dropdownItemTextSelected
-                ]}>
-                  {month}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-          <View style={styles.yearSelector}>
-            <TouchableOpacity
-              style={styles.yearButton}
-              onPress={() => setSelectedYear(y => y - 1)}
-            >
-              <Icon name="chevron-back" size={20} color={colors.primary.main} />
-            </TouchableOpacity>
-            <Text style={styles.yearText}>{selectedYear}</Text>
-            <TouchableOpacity
-              style={styles.yearButton}
-              onPress={() => setSelectedYear(y => y + 1)}
-            >
-              <Icon name="chevron-forward" size={20} color={colors.primary.main} />
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
-
-      {/* Plan Picker Dropdown */}
-      {showPlanPicker && (
-        <View style={styles.dropdown}>
-          <ScrollView style={styles.dropdownScroll} nestedScrollEnabled>
-            <TouchableOpacity
-              style={[
-                styles.dropdownItem,
-                !selectedPlanId && styles.dropdownItemSelected
-              ]}
-              onPress={() => {
-                setSelectedPlanId(undefined);
-                setShowPlanPicker(false);
-              }}
-            >
-              <Text style={[
-                styles.dropdownItemText,
-                !selectedPlanId && styles.dropdownItemTextSelected
-              ]}>
-                All Plans
-              </Text>
-            </TouchableOpacity>
-            {plans.map(plan => (
-              <TouchableOpacity
-                key={plan.id}
-                style={[
-                  styles.dropdownItem,
-                  selectedPlanId === plan.id && styles.dropdownItemSelected
-                ]}
-                onPress={() => {
-                  setSelectedPlanId(plan.id);
-                  setShowPlanPicker(false);
-                }}
-              >
-                <Text style={[
-                  styles.dropdownItemText,
-                  selectedPlanId === plan.id && styles.dropdownItemTextSelected
-                ]}>
-                  {plan.name}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-      )}
-
-      {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <Icon name="search-outline" size={20} color={colors.text.secondary} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search by member name or email..."
-          placeholderTextColor={colors.text.disabled}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <Icon name="close-circle" size={20} color={colors.text.secondary} />
+      {/* Step Indicator */}
+      {renderStepIndicator()}
+      
+      {/* Header */}
+      <View style={styles.header}>
+        {currentStep !== 'select-plan' && (
+          <TouchableOpacity style={styles.backButton} onPress={handleBack}>
+            <Icon name="arrow-left" size={24} color={colors.primary.main} />
           </TouchableOpacity>
         )}
-      </View>
-
-      {/* Summary Stats */}
-      <View style={styles.summaryContainer}>
-        <View style={styles.summaryItem}>
-          <Text style={styles.summaryValue}>{preview?.totalCount || 0}</Text>
-          <Text style={styles.summaryLabel}>Total Schedules</Text>
-        </View>
-        <View style={styles.summaryDivider} />
-        <View style={styles.summaryItem}>
-          <Text style={[styles.summaryValue, { color: colors.success.main }]}>
-            {calculatedTotals.count}
+        <View style={styles.headerContent}>
+          <Text style={styles.headerTitle}>
+            {currentStep === 'select-plan' && 'Select Contribution Plan'}
+            {currentStep === 'select-date' && 'Select Payment Date'}
+            {currentStep === 'select-members' && 'Confirm Members'}
           </Text>
-          <Text style={styles.summaryLabel}>To Approve</Text>
-        </View>
-        <View style={styles.summaryDivider} />
-        <View style={styles.summaryItem}>
-          <Text style={[styles.summaryValue, { color: colors.error.main }]}>
-            {excludedIds.size}
-          </Text>
-          <Text style={styles.summaryLabel}>Excluded</Text>
+          {selectedPlan && (
+            <Text style={styles.headerSubtitle}>{selectedPlan.name}</Text>
+          )}
+          {selectedDate && currentStep === 'select-members' && (
+            <Text style={styles.headerSubtitle}>{formatDate(selectedDate.date)}</Text>
+          )}
         </View>
       </View>
 
-      {/* Select All / Total Amount */}
-      <View style={styles.actionsRow}>
-        <TouchableOpacity style={styles.selectAllButton} onPress={toggleSelectAll}>
-          <Icon
-            name={filteredSchedules.every(s => excludedIds.has(s.id)) ? 'square-outline' : 'checkbox'}
-            size={20}
-            color={colors.primary.main}
+      {/* Content */}
+      {currentStep === 'select-plan' && (
+        loadingPlans ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.primary.main} />
+            <Text style={styles.loadingText}>Loading contribution plans...</Text>
+          </View>
+        ) : plans.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Icon name="file-text" size={64} color={colors.border.main} />
+            <Text style={styles.emptyText}>No contribution plans with schedules found</Text>
+            <Text style={styles.emptySubtext}>
+              Create a continuous contribution plan with a frequency to use bulk approval
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            data={plans}
+            renderItem={renderPlanItem}
+            keyExtractor={item => item.id}
+            contentContainerStyle={styles.listContent}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
           />
-          <Text style={styles.selectAllText}>
-            {filteredSchedules.every(s => excludedIds.has(s.id)) ? 'Select All' : 'Deselect All'}
-          </Text>
-        </TouchableOpacity>
-        <Text style={styles.totalAmount}>
-          Total: ₦{calculatedTotals.amount.toLocaleString()}
-        </Text>
-      </View>
-
-      {/* Schedules List */}
-      {isLoading ? (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary.main} />
-          <Text style={styles.loadingText}>Loading schedules...</Text>
-        </View>
-      ) : filteredSchedules.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Icon name="calendar-outline" size={64} color={colors.border.main} />
-          <Text style={styles.emptyText}>
-            {searchQuery ? 'No matching schedules found' : 'No pending schedules for this period'}
-          </Text>
-        </View>
-      ) : (
-        <FlatList
-          data={filteredSchedules}
-          renderItem={renderScheduleItem}
-          keyExtractor={item => item.id}
-          contentContainerStyle={styles.listContent}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-          }
-        />
+        )
       )}
 
-      {/* Approve Button */}
-      <View style={styles.bottomContainer}>
-        <TouchableOpacity
-          style={[
-            styles.approveButton,
-            (calculatedTotals.count === 0 || isApproving) && styles.approveButtonDisabled
-          ]}
-          onPress={handleBulkApprove}
-          disabled={calculatedTotals.count === 0 || isApproving}
-        >
-          {isApproving ? (
-            <ActivityIndicator size="small" color={colors.primary.contrast} />
-          ) : (
-            <>
-              <Icon name="checkmark-done" size={20} color={colors.primary.contrast} />
-              <Text style={styles.approveButtonText}>
-                Approve {calculatedTotals.count} Payment{calculatedTotals.count !== 1 ? 's' : ''}
+      {currentStep === 'select-date' && (
+        loadingDates ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={colors.primary.main} />
+            <Text style={styles.loadingText}>Loading schedule dates...</Text>
+          </View>
+        ) : scheduleDates.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Icon name="calendar" size={64} color={colors.border.main} />
+            <Text style={styles.emptyText}>No scheduled dates found</Text>
+            <Text style={styles.emptySubtext}>
+              Members need to subscribe to this plan for schedules to be generated
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            data={scheduleDates}
+            renderItem={renderDateItem}
+            keyExtractor={item => item.date}
+            contentContainerStyle={styles.listContent}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
+          />
+        )
+      )}
+
+      {currentStep === 'select-members' && (
+        <>
+          {/* Search Bar */}
+          <View style={styles.searchContainer}>
+            <Icon name="search" size={20} color={colors.text.secondary} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search by member name or email..."
+              placeholderTextColor={colors.text.disabled}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <Icon name="x-circle" size={20} color={colors.text.secondary} />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Summary Stats */}
+          <View style={styles.summaryContainer}>
+            <View style={styles.summaryItem}>
+              <Text style={styles.summaryValue}>{membersData?.totalMembers || 0}</Text>
+              <Text style={styles.summaryLabel}>Total</Text>
+            </View>
+            <View style={styles.summaryDivider} />
+            <View style={styles.summaryItem}>
+              <Text style={[styles.summaryValue, { color: colors.success.main }]}>
+                {calculatedTotals.count}
               </Text>
-            </>
+              <Text style={styles.summaryLabel}>To Approve</Text>
+            </View>
+            <View style={styles.summaryDivider} />
+            <View style={styles.summaryItem}>
+              <Text style={[styles.summaryValue, { color: colors.warning.main }]}>
+                {excludedMemberIds.size}
+              </Text>
+              <Text style={styles.summaryLabel}>Excluded</Text>
+            </View>
+            <View style={styles.summaryDivider} />
+            <View style={styles.summaryItem}>
+              <Text style={[styles.summaryValue, { color: colors.text.secondary }]}>
+                {membersData?.paidCount || 0}
+              </Text>
+              <Text style={styles.summaryLabel}>Already Paid</Text>
+            </View>
+          </View>
+
+          {/* Select All / Total Amount */}
+          <View style={styles.actionsRow}>
+            <TouchableOpacity style={styles.selectAllButton} onPress={toggleSelectAll}>
+              <Icon
+                name={
+                  filteredMembers
+                    .filter(m => m.status === 'pending' || m.status === 'overdue')
+                    .every(m => excludedMemberIds.has(m.memberId))
+                    ? 'square'
+                    : 'check-square'
+                }
+                size={20}
+                color={colors.primary.main}
+              />
+              <Text style={styles.selectAllText}>
+                {filteredMembers
+                  .filter(m => m.status === 'pending' || m.status === 'overdue')
+                  .every(m => excludedMemberIds.has(m.memberId))
+                  ? 'Select All'
+                  : 'Deselect All'}
+              </Text>
+            </TouchableOpacity>
+            <Text style={styles.totalAmount}>
+              Total: ₦{calculatedTotals.amount.toLocaleString()}
+            </Text>
+          </View>
+
+          {/* Members List */}
+          {loadingMembers ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color={colors.primary.main} />
+              <Text style={styles.loadingText}>Loading members...</Text>
+            </View>
+          ) : filteredMembers.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Icon name="users" size={64} color={colors.border.main} />
+              <Text style={styles.emptyText}>
+                {searchQuery ? 'No matching members found' : 'No members found for this date'}
+              </Text>
+            </View>
+          ) : (
+            <FlatList
+              data={filteredMembers}
+              renderItem={renderMemberItem}
+              keyExtractor={item => item.scheduleId}
+              contentContainerStyle={styles.listContent}
+              refreshControl={
+                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+              }
+            />
           )}
-        </TouchableOpacity>
-      </View>
+
+          {/* Approve Button */}
+          <View style={styles.bottomContainer}>
+            <TouchableOpacity
+              style={[
+                styles.approveButton,
+                (calculatedTotals.count === 0 || isApproving) && styles.approveButtonDisabled
+              ]}
+              onPress={handleBulkApprove}
+              disabled={calculatedTotals.count === 0 || isApproving}
+            >
+              {isApproving ? (
+                <ActivityIndicator size="small" color={colors.primary.contrast} />
+              ) : (
+                <>
+                  <Icon name="check-check" size={20} color={colors.primary.contrast} />
+                  <Text style={styles.approveButtonText}>
+                    Mark {calculatedTotals.count} as Paid
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </>
+      )}
     </View>
   );
 };
@@ -458,74 +704,225 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background.default,
   },
-  filtersSection: {
-    flexDirection: 'row',
-    padding: spacing.md,
-    gap: spacing.sm,
-    backgroundColor: colors.background.paper,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.light,
-  },
-  filterButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacing.sm,
-    backgroundColor: colors.background.default,
-    borderRadius: borderRadius.md,
-    borderWidth: 1,
-    borderColor: colors.border.main,
-    gap: spacing.xs,
-  },
-  filterButtonText: {
-    flex: 1,
-    fontSize: 14,
-    color: colors.text.primary,
-  },
-  dropdown: {
-    backgroundColor: colors.background.paper,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.light,
-    maxHeight: 250,
-    ...shadows.md,
-  },
-  dropdownScroll: {
-    maxHeight: 200,
-  },
-  dropdownItem: {
-    padding: spacing.md,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border.light,
-  },
-  dropdownItemSelected: {
-    backgroundColor: colors.primary.light + '20',
-  },
-  dropdownItemText: {
-    fontSize: 14,
-    color: colors.text.primary,
-  },
-  dropdownItemTextSelected: {
-    color: colors.primary.main,
-    fontWeight: '600',
-  },
-  yearSelector: {
+  stepIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    padding: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.border.light,
-    backgroundColor: colors.secondary.main,
+    padding: spacing.md,
+    backgroundColor: colors.background.paper,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.light,
   },
-  yearButton: {
-    padding: spacing.sm,
+  step: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.border.main,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  yearText: {
+  stepActive: {
+    backgroundColor: colors.primary.main,
+  },
+  stepNumber: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary.contrast,
+  },
+  stepNumberInactive: {
+    color: colors.text.secondary,
+  },
+  stepLine: {
+    width: 40,
+    height: 2,
+    backgroundColor: colors.border.main,
+    marginHorizontal: spacing.xs,
+  },
+  stepLineActive: {
+    backgroundColor: colors.primary.main,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+    backgroundColor: colors.background.paper,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.light,
+  },
+  backButton: {
+    padding: spacing.xs,
+    marginRight: spacing.sm,
+  },
+  headerContent: {
+    flex: 1,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text.primary,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: colors.primary.main,
+    marginTop: 2,
+  },
+  listContent: {
+    padding: spacing.md,
+    paddingBottom: spacing['3xl'],
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: spacing.md,
+    fontSize: 14,
+    color: colors.text.secondary,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.xl,
+  },
+  emptyText: {
+    fontSize: 16,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    marginTop: spacing.md,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    color: colors.text.disabled,
+    textAlign: 'center',
+    marginTop: spacing.sm,
+  },
+  // Plan items
+  planItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    backgroundColor: colors.background.paper,
+    borderRadius: borderRadius.md,
+    ...shadows.sm,
+  },
+  planIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.primary.light + '20',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+  },
+  planInfo: {
+    flex: 1,
+  },
+  planName: {
     fontSize: 16,
     fontWeight: '600',
     color: colors.text.primary,
-    marginHorizontal: spacing.lg,
   },
+  planMeta: {
+    fontSize: 13,
+    color: colors.text.secondary,
+    marginTop: 2,
+  },
+  planSubscribers: {
+    fontSize: 12,
+    color: colors.primary.main,
+    marginTop: 4,
+  },
+  // Date items
+  dateItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    backgroundColor: colors.background.paper,
+    borderRadius: borderRadius.md,
+    borderLeftWidth: 4,
+    borderLeftColor: colors.warning.main,
+    ...shadows.sm,
+  },
+  dateItemComplete: {
+    borderLeftColor: colors.success.main,
+    opacity: 0.7,
+  },
+  dateItemToday: {
+    borderLeftColor: colors.primary.main,
+    backgroundColor: colors.primary.light + '10',
+  },
+  dateLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  dateIndicator: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
+    backgroundColor: colors.primary.light + '20',
+  },
+  dateIndicatorComplete: {
+    backgroundColor: colors.success.main,
+  },
+  dateIndicatorPending: {
+    backgroundColor: colors.warning.light + '20',
+  },
+  dateIndicatorNone: {
+    backgroundColor: colors.border.light,
+  },
+  dateText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.text.primary,
+  },
+  dateTextComplete: {
+    color: colors.text.secondary,
+  },
+  todayBadge: {
+    fontSize: 11,
+    color: colors.primary.main,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  dateRight: {
+    alignItems: 'flex-end',
+  },
+  dateStats: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+  },
+  statBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: borderRadius.sm,
+    backgroundColor: colors.warning.light + '30',
+  },
+  statBadgePaid: {
+    backgroundColor: colors.success.light + '30',
+  },
+  statBadgeText: {
+    fontSize: 11,
+    color: colors.warning.dark,
+    fontWeight: '500',
+  },
+  statBadgeTextPaid: {
+    color: colors.success.dark,
+  },
+  dateAmount: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text.primary,
+    marginTop: spacing.xs,
+  },
+  // Search
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -544,6 +941,7 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
     paddingVertical: spacing.xs,
   },
+  // Summary
   summaryContainer: {
     flexDirection: 'row',
     marginHorizontal: spacing.md,
@@ -558,19 +956,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   summaryValue: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '700',
     color: colors.text.primary,
   },
   summaryLabel: {
-    fontSize: 12,
+    fontSize: 11,
     color: colors.text.secondary,
     marginTop: spacing.xs,
   },
   summaryDivider: {
     width: 1,
     backgroundColor: colors.border.light,
-    marginHorizontal: spacing.sm,
+    marginHorizontal: spacing.xs,
   },
   actionsRow: {
     flexDirection: 'row',
@@ -594,11 +992,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.text.primary,
   },
-  listContent: {
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing['3xl'],
-  },
-  scheduleItem: {
+  // Member items
+  memberItem: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: spacing.md,
@@ -609,7 +1004,16 @@ const styles = StyleSheet.create({
     borderLeftColor: colors.success.main,
     ...shadows.sm,
   },
-  excludedItem: {
+  memberItemPaid: {
+    borderLeftColor: colors.text.disabled,
+    backgroundColor: colors.secondary.main,
+    opacity: 0.6,
+  },
+  memberItemMissing: {
+    borderLeftColor: colors.warning.main,
+    backgroundColor: colors.warning.light,
+  },
+  memberItemExcluded: {
     borderLeftColor: colors.border.main,
     backgroundColor: colors.secondary.main,
     opacity: 0.7,
@@ -630,6 +1034,15 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary.main,
     borderColor: colors.primary.main,
   },
+  paidBadgeContainer: {
+    marginRight: spacing.md,
+  },
+  paidBadge: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   memberInfo: {
     flex: 1,
     marginRight: spacing.sm,
@@ -639,54 +1052,66 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.text.primary,
   },
+  memberNamePaid: {
+    color: colors.text.secondary,
+  },
+  memberNameExcluded: {
+    color: colors.text.secondary,
+  },
+  offlineBadge: {
+    fontSize: 12,
+    color: colors.text.secondary,
+    fontStyle: 'italic',
+  },
   memberEmail: {
     fontSize: 12,
     color: colors.text.secondary,
     marginTop: 2,
   },
-  planName: {
-    fontSize: 11,
-    color: colors.primary.main,
-    marginTop: 4,
-    fontWeight: '500',
+  memberEmailPaid: {
+    color: colors.text.disabled,
   },
-  excludedText: {
-    color: colors.text.secondary,
-  },
-  amountContainer: {
+  memberAmountContainer: {
     alignItems: 'flex-end',
   },
-  amount: {
+  memberAmount: {
     fontSize: 16,
     fontWeight: '700',
     color: colors.success.main,
   },
-  dueDate: {
-    fontSize: 11,
+  memberAmountPaid: {
+    color: colors.text.disabled,
+  },
+  memberAmountExcluded: {
     color: colors.text.secondary,
+  },
+  memberStatus: {
+    fontSize: 11,
+    color: colors.warning.main,
     marginTop: 2,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
+  memberStatusPaid: {
+    color: colors.text.disabled,
+  },
+  memberStatusMissing: {
+    color: colors.warning.dark,
+    fontWeight: '600',
+  },
+  missingBadge: {
+    flexDirection: 'row',
     alignItems: 'center',
+    marginTop: 4,
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    backgroundColor: colors.warning.light,
+    borderRadius: borderRadius.xs,
+    alignSelf: 'flex-start',
   },
-  loadingText: {
-    marginTop: spacing.md,
-    fontSize: 14,
-    color: colors.text.secondary,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing.xl,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: colors.text.secondary,
-    textAlign: 'center',
-    marginTop: spacing.md,
+  missingBadgeText: {
+    fontSize: 10,
+    color: colors.warning.dark,
+    marginLeft: 4,
+    fontWeight: '500',
   },
   bottomContainer: {
     padding: spacing.md,

@@ -1,6 +1,15 @@
 import apiClient from './client';
-import { Cooperative, CooperativeMember, ApiResponse } from '../models';
+import { Cooperative, CooperativeMember, ApiResponse, GradientPreset } from '../models';
 import logger from '../utils/logger';
+
+export interface UpdateCooperativeData {
+  name?: string;
+  description?: string;
+  imageUrl?: string;
+  useGradient?: boolean;
+  gradientPreset?: GradientPreset;
+  status?: string;
+}
 
 export const cooperativeApi = {
   getAll: async (): Promise<ApiResponse<Cooperative[]>> => {
@@ -46,8 +55,8 @@ export const cooperativeApi = {
     }
   },
 
-  update: async (id: string, data: Partial<Cooperative>): Promise<ApiResponse<Cooperative>> => {
-    const response = await apiClient.put<ApiResponse<Cooperative>>(`/cooperatives/${id}`, data);
+  update: async (id: string, data: UpdateCooperativeData): Promise<ApiResponse<Cooperative>> => {
+    const response = await apiClient.patch<ApiResponse<Cooperative>>(`/cooperatives/${id}`, data);
     return response.data;
   },
 

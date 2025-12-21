@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException, ConflictException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCooperativeDto } from './dto/create-cooperative.dto';
+import { UpdateCooperativeDto } from './dto/update-cooperative.dto';
 import { ActivitiesService } from '../activities/activities.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { 
@@ -118,6 +119,8 @@ export class CooperativesService {
         code,
         description: dto.description ?? null,
         imageUrl: dto.imageUrl ?? null,
+        useGradient: dto.useGradient ?? true,
+        gradientPreset: dto.gradientPreset ?? 'ocean',
         status: dto.status ?? 'active',
         createdBy: createdBy ?? null,
         memberCount: createdBy ? 1 : 0,
@@ -148,6 +151,51 @@ export class CooperativesService {
     }
 
     return created;
+  }
+
+  async update(id: string, dto: UpdateCooperativeDto, userId: string) {
+    const coop = await this.findOne(id);
+    
+    // Check if user is admin or moderator with settings permission
+    const member = await this.prisma.member.findFirst({
+      where: { cooperativeId: id, userId, status: 'active' },
+    });
+    
+    if (!member) {
+      throw new ForbiddenException('You are not a member of this cooperative');
+    }
+    
+    const isAdmin = member.role === 'admin';
+    const isModerator = member.role === 'moderator';
+    const permissions = parsePermissions(member.permissions || '');
+    const canEdit = isAdmin || (isModerator && hasPermission(member.role, permissions, PERMISSIONS.SETTINGS_EDIT));
+    
+    if (!canEdit) {
+      throw new ForbiddenException('You do not have permission to update this cooperative');
+    }
+    
+    const updated = await this.prisma.cooperative.update({
+      where: { id },
+      data: {
+        ...(dto.name !== undefined && { name: dto.name }),
+        ...(dto.description !== undefined && { description: dto.description }),
+        ...(dto.imageUrl !== undefined && { imageUrl: dto.imageUrl }),
+        ...(dto.useGradient !== undefined && { useGradient: dto.useGradient }),
+        ...(dto.gradientPreset !== undefined && { gradientPreset: dto.gradientPreset }),
+        ...(dto.status !== undefined && { status: dto.status }),
+      },
+    });
+    
+    // Log activity
+    await this.activitiesService.log(
+      userId,
+      'cooperative.update',
+      `Updated cooperative "${coop.name}" settings`,
+      id,
+      { cooperativeName: coop.name, changes: dto },
+    );
+    
+    return updated;
   }
 
   async joinByCode(code: string, userId: string) {

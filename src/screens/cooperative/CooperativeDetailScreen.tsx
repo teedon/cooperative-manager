@@ -11,6 +11,7 @@ import {
   Alert,
   TextInput,
 } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { HomeStackParamList } from '../../navigation/MainNavigator';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
@@ -22,6 +23,8 @@ import { fetchSubscription } from '../../store/slices/subscriptionSlice';
 import { colors, spacing, borderRadius, shadows } from '../../theme';
 import Icon from '../../components/common/Icon';
 import { usePermissions } from '../../hooks/usePermissions';
+import { getGradientConfig } from '../../utils/gradients';
+import { GradientPreset } from '../../models';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'CooperativeDetail'>;
 
@@ -307,6 +310,21 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               <View style={styles.actionContent}>
                 <Text style={styles.actionTitle}>Subscription</Text>
                 <Text style={styles.actionSubtitle}>Manage plan and billing</Text>
+              </View>
+              <Icon name="ChevronRight" size={20} color={colors.text.disabled} style={styles.actionArrow} />
+            </TouchableOpacity>
+          )}
+
+          {/* Cooperative Settings - requires canEditSettings */}
+          {canEditSettings && (
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => navigation.navigate('CooperativeSettings', { cooperativeId })}
+            >
+              <Icon name="Settings" size={24} color={colors.neutral?.[600] || '#4B5563'} style={styles.actionIcon} />
+              <View style={styles.actionContent}>
+                <Text style={styles.actionTitle}>Cooperative Settings</Text>
+                <Text style={styles.actionSubtitle}>Name, description, and appearance</Text>
               </View>
               <Icon name="ChevronRight" size={20} color={colors.text.disabled} style={styles.actionArrow} />
             </TouchableOpacity>
@@ -727,20 +745,64 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     );
   }
 
+  // Show error state if no cooperative found
+  if (!currentCooperative) {
+    return (
+      <View style={styles.loadingContainer}>
+        <Icon name="alert-circle" size={48} color={colors.error.main} />
+        <Text style={styles.errorText}>Cooperative not found</Text>
+        <TouchableOpacity 
+          style={styles.retryButton}
+          onPress={() => dispatch(fetchCooperative(cooperativeId))}
+        >
+          <Text style={styles.retryButtonText}>Retry</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // Get gradient configuration
+  const useGradient = currentCooperative.useGradient !== false; // Default to true
+  const gradientPreset = (currentCooperative.gradientPreset || 'ocean') as GradientPreset;
+  const gradientConfig = getGradientConfig(gradientPreset);
+
+  const renderHeaderBackground = () => {
+    if (useGradient || !currentCooperative.imageUrl) {
+      return (
+        <LinearGradient
+          colors={[...gradientConfig.colors] as [string, string, ...string[]]}
+          start={{ x: gradientConfig.start.x, y: gradientConfig.start.y }}
+          end={{ x: gradientConfig.end.x, y: gradientConfig.end.y }}
+          style={styles.headerGradient}
+        >
+          <View style={styles.gradientPattern}>
+            {/* Decorative circles for professional look */}
+            <View style={[styles.decorativeCircle, styles.circle1]} />
+            <View style={[styles.decorativeCircle, styles.circle2]} />
+            <View style={[styles.decorativeCircle, styles.circle3]} />
+          </View>
+        </LinearGradient>
+      );
+    }
+    return (
+      <Image
+        source={{ uri: currentCooperative.imageUrl }}
+        style={styles.headerImage}
+      />
+    );
+  };
+
   return (
     <ScrollView
       style={styles.container}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
       <View style={styles.header}>
-        <Image
-          source={{ uri: currentCooperative?.imageUrl || 'https://picsum.photos/400/200' }}
-          style={styles.headerImage}
-        />
+        {renderHeaderBackground()}
         <View style={styles.headerOverlay}>
           <View style={styles.headerTitleRow}>
-            <Text style={styles.headerTitle}>{currentCooperative?.name}</Text>
-            {currentCooperative?.code && (
+            <Text style={styles.headerTitle}>{currentCooperative.name}</Text>
+            {currentCooperative.code && (
               <View style={styles.codeBadge}>
                 <Icon name="Key" size={12} color={colors.text.inverse} />
                 <Text style={styles.codeText}>{currentCooperative.code}</Text>
@@ -798,6 +860,24 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: colors.background.default,
+    gap: spacing.md,
+  },
+  errorText: {
+    fontSize: 16,
+    color: colors.text.secondary,
+    marginTop: spacing.sm,
+  },
+  retryButton: {
+    marginTop: spacing.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.primary.main,
+    borderRadius: borderRadius.md,
+  },
+  retryButtonText: {
+    color: colors.primary.contrast,
+    fontWeight: '600',
   },
   header: {
     height: 180,
@@ -807,6 +887,38 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     backgroundColor: colors.secondary.dark,
+  },
+  headerGradient: {
+    width: '100%',
+    height: '100%',
+    position: 'absolute',
+  },
+  gradientPattern: {
+    flex: 1,
+    overflow: 'hidden',
+  },
+  decorativeCircle: {
+    position: 'absolute',
+    borderRadius: 1000,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+  },
+  circle1: {
+    width: 200,
+    height: 200,
+    top: -50,
+    right: -30,
+  },
+  circle2: {
+    width: 150,
+    height: 150,
+    bottom: -40,
+    left: -20,
+  },
+  circle3: {
+    width: 100,
+    height: 100,
+    top: 40,
+    left: '40%',
   },
   headerOverlay: {
     position: 'absolute',

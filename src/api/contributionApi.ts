@@ -78,8 +78,79 @@ export interface BulkApproveData {
 
 export interface BulkApprovalResult {
   approvedCount: number;
+  createdSchedulesCount?: number;
   totalAmount: number;
-  payments: ContributionPayment[];
+  payments?: ContributionPayment[];
+  planName?: string;
+  dateLabel?: string;
+}
+
+// Date-based bulk approval types
+export interface ScheduleDateInfo {
+  date: string;
+  totalMembers: number;
+  pendingCount: number;
+  paidCount: number;
+  pendingAmount: number;
+  isPast: boolean;
+  isToday: boolean;
+}
+
+export interface PlanScheduleDatesResponse {
+  plan: {
+    id: string;
+    name: string;
+    frequency: string;
+    amount: number | null;
+    amountType: string;
+  };
+  scheduleDates: ScheduleDateInfo[];
+}
+
+export interface ScheduleDateMember {
+  scheduleId: string | null;
+  subscriptionId: string;
+  memberId: string;
+  member: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    avatarUrl?: string;
+    isOfflineMember?: boolean;
+  };
+  amount: number;
+  status: string; // 'pending' | 'overdue' | 'paid' | 'missing'
+  paidAmount: number | null;
+  paidAt: string | null;
+  hasSchedule: boolean;
+}
+
+export interface ScheduleDateMembersResponse {
+  plan: {
+    id: string;
+    name: string;
+    frequency: string;
+    amount: number | null;
+    amountType: string;
+  };
+  scheduleDate: string;
+  periodLabel: string | null;
+  totalMembers: number;
+  pendingCount: number;
+  paidCount: number;
+  missingScheduleCount: number;
+  totalPendingAmount: number;
+  members: ScheduleDateMember[];
+}
+
+export interface BulkApproveByDateData {
+  planId: string;
+  scheduleDate: string;
+  excludeMemberIds?: string[];
+  includeMissingSchedules?: boolean;
+  paymentMethod?: string;
+  notes?: string;
 }
 
 export const contributionApi = {
@@ -389,6 +460,49 @@ export const contributionApi = {
   ): Promise<ApiResponse<BulkApprovalResult>> => {
     const response = await apiClient.post<ApiResponse<BulkApprovalResult>>(
       `/contributions/cooperatives/${cooperativeId}/bulk-approve`,
+      data
+    );
+    return response.data;
+  },
+
+  // ==================== DATE-BASED BULK APPROVAL API ====================
+
+  // Get schedule dates for a specific plan
+  getPlanScheduleDates: async (
+    cooperativeId: string,
+    planId: string,
+    startDate?: string,
+    endDate?: string
+  ): Promise<ApiResponse<PlanScheduleDatesResponse>> => {
+    const params = new URLSearchParams();
+    if (startDate) params.append('startDate', startDate);
+    if (endDate) params.append('endDate', endDate);
+    const queryString = params.toString() ? `?${params.toString()}` : '';
+    const response = await apiClient.get<ApiResponse<PlanScheduleDatesResponse>>(
+      `/contributions/cooperatives/${cooperativeId}/plans/${planId}/schedule-dates${queryString}`
+    );
+    return response.data;
+  },
+
+  // Get members for a specific schedule date
+  getMembersForScheduleDate: async (
+    cooperativeId: string,
+    planId: string,
+    date: string
+  ): Promise<ApiResponse<ScheduleDateMembersResponse>> => {
+    const response = await apiClient.get<ApiResponse<ScheduleDateMembersResponse>>(
+      `/contributions/cooperatives/${cooperativeId}/plans/${planId}/schedule-date-members?date=${encodeURIComponent(date)}`
+    );
+    return response.data;
+  },
+
+  // Bulk approve by specific date
+  bulkApproveByDate: async (
+    cooperativeId: string,
+    data: BulkApproveByDateData
+  ): Promise<ApiResponse<BulkApprovalResult>> => {
+    const response = await apiClient.post<ApiResponse<BulkApprovalResult>>(
+      `/contributions/cooperatives/${cooperativeId}/bulk-approve-by-date`,
       data
     );
     return response.data;

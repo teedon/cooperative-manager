@@ -7,6 +7,18 @@ interface AuthResponse {
   refreshToken?: string;
 }
 
+export interface UpdateProfileData {
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
+  avatarUrl?: string;
+}
+
+export interface ChangePasswordData {
+  currentPassword: string;
+  newPassword: string;
+}
+
 export const authApi = {
   login: async (credentials: LoginCredentials): Promise<ApiResponse<AuthResponse>> => {
     const response = await apiClient.post<ApiResponse<AuthResponse>>('/auth/login', credentials);
@@ -48,6 +60,29 @@ export const authApi = {
 
   resetPassword: async (token: string, newPassword: string): Promise<ApiResponse<null>> => {
     const response = await apiClient.post<ApiResponse<null>>('/auth/reset-password', { token, newPassword });
+    return response.data;
+  },
+
+  // Profile Management
+  getProfile: async (): Promise<ApiResponse<User>> => {
+    const response = await apiClient.get<ApiResponse<User>>('/users/profile');
+    return response.data;
+  },
+
+  updateProfile: async (data: UpdateProfileData): Promise<ApiResponse<User>> => {
+    const response = await apiClient.put<ApiResponse<User>>('/users/profile', data);
+    return response.data;
+  },
+
+  changePassword: async (data: ChangePasswordData): Promise<ApiResponse<null>> => {
+    const response = await apiClient.post<ApiResponse<null>>('/users/change-password', data);
+    return response.data;
+  },
+
+  deleteAccount: async (password: string, reason?: string): Promise<ApiResponse<null>> => {
+    const response = await apiClient.delete<ApiResponse<null>>('/users/account', {
+      data: { password, reason },
+    });
     return response.data;
   },
 };

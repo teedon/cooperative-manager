@@ -1,4 +1,5 @@
-import { IsOptional, IsString } from 'class-validator';
+import { IsOptional, IsString, IsBoolean, IsIn } from 'class-validator';
+import { GRADIENT_PRESETS, GradientPreset } from './create-cooperative.dto';
 
 export class UpdateCooperativeDto {
   @IsOptional()
@@ -12,6 +13,15 @@ export class UpdateCooperativeDto {
   @IsOptional()
   @IsString()
   imageUrl?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  useGradient?: boolean;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(GRADIENT_PRESETS)
+  gradientPreset?: GradientPreset;
 
   @IsOptional()
   @IsString()

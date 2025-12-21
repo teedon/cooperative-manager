@@ -58,12 +58,29 @@ export interface Activity {
   createdAt: string;
 }
 
+export const GRADIENT_PRESETS = [
+  'ocean',
+  'sunset',
+  'forest',
+  'lavender',
+  'coral',
+  'midnight',
+  'emerald',
+  'rose',
+  'slate',
+  'amber',
+] as const;
+
+export type GradientPreset = (typeof GRADIENT_PRESETS)[number];
+
 export interface Cooperative {
   id: string;
   name: string;
   code: string;
   description?: string;
   imageUrl?: string;
+  useGradient?: boolean;
+  gradientPreset?: GradientPreset;
   status: CooperativeStatus;
   memberCount: number;
   totalContributions: number;

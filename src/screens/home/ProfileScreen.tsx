@@ -1,14 +1,20 @@
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { logout, resetAuth } from '../../store/slices/authSlice';
 import { fetchCooperatives } from '../../store/slices/cooperativeSlice';
 import { colors, spacing, borderRadius, shadows } from '../../theme';
 import Icon from '../../components/common/Icon';
 import { formatCurrency } from '../../utils/formatters';
+import { HomeStackParamList } from '../../navigation/MainNavigator';
+
+type NavigationProp = NativeStackNavigationProp<HomeStackParamList>;
 
 const ProfileScreen: React.FC = () => {
+  const navigation = useNavigation<NavigationProp>();
   const dispatch = useAppDispatch();
   const { user } = useAppSelector((state) => state.auth);
   const { cooperatives = [] } = useAppSelector((state) => state.cooperative);
@@ -52,11 +58,11 @@ const ProfileScreen: React.FC = () => {
   };
 
   const menuItems = [
-    { icon: 'User', label: 'Edit Profile', onPress: () => {} },
-    { icon: 'Bell', label: 'Notifications', onPress: () => {} },
-    { icon: 'Lock', label: 'Privacy & Security', onPress: () => {} },
-    { icon: 'HelpCircle', label: 'Help & Support', onPress: () => {} },
-    { icon: 'Info', label: 'About', onPress: () => {} },
+    { icon: 'User', label: 'Edit Profile', onPress: () => navigation.navigate('EditProfile') },
+    { icon: 'Bell', label: 'Notifications', onPress: () => navigation.navigate('NotificationSettings') },
+    { icon: 'Lock', label: 'Privacy & Security', onPress: () => navigation.navigate('PrivacySecurity') },
+    { icon: 'HelpCircle', label: 'Help & Support', onPress: () => navigation.navigate('HelpSupport') },
+    { icon: 'Info', label: 'About', onPress: () => navigation.navigate('About') },
   ];
 
   return (

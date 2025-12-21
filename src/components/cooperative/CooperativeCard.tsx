@@ -1,8 +1,10 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
-import { Cooperative } from '../../models';
+import LinearGradient from 'react-native-linear-gradient';
+import { Cooperative, GradientPreset } from '../../models';
 import { colors, spacing, borderRadius, shadows } from '../../theme';
 import Icon from '../common/Icon';
+import { getGradientConfig } from '../../utils/gradients';
 
 interface CooperativeCardProps {
   cooperative: Cooperative;
@@ -10,12 +12,37 @@ interface CooperativeCardProps {
 }
 
 export const CooperativeCard: React.FC<CooperativeCardProps> = ({ cooperative, onPress }) => {
-  return (
-    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
+  const useGradient = cooperative.useGradient !== false;
+  const gradientPreset = (cooperative.gradientPreset || 'ocean') as GradientPreset;
+  const gradientConfig = getGradientConfig(gradientPreset);
+
+  const renderBackground = () => {
+    if (useGradient || !cooperative.imageUrl) {
+      return (
+        <LinearGradient
+          colors={[...gradientConfig.colors] as [string, string, ...string[]]}
+          start={{ x: gradientConfig.start.x, y: gradientConfig.start.y }}
+          end={{ x: gradientConfig.end.x, y: gradientConfig.end.y }}
+          style={styles.gradient}
+        >
+          <View style={styles.gradientPattern}>
+            <View style={[styles.decorativeCircle, styles.circle1]} />
+            <View style={[styles.decorativeCircle, styles.circle2]} />
+          </View>
+        </LinearGradient>
+      );
+    }
+    return (
       <Image
-        source={{ uri: cooperative.imageUrl || 'https://picsum.photos/200' }}
+        source={{ uri: cooperative.imageUrl }}
         style={styles.image}
       />
+    );
+  };
+
+  return (
+    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
+      {renderBackground()}
       <View style={styles.content}>
         <View style={styles.header}>
           <Text style={styles.name} numberOfLines={1}>
@@ -59,6 +86,31 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 120,
     backgroundColor: colors.secondary.main,
+  },
+  gradient: {
+    width: '100%',
+    height: 120,
+  },
+  gradientPattern: {
+    flex: 1,
+    overflow: 'hidden',
+  },
+  decorativeCircle: {
+    position: 'absolute',
+    borderRadius: 1000,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  circle1: {
+    width: 100,
+    height: 100,
+    top: -20,
+    right: -20,
+  },
+  circle2: {
+    width: 80,
+    height: 80,
+    bottom: -30,
+    left: 20,
   },
   content: {
     padding: spacing.md,
@@ -112,3 +164,4 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
   },
 });
+

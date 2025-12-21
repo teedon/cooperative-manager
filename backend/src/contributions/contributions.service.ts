@@ -1758,4 +1758,612 @@ export class ContributionsService {
       monthLabel,
     };
   }
+
+  // ==================== DATE-BASED BULK APPROVAL METHODS ====================
+
+  // Get unique schedule dates for a specific plan
+  async getPlanScheduleDates(
+    cooperativeId: string,
+    planId: string,
+    userId: string,
+    startDate?: Date,
+    endDate?: Date,
+  ) {
+    const member = await this.getMemberWithPermissions(cooperativeId, userId);
+    this.requirePermission(member, PERMISSIONS.CONTRIBUTIONS_BULK_APPROVE, 'You do not have permission to access bulk approval');
+
+    // Verify plan belongs to cooperative
+    const plan = await this.prisma.contributionPlan.findFirst({
+      where: { id: planId, cooperativeId },
+    });
+
+    if (!plan) {
+      throw new NotFoundException('Contribution plan not found in this cooperative');
+    }
+
+    // Default date range: 6 months back to 6 months ahead
+    const now = new Date();
+    const defaultStart = startDate || new Date(now.getFullYear(), now.getMonth() - 6, 1);
+    const defaultEnd = endDate || new Date(now.getFullYear(), now.getMonth() + 6, 0, 23, 59, 59, 999);
+
+    // Get unique schedule dates with their status counts
+    const scheduleDates = await this.prisma.paymentSchedule.groupBy({
+      by: ['dueDate'],
+      where: {
+        subscription: {
+          planId,
+          status: 'active',
+        },
+        dueDate: {
+          gte: defaultStart,
+          lte: defaultEnd,
+        },
+      },
+      _count: {
+        id: true,
+      },
+      orderBy: {
+        dueDate: 'asc',
+      },
+    });
+
+    // Get more details for each date
+    const datesWithDetails = await Promise.all(
+      scheduleDates.map(async (dateGroup) => {
+        const [pendingCount, paidCount] = await Promise.all([
+          this.prisma.paymentSchedule.count({
+            where: {
+              subscription: { planId, status: 'active' },
+              dueDate: dateGroup.dueDate,
+              status: { in: ['pending', 'overdue'] },
+            },
+          }),
+          this.prisma.paymentSchedule.count({
+            where: {
+              subscription: { planId, status: 'active' },
+              dueDate: dateGroup.dueDate,
+              status: 'paid',
+            },
+          }),
+        ]);
+
+        const totalAmount = await this.prisma.paymentSchedule.aggregate({
+          where: {
+            subscription: { planId, status: 'active' },
+            dueDate: dateGroup.dueDate,
+            status: { in: ['pending', 'overdue'] },
+          },
+          _sum: {
+            amount: true,
+          },
+        });
+
+        return {
+          date: dateGroup.dueDate,
+          totalMembers: dateGroup._count.id,
+          pendingCount,
+          paidCount,
+          pendingAmount: totalAmount._sum.amount || 0,
+          isPast: dateGroup.dueDate < now,
+          isToday: dateGroup.dueDate.toDateString() === now.toDateString(),
+        };
+      })
+    );
+
+    return {
+      plan: {
+        id: plan.id,
+        name: plan.name,
+        frequency: plan.frequency,
+        amount: plan.fixedAmount,
+        amountType: plan.amountType,
+      },
+      scheduleDates: datesWithDetails,
+    };
+  }
+
+  // Get members for a specific schedule date
+  async getMembersForScheduleDate(
+    cooperativeId: string,
+    planId: string,
+    scheduleDate: Date,
+    userId: string,
+  ) {
+    const member = await this.getMemberWithPermissions(cooperativeId, userId);
+    this.requirePermission(member, PERMISSIONS.CONTRIBUTIONS_BULK_APPROVE, 'You do not have permission to access bulk approval');
+
+    // Verify plan belongs to cooperative
+    const plan = await this.prisma.contributionPlan.findFirst({
+      where: { id: planId, cooperativeId },
+    });
+
+    if (!plan) {
+      throw new NotFoundException('Contribution plan not found in this cooperative');
+    }
+
+    // Set time range for the date (start of day to end of day)
+    const startOfDay = new Date(scheduleDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(scheduleDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // Get all active subscriptions for this plan
+    const activeSubscriptions = await this.prisma.contributionSubscription.findMany({
+      where: {
+        planId,
+        status: 'active',
+      },
+      include: {
+        member: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                firstName: true,
+                lastName: true,
+                email: true,
+                avatarUrl: true,
+              },
+            },
+          },
+        },
+        schedules: {
+          where: {
+            dueDate: {
+              gte: startOfDay,
+              lte: endOfDay,
+            },
+          },
+        },
+      },
+    });
+
+    // Build member list including those with and without schedules
+    const membersWithSchedules: any[] = [];
+    const membersWithoutSchedules: any[] = [];
+
+    for (const subscription of activeSubscriptions) {
+      const schedule = subscription.schedules[0]; // Should be at most one per date
+      const memberInfo = {
+        id: subscription.member.id,
+        firstName: subscription.member.isOfflineMember 
+          ? subscription.member.firstName 
+          : subscription.member.user?.firstName,
+        lastName: subscription.member.isOfflineMember 
+          ? subscription.member.lastName 
+          : subscription.member.user?.lastName,
+        email: subscription.member.isOfflineMember 
+          ? subscription.member.email 
+          : subscription.member.user?.email,
+        avatarUrl: subscription.member.user?.avatarUrl,
+        isOfflineMember: subscription.member.isOfflineMember,
+      };
+
+      if (schedule) {
+        // Member has a schedule for this date
+        membersWithSchedules.push({
+          scheduleId: schedule.id,
+          subscriptionId: subscription.id,
+          memberId: subscription.memberId,
+          member: memberInfo,
+          amount: schedule.amount,
+          status: schedule.status,
+          paidAmount: schedule.paidAmount,
+          paidAt: schedule.paidAt,
+          hasSchedule: true,
+        });
+      } else {
+        // Member has active subscription but no schedule for this date
+        // Use subscription amount or plan's fixed amount
+        const amount = subscription.amount || plan.fixedAmount || 0;
+        membersWithoutSchedules.push({
+          scheduleId: null,
+          subscriptionId: subscription.id,
+          memberId: subscription.memberId,
+          member: memberInfo,
+          amount: amount,
+          status: 'missing', // Special status for missing schedules
+          paidAmount: 0,
+          paidAt: null,
+          hasSchedule: false,
+        });
+      }
+    }
+
+    // Combine and sort by name
+    const allMembers = [...membersWithSchedules, ...membersWithoutSchedules].sort((a, b) => {
+      const nameA = `${a.member.firstName || ''} ${a.member.lastName || ''}`.toLowerCase();
+      const nameB = `${b.member.firstName || ''} ${b.member.lastName || ''}`.toLowerCase();
+      return nameA.localeCompare(nameB);
+    });
+
+    const pendingMembers = allMembers.filter(m => m.status === 'pending' || m.status === 'overdue' || m.status === 'missing');
+    const paidMembers = allMembers.filter(m => m.status === 'paid');
+    const missingScheduleCount = membersWithoutSchedules.length;
+
+    return {
+      plan: {
+        id: plan.id,
+        name: plan.name,
+        frequency: plan.frequency,
+        amount: plan.fixedAmount,
+        amountType: plan.amountType,
+      },
+      scheduleDate: startOfDay,
+      periodLabel: membersWithSchedules[0]?.periodLabel || null,
+      totalMembers: allMembers.length,
+      pendingCount: pendingMembers.length,
+      paidCount: paidMembers.length,
+      missingScheduleCount,
+      totalPendingAmount: pendingMembers.reduce((sum, m) => sum + m.amount, 0),
+      members: allMembers,
+    };
+  }
+
+  // Bulk approve schedules for a specific date
+  async bulkApproveByDate(
+    cooperativeId: string,
+    dto: {
+      planId: string;
+      scheduleDate: string;
+      excludeMemberIds?: string[];
+      includeMissingSchedules?: boolean; // New option to include members without schedules
+      paymentMethod?: string;
+      notes?: string;
+    },
+    userId: string,
+  ) {
+    const member = await this.getMemberWithPermissions(cooperativeId, userId);
+    this.requirePermission(member, PERMISSIONS.CONTRIBUTIONS_BULK_APPROVE, 'You do not have permission to bulk approve payments');
+
+    // Verify plan belongs to cooperative
+    const plan = await this.prisma.contributionPlan.findFirst({
+      where: { id: dto.planId, cooperativeId },
+    });
+
+    if (!plan) {
+      throw new NotFoundException('Contribution plan not found in this cooperative');
+    }
+
+    const scheduleDate = new Date(dto.scheduleDate);
+    const startOfDay = new Date(scheduleDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(scheduleDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // Build where clause for existing schedules
+    const whereClause: any = {
+      dueDate: {
+        gte: startOfDay,
+        lte: endOfDay,
+      },
+      status: { in: ['pending', 'overdue'] },
+      subscription: {
+        planId: dto.planId,
+        status: 'active',
+      },
+    };
+
+    if (dto.excludeMemberIds && dto.excludeMemberIds.length > 0) {
+      whereClause.subscription.memberId = {
+        notIn: dto.excludeMemberIds,
+      };
+    }
+
+    const existingSchedules = await this.prisma.paymentSchedule.findMany({
+      where: whereClause,
+      include: {
+        subscription: {
+          include: {
+            plan: true,
+            member: {
+              include: {
+                user: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // Get members with active subscriptions but no schedule for this date (missing schedules)
+    let membersWithMissingSchedules: any[] = [];
+    if (dto.includeMissingSchedules !== false) {
+      // Get all active subscriptions for this plan
+      const subscriptionsWithoutSchedule = await this.prisma.contributionSubscription.findMany({
+        where: {
+          planId: dto.planId,
+          status: 'active',
+          ...(dto.excludeMemberIds && dto.excludeMemberIds.length > 0 
+            ? { memberId: { notIn: dto.excludeMemberIds } } 
+            : {}),
+          // Exclude subscriptions that already have a schedule for this date
+          schedules: {
+            none: {
+              dueDate: {
+                gte: startOfDay,
+                lte: endOfDay,
+              },
+            },
+          },
+        },
+        include: {
+          plan: true,
+          member: {
+            include: {
+              user: true,
+            },
+          },
+        },
+      });
+
+      membersWithMissingSchedules = subscriptionsWithoutSchedule;
+    }
+
+    const totalToProcess = existingSchedules.length + membersWithMissingSchedules.length;
+
+    if (totalToProcess === 0) {
+      return {
+        success: true,
+        message: 'No pending schedules or members found for the specified date',
+        approvedCount: 0,
+        createdSchedulesCount: 0,
+        totalAmount: 0,
+      };
+    }
+
+    const dateLabel = scheduleDate.toLocaleDateString('en-US', { 
+      weekday: 'short', 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric' 
+    });
+
+    // Generate period label based on frequency
+    let periodLabel = dateLabel;
+    if (plan.frequency === 'monthly') {
+      periodLabel = scheduleDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    } else if (plan.frequency === 'weekly') {
+      const weekNumber = Math.ceil(scheduleDate.getDate() / 7);
+      periodLabel = `Week ${weekNumber}, ${scheduleDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`;
+    } else if (plan.frequency === 'yearly') {
+      periodLabel = scheduleDate.getFullYear().toString();
+    }
+
+    // Calculate next period number for new schedules
+    const maxPeriodNumber = await this.prisma.paymentSchedule.aggregate({
+      where: {
+        subscription: {
+          planId: dto.planId,
+        },
+      },
+      _max: {
+        periodNumber: true,
+      },
+    });
+    let nextPeriodNumber = (maxPeriodNumber._max.periodNumber || 0) + 1;
+    
+    let approvedCount = 0;
+    let createdSchedulesCount = 0;
+    let totalAmount = 0;
+
+    // Process existing schedules
+    for (const schedule of existingSchedules) {
+      try {
+        await this.prisma.$transaction(async (tx) => {
+          // Create payment record
+          const payment = await tx.contributionPayment.create({
+            data: {
+              subscriptionId: schedule.subscriptionId,
+              memberId: schedule.subscription.memberId,
+              amount: schedule.amount,
+              paymentDate: new Date(),
+              dueDate: schedule.dueDate,
+              paymentMethod: dto.paymentMethod || 'bulk_approval',
+              notes: dto.notes || `Bulk approved for ${plan.name} - ${dateLabel}`,
+              status: 'approved',
+              approvedBy: userId,
+              approvedAt: new Date(),
+            },
+          });
+
+          // Update schedule
+          await tx.paymentSchedule.update({
+            where: { id: schedule.id },
+            data: {
+              status: 'paid',
+              paidAmount: schedule.amount,
+              paidAt: new Date(),
+              paymentId: payment.id,
+            },
+          });
+
+          // Update subscription totalPaid
+          await tx.contributionSubscription.update({
+            where: { id: schedule.subscriptionId },
+            data: {
+              totalPaid: {
+                increment: schedule.amount,
+              },
+            },
+          });
+
+          // Update member's virtual balance
+          await tx.member.update({
+            where: { id: schedule.subscription.memberId },
+            data: {
+              virtualBalance: {
+                increment: schedule.amount,
+              },
+            },
+          });
+
+          // Update cooperative's total contributions
+          await tx.cooperative.update({
+            where: { id: cooperativeId },
+            data: {
+              totalContributions: {
+                increment: schedule.amount,
+              },
+            },
+          });
+
+          // Get updated member for ledger
+          const memberRecord = await tx.member.findUnique({
+            where: { id: schedule.subscription.memberId },
+          });
+
+          // Create ledger entry
+          await tx.ledgerEntry.create({
+            data: {
+              cooperativeId,
+              memberId: schedule.subscription.memberId,
+              type: 'contribution',
+              amount: schedule.amount,
+              balanceAfter: memberRecord!.virtualBalance,
+              referenceId: payment.id,
+              referenceType: 'contribution_payment',
+              description: `Bulk approved contribution for "${plan.name}" - ${schedule.periodLabel || dateLabel}`,
+              createdBy: userId,
+            },
+          });
+
+          approvedCount++;
+          totalAmount += schedule.amount;
+        });
+      } catch (error) {
+        // Log error but continue with other schedules
+        console.error(`Failed to approve schedule ${schedule.id}:`, error);
+      }
+    }
+
+    // Process members with missing schedules - create schedule and approve
+    for (const subscription of membersWithMissingSchedules) {
+      try {
+        const amount = subscription.amount || plan.fixedAmount || 0;
+        
+        await this.prisma.$transaction(async (tx) => {
+          // Create the missing schedule
+          const newSchedule = await tx.paymentSchedule.create({
+            data: {
+              subscriptionId: subscription.id,
+              dueDate: scheduleDate,
+              amount: amount,
+              periodNumber: nextPeriodNumber,
+              periodLabel: periodLabel,
+              status: 'paid', // Mark as paid immediately
+              paidAmount: amount,
+              paidAt: new Date(),
+            },
+          });
+
+          // Create payment record
+          const payment = await tx.contributionPayment.create({
+            data: {
+              subscriptionId: subscription.id,
+              memberId: subscription.memberId,
+              amount: amount,
+              paymentDate: new Date(),
+              dueDate: scheduleDate,
+              paymentMethod: dto.paymentMethod || 'bulk_approval',
+              notes: dto.notes || `Bulk approved (schedule created) for ${plan.name} - ${dateLabel}`,
+              status: 'approved',
+              approvedBy: userId,
+              approvedAt: new Date(),
+            },
+          });
+
+          // Link payment to schedule
+          await tx.paymentSchedule.update({
+            where: { id: newSchedule.id },
+            data: { paymentId: payment.id },
+          });
+
+          // Update subscription totalPaid
+          await tx.contributionSubscription.update({
+            where: { id: subscription.id },
+            data: {
+              totalPaid: {
+                increment: amount,
+              },
+            },
+          });
+
+          // Update member's virtual balance
+          await tx.member.update({
+            where: { id: subscription.memberId },
+            data: {
+              virtualBalance: {
+                increment: amount,
+              },
+            },
+          });
+
+          // Update cooperative's total contributions
+          await tx.cooperative.update({
+            where: { id: cooperativeId },
+            data: {
+              totalContributions: {
+                increment: amount,
+              },
+            },
+          });
+
+          // Get updated member for ledger
+          const memberRecord = await tx.member.findUnique({
+            where: { id: subscription.memberId },
+          });
+
+          // Create ledger entry
+          await tx.ledgerEntry.create({
+            data: {
+              cooperativeId,
+              memberId: subscription.memberId,
+              type: 'contribution',
+              amount: amount,
+              balanceAfter: memberRecord!.virtualBalance,
+              referenceId: payment.id,
+              referenceType: 'contribution_payment',
+              description: `Bulk approved contribution (schedule created) for "${plan.name}" - ${periodLabel}`,
+              createdBy: userId,
+            },
+          });
+
+          approvedCount++;
+          createdSchedulesCount++;
+          totalAmount += amount;
+          nextPeriodNumber++;
+        });
+      } catch (error) {
+        // Log error but continue with other members
+        console.error(`Failed to create and approve schedule for subscription ${subscription.id}:`, error);
+      }
+    }
+
+    // Log activity
+    await this.activitiesService.log(
+      userId,
+      'contribution.bulk_approve',
+      `Bulk approved ${approvedCount} contribution schedules for "${plan.name}" on ${dateLabel} (₦${totalAmount.toLocaleString()})${createdSchedulesCount > 0 ? ` - ${createdSchedulesCount} schedules created` : ''}`,
+      cooperativeId,
+      { 
+        planId: dto.planId, 
+        scheduleDate: dto.scheduleDate, 
+        approvedCount, 
+        createdSchedulesCount,
+        totalAmount, 
+        excludedMembers: dto.excludeMemberIds?.length || 0 
+      },
+    );
+
+    return {
+      success: true,
+      message: `Successfully approved ${approvedCount} schedules${createdSchedulesCount > 0 ? ` (${createdSchedulesCount} new schedules created)` : ''}`,
+      approvedCount,
+      createdSchedulesCount,
+      totalAmount,
+      planName: plan.name,
+      dateLabel,
+    };
+  }
 }

@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { Cooperative, CooperativeMember } from '../../models';
-import { cooperativeApi } from '../../api/cooperativeApi';
+import { cooperativeApi, UpdateCooperativeData } from '../../api/cooperativeApi';
 import logger from '../../utils/logger';
 
 interface CooperativeState {
@@ -67,6 +67,25 @@ export const createCooperative = createAsyncThunk(
     } catch (error: any) {
       logger.error(op, 'rejected', { message: error?.message, payload: data, response: error?.response?.data });
       return rejectWithValue((error as Error).message);
+    }
+  }
+);
+
+export const updateCooperative = createAsyncThunk(
+  'cooperative/update',
+  async ({ id, data }: { id: string; data: UpdateCooperativeData }, { rejectWithValue }) => {
+    const op = 'store.cooperative.update';
+    logger.info(op, 'dispatch', { id, payload: data });
+    try {
+      const response = await cooperativeApi.update(id, data);
+      if (!response || !response.success) {
+        return rejectWithValue(response?.message || 'Failed to update cooperative');
+      }
+      logger.info(op, 'fulfilled', { cooperativeId: response.data?.id });
+      return response.data;
+    } catch (error: any) {
+      logger.error(op, 'rejected', { message: error?.message, id, payload: data, response: error?.response?.data });
+      return rejectWithValue(error?.response?.data?.message || error?.message || 'Failed to update cooperative');
     }
   }
 );
@@ -192,6 +211,24 @@ const cooperativeSlice = createSlice({
         }
         state.cooperatives.push(action.payload);
         state.currentCooperative = action.payload;
+      })
+      // Update cooperative
+      .addCase(updateCooperative.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(updateCooperative.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.currentCooperative = action.payload;
+        // Also update in the cooperatives list
+        const index = state.cooperatives.findIndex((c) => c.id === action.payload.id);
+        if (index !== -1) {
+          state.cooperatives[index] = action.payload;
+        }
+      })
+      .addCase(updateCooperative.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
       })
       // Fetch members
       .addCase(fetchMembers.fulfilled, (state, action) => {

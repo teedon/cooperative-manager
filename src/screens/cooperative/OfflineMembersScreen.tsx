@@ -520,9 +520,6 @@ const OfflineMembersScreen: React.FC<Props> = ({ route, navigation }) => {
       setSubmitting(false);
     }
   };
-      setSubmitting(false);
-    }
-  };
 
   const renderMemberItem = ({ item }: { item: CooperativeMember }) => {
     const fullName = `${item.firstName || ''} ${item.lastName || ''}`;

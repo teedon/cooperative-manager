@@ -14,7 +14,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ContributionsService } from './contributions.service';
-import { CreateContributionPlanDto, SubscribeToContributionDto, UpdateSubscriptionDto, RecordPaymentDto, ApprovePaymentDto, BulkApproveSchedulesDto } from './dto';
+import { CreateContributionPlanDto, SubscribeToContributionDto, UpdateSubscriptionDto, RecordPaymentDto, ApprovePaymentDto, BulkApproveSchedulesDto, BulkApproveByDateDto } from './dto';
 
 @Controller('contributions')
 @UseGuards(AuthGuard('jwt'))
@@ -450,6 +450,86 @@ export class ContributionsController {
   ) {
     try {
       const data = await this.service.bulkApproveSchedules(cooperativeId, dto, req.user.id);
+      return { success: true, message: data.message, data };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to bulk approve schedules', data: null },
+        error.status || HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  // ==================== DATE-BASED BULK APPROVAL ENDPOINTS ====================
+
+  // Get schedule dates for a specific plan
+  @Get('cooperatives/:cooperativeId/plans/:planId/schedule-dates')
+  async getPlanScheduleDates(
+    @Param('cooperativeId') cooperativeId: string,
+    @Param('planId') planId: string,
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
+    @Request() req: any,
+  ) {
+    try {
+      const start = startDate ? new Date(startDate) : undefined;
+      const end = endDate ? new Date(endDate) : undefined;
+      
+      const data = await this.service.getPlanScheduleDates(
+        cooperativeId,
+        planId,
+        req.user.id,
+        start,
+        end,
+      );
+      return { success: true, message: 'Schedule dates retrieved successfully', data };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to get schedule dates', data: null },
+        error.status || HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  // Get members for a specific schedule date
+  @Get('cooperatives/:cooperativeId/plans/:planId/schedule-date-members')
+  async getMembersForScheduleDate(
+    @Param('cooperativeId') cooperativeId: string,
+    @Param('planId') planId: string,
+    @Query('date') date: string,
+    @Request() req: any,
+  ) {
+    try {
+      if (!date) {
+        throw new HttpException(
+          { success: false, message: 'Date is required', data: null },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      
+      const data = await this.service.getMembersForScheduleDate(
+        cooperativeId,
+        planId,
+        new Date(date),
+        req.user.id,
+      );
+      return { success: true, message: 'Members for schedule date retrieved successfully', data };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to get members for schedule date', data: null },
+        error.status || HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  // Bulk approve by specific date
+  @Post('cooperatives/:cooperativeId/bulk-approve-by-date')
+  async bulkApproveByDate(
+    @Param('cooperativeId') cooperativeId: string,
+    @Body() dto: BulkApproveByDateDto,
+    @Request() req: any,
+  ) {
+    try {
+      const data = await this.service.bulkApproveByDate(cooperativeId, dto, req.user.id);
       return { success: true, message: data.message, data };
     } catch (error: any) {
       throw new HttpException(

@@ -1,7 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User, AuthState, LoginCredentials, SignupData } from '../../models';
-import { authApi } from '../../api/authApi';
+import { authApi, UpdateProfileData, ChangePasswordData } from '../../api/authApi';
 
 const initialState: AuthState = {
   user: null,
@@ -104,6 +104,55 @@ export const refreshTokens = createAsyncThunk(
       throw new Error('Token refresh failed');
     } catch (error) {
       return rejectWithValue((error as Error).message);
+    }
+  }
+);
+
+export const updateProfile = createAsyncThunk(
+  'auth/updateProfile',
+  async (data: UpdateProfileData, { rejectWithValue }) => {
+    try {
+      const response = await authApi.updateProfile(data);
+      if (response.success && response.data) {
+        // Update stored user data
+        await AsyncStorage.setItem('auth_user', JSON.stringify(response.data));
+        return response.data;
+      }
+      throw new Error('Failed to update profile');
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || error.message);
+    }
+  }
+);
+
+export const changePassword = createAsyncThunk(
+  'auth/changePassword',
+  async (data: ChangePasswordData, { rejectWithValue }) => {
+    try {
+      const response = await authApi.changePassword(data);
+      if (response.success) {
+        return response.message;
+      }
+      throw new Error('Failed to change password');
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || error.message);
+    }
+  }
+);
+
+export const deleteAccount = createAsyncThunk(
+  'auth/deleteAccount',
+  async ({ password, reason }: { password: string; reason?: string }, { rejectWithValue }) => {
+    try {
+      const response = await authApi.deleteAccount(password, reason);
+      if (response.success) {
+        // Clear all storage
+        await AsyncStorage.multiRemove(['auth_token', 'auth_user', 'auth_refresh', 'hasSeenOnboarding']);
+        return response.message;
+      }
+      throw new Error('Failed to delete account');
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || error.message);
     }
   }
 );
@@ -221,6 +270,43 @@ const authSlice = createSlice({
         state.user = null;
         state.token = null;
         state.refreshToken = null;
+      })
+      // Update Profile
+      .addCase(updateProfile.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(updateProfile.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.user = action.payload;
+      })
+      .addCase(updateProfile.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      })
+      // Change Password
+      .addCase(changePassword.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(changePassword.fulfilled, (state) => {
+        state.isLoading = false;
+      })
+      .addCase(changePassword.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      })
+      // Delete Account
+      .addCase(deleteAccount.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(deleteAccount.fulfilled, () => {
+        return initialState;
+      })
+      .addCase(deleteAccount.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
       });
   },
 });

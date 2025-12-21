@@ -106,7 +106,8 @@ export const initializeSubscription = createAsyncThunk(
       }
       return response.data;
     } catch (error: any) {
-      return rejectWithValue(error.message || 'Failed to initialize subscription');
+      const message = error.response?.data?.message || error.message || 'Failed to initialize subscription';
+      return rejectWithValue(message);
     }
   }
 );
@@ -116,12 +117,14 @@ export const verifyPayment = createAsyncThunk(
   async (reference: string, { rejectWithValue }) => {
     try {
       const response = await subscriptionApi.verifyPayment(reference);
+      // console.log('verifyPayment response:', response);
       if (!response.success) {
         return rejectWithValue(response.message || 'Failed to verify payment');
       }
       return response.data;
     } catch (error: any) {
-      return rejectWithValue(error.message || 'Failed to verify payment');
+      const message = error.response?.data?.message || error.message || 'Failed to verify payment';
+      return rejectWithValue(message);
     }
   }
 );
@@ -146,7 +149,8 @@ export const cancelSubscription = createAsyncThunk(
       }
       return { cooperativeId };
     } catch (error: any) {
-      return rejectWithValue(error.message || 'Failed to cancel subscription');
+      const message = error.response?.data?.message || error.message || 'Failed to cancel subscription';
+      return rejectWithValue(message);
     }
   }
 );
@@ -167,7 +171,8 @@ export const checkLimit = createAsyncThunk(
       }
       return response.data;
     } catch (error: any) {
-      return rejectWithValue(error.message || 'Failed to check limit');
+      const message = error.response?.data?.message || error.message || 'Failed to check limit';
+      return rejectWithValue(message);
     }
   }
 );

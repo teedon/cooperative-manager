@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useState } from 'react';
 import {
   View,
   Text,
@@ -6,12 +6,18 @@ import {
   ScrollView,
   RefreshControl,
   ActivityIndicator,
+  TouchableOpacity,
+  TextInput,
+  Alert,
+  Modal,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { HomeStackParamList } from '../../navigation/MainNavigator';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { fetchLoan, fetchRepaymentSchedule } from '../../store/slices/loanSlice';
+import { fetchLoan, fetchRepaymentSchedule, recordRepayment, disburseLoan } from '../../store/slices/loanSlice';
 import { formatCurrency, formatDate } from '../../utils';
+import Icon from '../../components/common/Icon';
+import { usePermissions } from '../../hooks/usePermissions';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'LoanDetail'>;
 
@@ -19,8 +25,101 @@ const LoanDetailScreen: React.FC<Props> = ({ route }) => {
   const { loanId } = route.params;
   const dispatch = useAppDispatch();
   const [refreshing, setRefreshing] = React.useState(false);
+  const [showRepaymentModal, setShowRepaymentModal] = useState(false);
+  const [repaymentAmount, setRepaymentAmount] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('');
+  const [paymentReference, setPaymentReference] = useState('');
+  const [notes, setNotes] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDisbursing, setIsDisbursing] = useState(false);
 
   const { currentLoan, repaymentSchedule, isLoading } = useAppSelector((state) => state.loan);
+  const { user } = useAppSelector((state) => state.auth);
+  
+  // Get permissions - use cooperativeId from the loaded loan
+  const { canApproveLoans, isAdminOrModerator } = usePermissions(currentLoan?.cooperativeId);
+  
+  // Check if the current user is the loan owner
+  const isLoanOwner = currentLoan?.member?.userId === user?.id;
+  
+  // Check if user can record repayment (admin/moderator or loan owner)
+  const canRecordRepayment = (isAdminOrModerator || isLoanOwner) && 
+    ['disbursed', 'repaying'].includes(currentLoan?.status || '');
+  
+  // Check if user can disburse the loan (only admins/moderators for approved loans)
+  const canDisburseLoan = isAdminOrModerator && currentLoan?.status === 'approved';
+
+  const paymentMethods = ['bank_transfer', 'cash', 'mobile_money', 'debit_card', 'check'];
+
+  const handleRecordRepayment = async () => {
+    if (!repaymentAmount || parseFloat(repaymentAmount) <= 0) {
+      Alert.alert('Error', 'Please enter a valid amount');
+      return;
+    }
+    if (!paymentMethod) {
+      Alert.alert('Error', 'Please select a payment method');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      await dispatch(recordRepayment({
+        loanId,
+        amount: parseFloat(repaymentAmount),
+        paymentMethod,
+        paymentReference: paymentReference || undefined,
+        notes: notes || undefined,
+      })).unwrap();
+      
+      Alert.alert('Success', 'Repayment recorded successfully');
+      setShowRepaymentModal(false);
+      setRepaymentAmount('');
+      setPaymentMethod('');
+      setPaymentReference('');
+      setNotes('');
+      loadData(); // Refresh data
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to record repayment');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const openRepaymentModal = () => {
+    // Pre-fill with next payment amount if available
+    const nextPayment = repaymentSchedule.find(r => r.status === 'pending' || r.status === 'overdue');
+    if (nextPayment) {
+      const remaining = nextPayment.totalAmount - (nextPayment.paidAmount || 0);
+      setRepaymentAmount(remaining.toString());
+    }
+    setShowRepaymentModal(true);
+  };
+
+  const handleDisburseLoan = () => {
+    Alert.alert(
+      'Disburse Loan',
+      `Are you sure you want to disburse ${formatCurrency(currentLoan?.amount || 0)} to ${currentLoan?.member?.user?.firstName || 'this member'}?\n\nThis action cannot be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Disburse',
+          style: 'default',
+          onPress: async () => {
+            setIsDisbursing(true);
+            try {
+              await dispatch(disburseLoan(loanId)).unwrap();
+              Alert.alert('Success', 'Loan has been disbursed successfully. The member can now start making repayments.');
+              loadData();
+            } catch (error: any) {
+              Alert.alert('Error', error.message || 'Failed to disburse loan');
+            } finally {
+              setIsDisbursing(false);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const loadData = useCallback(async () => {
     await Promise.all([dispatch(fetchLoan(loanId)), dispatch(fetchRepaymentSchedule(loanId))]);
@@ -267,6 +366,152 @@ const LoanDetailScreen: React.FC<Props> = ({ route }) => {
           ))}
         </View>
       )}
+
+      {/* Disburse Loan Button - for approved loans */}
+      {canDisburseLoan && (
+        <View style={styles.actionContainer}>
+          <View style={styles.disbursementInfo}>
+            <Icon name="information-circle-outline" size={20} color="#0ea5e9" />
+            <Text style={styles.disbursementInfoText}>
+              This loan has been approved and is ready for disbursement.
+            </Text>
+          </View>
+          <TouchableOpacity 
+            style={[styles.disburseButton, isDisbursing && styles.buttonDisabled]} 
+            onPress={handleDisburseLoan}
+            disabled={isDisbursing}
+          >
+            {isDisbursing ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <>
+                <Icon name="wallet-outline" size={20} color="#fff" />
+                <Text style={styles.disburseButtonText}>Disburse Loan</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Record Repayment Button */}
+      {canRecordRepayment && currentLoan.outstandingBalance > 0 && (
+        <View style={styles.actionContainer}>
+          <TouchableOpacity 
+            style={styles.recordRepaymentButton} 
+            onPress={openRepaymentModal}
+          >
+            <Icon name="cash-outline" size={20} color="#fff" />
+            <Text style={styles.recordRepaymentText}>Record Repayment</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* Repayment Modal */}
+      <Modal
+        visible={showRepaymentModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowRepaymentModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Record Repayment</Text>
+              <TouchableOpacity 
+                onPress={() => setShowRepaymentModal(false)}
+                style={styles.closeButton}
+              >
+                <Icon name="close" size={24} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.outstandingInfo}>
+              <Text style={styles.outstandingLabel}>Outstanding Balance</Text>
+              <Text style={styles.outstandingValue}>
+                {formatCurrency(currentLoan.outstandingBalance)}
+              </Text>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Amount *</Text>
+              <TextInput
+                style={styles.input}
+                value={repaymentAmount}
+                onChangeText={setRepaymentAmount}
+                placeholder="Enter amount"
+                keyboardType="decimal-pad"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Payment Method *</Text>
+              <View style={styles.paymentMethodsContainer}>
+                {paymentMethods.map((method) => (
+                  <TouchableOpacity
+                    key={method}
+                    style={[
+                      styles.paymentMethodButton,
+                      paymentMethod === method && styles.paymentMethodButtonActive,
+                    ]}
+                    onPress={() => setPaymentMethod(method)}
+                  >
+                    <Text
+                      style={[
+                        styles.paymentMethodText,
+                        paymentMethod === method && styles.paymentMethodTextActive,
+                      ]}
+                    >
+                      {method.replace(/_/g, ' ')}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Payment Reference</Text>
+              <TextInput
+                style={styles.input}
+                value={paymentReference}
+                onChangeText={setPaymentReference}
+                placeholder="e.g. Transaction ID"
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Notes</Text>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                value={notes}
+                onChangeText={setNotes}
+                placeholder="Optional notes"
+                multiline
+                numberOfLines={3}
+              />
+            </View>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => setShowRepaymentModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
+                onPress={handleRecordRepayment}
+                disabled={isSubmitting}
+              >
+                {isSubmitting ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.submitButtonText}>Record Payment</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 };
@@ -500,6 +745,183 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#0ea5e9',
     fontWeight: '500',
+  },
+  // Disbursement Styles
+  disbursementInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0f9ff',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+    gap: 8,
+  },
+  disbursementInfoText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#0369a1',
+    lineHeight: 18,
+  },
+  disburseButton: {
+    backgroundColor: '#0ea5e9',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    borderRadius: 12,
+    gap: 8,
+  },
+  disburseButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  buttonDisabled: {
+    opacity: 0.7,
+  },
+  // Repayment Recording Styles
+  actionContainer: {
+    padding: 16,
+    paddingTop: 0,
+  },
+  recordRepaymentButton: {
+    backgroundColor: '#22c55e',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    borderRadius: 12,
+    gap: 8,
+  },
+  recordRepaymentText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    maxHeight: '90%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  closeButton: {
+    padding: 4,
+  },
+  outstandingInfo: {
+    backgroundColor: '#fef3c7',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 20,
+    alignItems: 'center',
+  },
+  outstandingLabel: {
+    fontSize: 14,
+    color: '#92400e',
+    marginBottom: 4,
+  },
+  outstandingValue: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#d97706',
+  },
+  inputGroup: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  input: {
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    color: '#0f172a',
+  },
+  textArea: {
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  paymentMethodsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  paymentMethodButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    backgroundColor: '#f8fafc',
+  },
+  paymentMethodButtonActive: {
+    backgroundColor: '#8b5cf6',
+    borderColor: '#8b5cf6',
+  },
+  paymentMethodText: {
+    fontSize: 13,
+    color: '#64748b',
+    textTransform: 'capitalize',
+  },
+  paymentMethodTextActive: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 20,
+  },
+  cancelButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  submitButton: {
+    flex: 2,
+    backgroundColor: '#22c55e',
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  submitButtonDisabled: {
+    opacity: 0.7,
+  },
+  submitButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
   },
 });
 

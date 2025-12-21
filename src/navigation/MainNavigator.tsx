@@ -10,6 +10,7 @@ import NotificationBell from '../components/common/NotificationBell';
 import HomeScreen from '../screens/home/HomeScreen';
 import LandingScreen from '../screens/home/LandingScreen';
 import CooperativeDetailScreen from '../screens/cooperative/CooperativeDetailScreen';
+import CooperativeSettingsScreen from '../screens/cooperative/CooperativeSettingsScreen';
 import ContributionPlanScreen from '../screens/contributions/ContributionPlanScreen';
 import ContributionPeriodScreen from '../screens/contributions/ContributionPeriodScreen';
 import CreateContributionScreen from '../screens/contributions/CreateContributionScreen';
@@ -41,6 +42,13 @@ import {
   SubscriptionManagementScreen,
   PaymentWebViewScreen,
 } from '../screens/subscription';
+import {
+  EditProfileScreen,
+  ChangePasswordScreen,
+  PrivacySecurityScreen,
+  HelpSupportScreen,
+  AboutScreen,
+} from '../screens/profile';
 
 export type MainTabParamList = {
   HomeTab: undefined;
@@ -54,6 +62,7 @@ const Tab = createBottomTabNavigator<MainTabParamList>();
 // drawer navigator omitted (avoids adding @react-navigation/drawer dependency)
 const HomeStack = createNativeStackNavigator<HomeStackParamList>();
 const CoopsStack = createNativeStackNavigator<HomeStackParamList>();
+const ProfileStack = createNativeStackNavigator<HomeStackParamList>();
 
 export type HomeStackParamList = {
   Landing: undefined;
@@ -101,6 +110,14 @@ export type HomeStackParamList = {
   SubscriptionPlans: { cooperativeId: string; currentPlanId?: string };
   SubscriptionManagement: { cooperativeId: string };
   PaymentWebView: { authorizationUrl: string; reference: string; cooperativeId: string };
+  CooperativeSettings: { cooperativeId: string };
+  // Profile screens
+  Profile: undefined;
+  EditProfile: undefined;
+  ChangePassword: undefined;
+  PrivacySecurity: undefined;
+  HelpSupport: undefined;
+  About: undefined;
 };
 
 const HomeStackNavigator: React.FC = () => {
@@ -260,6 +277,37 @@ const HomeStackNavigator: React.FC = () => {
         name="PaymentWebView"
         component={PaymentWebViewScreen}
         options={{ title: 'Payment', headerShown: false }}
+      />
+      <HomeStack.Screen
+        name="CooperativeSettings"
+        component={CooperativeSettingsScreen}
+        options={{ title: 'Cooperative Settings' }}
+      />
+      {/* Profile Screens */}
+      <HomeStack.Screen
+        name="EditProfile"
+        component={EditProfileScreen}
+        options={{ title: 'Edit Profile' }}
+      />
+      <HomeStack.Screen
+        name="ChangePassword"
+        component={ChangePasswordScreen}
+        options={{ title: 'Change Password' }}
+      />
+      <HomeStack.Screen
+        name="PrivacySecurity"
+        component={PrivacySecurityScreen}
+        options={{ title: 'Privacy & Security' }}
+      />
+      <HomeStack.Screen
+        name="HelpSupport"
+        component={HelpSupportScreen}
+        options={{ title: 'Help & Support' }}
+      />
+      <HomeStack.Screen
+        name="About"
+        component={AboutScreen}
+        options={{ title: 'About' }}
       />
     </HomeStack.Navigator>
   );
@@ -423,7 +471,91 @@ const CoopsStackNavigator: React.FC = () => {
         component={PaymentWebViewScreen}
         options={{ title: 'Payment', headerShown: false }}
       />
+      <CoopsStack.Screen
+        name="CooperativeSettings"
+        component={CooperativeSettingsScreen}
+        options={{ title: 'Cooperative Settings' }}
+      />
+      {/* Profile Screens */}
+      <CoopsStack.Screen
+        name="EditProfile"
+        component={EditProfileScreen}
+        options={{ title: 'Edit Profile' }}
+      />
+      <CoopsStack.Screen
+        name="ChangePassword"
+        component={ChangePasswordScreen}
+        options={{ title: 'Change Password' }}
+      />
+      <CoopsStack.Screen
+        name="PrivacySecurity"
+        component={PrivacySecurityScreen}
+        options={{ title: 'Privacy & Security' }}
+      />
+      <CoopsStack.Screen
+        name="HelpSupport"
+        component={HelpSupportScreen}
+        options={{ title: 'Help & Support' }}
+      />
+      <CoopsStack.Screen
+        name="About"
+        component={AboutScreen}
+        options={{ title: 'About' }}
+      />
     </CoopsStack.Navigator>
+  );
+};
+
+// Profile tab stack
+const ProfileStackNavigator: React.FC = () => {
+  return (
+    <ProfileStack.Navigator
+      screenOptions={{
+        headerStyle: {
+          backgroundColor: colors.primary.main,
+        },
+        headerTintColor: colors.primary.contrast,
+        headerTitleStyle: {
+          fontWeight: 'bold',
+        },
+      }}
+    >
+      <ProfileStack.Screen
+        name="Profile"
+        component={ProfileScreen}
+        options={{ headerShown: false }}
+      />
+      <ProfileStack.Screen
+        name="EditProfile"
+        component={EditProfileScreen}
+        options={{ title: 'Edit Profile' }}
+      />
+      <ProfileStack.Screen
+        name="ChangePassword"
+        component={ChangePasswordScreen}
+        options={{ title: 'Change Password' }}
+      />
+      <ProfileStack.Screen
+        name="PrivacySecurity"
+        component={PrivacySecurityScreen}
+        options={{ title: 'Privacy & Security' }}
+      />
+      <ProfileStack.Screen
+        name="HelpSupport"
+        component={HelpSupportScreen}
+        options={{ title: 'Help & Support' }}
+      />
+      <ProfileStack.Screen
+        name="About"
+        component={AboutScreen}
+        options={{ title: 'About' }}
+      />
+      <ProfileStack.Screen
+        name="NotificationSettings"
+        component={NotificationSettingsScreen}
+        options={{ title: 'Notification Settings' }}
+      />
+    </ProfileStack.Navigator>
   );
 };
 
@@ -445,7 +577,7 @@ const MainNavigator: React.FC = () => {
       />
       <Tab.Screen
         name="ProfileTab"
-        component={ProfileScreen}
+        component={ProfileStackNavigator}
       />
     </Tab.Navigator>
   );

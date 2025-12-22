@@ -191,6 +191,73 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       {/* Admin/Moderator Actions - Show based on permissions */}
       {isAdminOrModerator && (
         <View style={styles.adminSection}>
+          {/* Role Badge */}
+          <View style={styles.roleBadgeContainer}>
+            <View style={[styles.roleBadge, isAdmin ? styles.adminBadge : styles.moderatorBadge]}>
+              <Icon name={isAdmin ? 'Shield' : 'UserCog'} size={16} color={isAdmin ? colors.warning.main : colors.primary.main} />
+              <Text style={[styles.roleBadgeText, isAdmin ? styles.adminBadgeText : styles.moderatorBadgeText]}>
+                {isAdmin ? 'Admin' : 'Moderator'}
+              </Text>
+            </View>
+          </View>
+
+          {/* Show permissions for moderators */}
+          {!isAdmin && currentMember?.permissions && currentMember.permissions.length > 0 && (
+            <View style={styles.permissionsContainer}>
+              <Text style={styles.permissionsTitle}>Your Permissions</Text>
+              <View style={styles.permissionsList}>
+                {canCreateContributionPlan && (
+                  <View style={styles.permissionChip}>
+                    <Icon name="Plus" size={12} color={colors.success.main} />
+                    <Text style={styles.permissionText}>Create Plans</Text>
+                  </View>
+                )}
+                {canApprovePayments && (
+                  <View style={styles.permissionChip}>
+                    <Icon name="Check" size={12} color={colors.success.main} />
+                    <Text style={styles.permissionText}>Approve Payments</Text>
+                  </View>
+                )}
+                {canBulkApprove && (
+                  <View style={styles.permissionChip}>
+                    <Icon name="CheckCheck" size={12} color={colors.success.main} />
+                    <Text style={styles.permissionText}>Bulk Approve</Text>
+                  </View>
+                )}
+                {canViewLedger && (
+                  <View style={styles.permissionChip}>
+                    <Icon name="BarChart" size={12} color={colors.success.main} />
+                    <Text style={styles.permissionText}>View Ledger</Text>
+                  </View>
+                )}
+                {canViewExpenses && (
+                  <View style={styles.permissionChip}>
+                    <Icon name="Receipt" size={12} color={colors.success.main} />
+                    <Text style={styles.permissionText}>Manage Expenses</Text>
+                  </View>
+                )}
+                {canApproveMembers && (
+                  <View style={styles.permissionChip}>
+                    <Icon name="UserCheck" size={12} color={colors.success.main} />
+                    <Text style={styles.permissionText}>Approve Members</Text>
+                  </View>
+                )}
+                {canViewAdmins && (
+                  <View style={styles.permissionChip}>
+                    <Icon name="Users" size={12} color={colors.success.main} />
+                    <Text style={styles.permissionText}>Manage Admins</Text>
+                  </View>
+                )}
+                {canEditSettings && (
+                  <View style={styles.permissionChip}>
+                    <Icon name="Settings" size={12} color={colors.success.main} />
+                    <Text style={styles.permissionText}>Edit Settings</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          )}
+
           <Text style={styles.sectionTitle}>Admin Actions</Text>
           
           {/* Create Contribution - requires canCreateContributionPlan */}
@@ -1077,6 +1144,66 @@ const styles = StyleSheet.create({
   },
   adminSection: {
     marginBottom: spacing['2xl'],
+  },
+  roleBadgeContainer: {
+    marginBottom: spacing.md,
+  },
+  roleBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.lg,
+    gap: spacing.xs,
+  },
+  adminBadge: {
+    backgroundColor: colors.warning.light,
+  },
+  moderatorBadge: {
+    backgroundColor: colors.primary.light,
+  },
+  roleBadgeText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  adminBadgeText: {
+    color: colors.warning.dark,
+  },
+  moderatorBadgeText: {
+    color: colors.primary.dark,
+  },
+  permissionsContainer: {
+    backgroundColor: colors.background.paper,
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    marginBottom: spacing.lg,
+    ...shadows.sm,
+  },
+  permissionsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
+  },
+  permissionsList: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.xs,
+  },
+  permissionChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.success.light,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.md,
+    gap: 4,
+  },
+  permissionText: {
+    fontSize: 11,
+    color: colors.success.dark,
+    fontWeight: '500',
   },
   quickSection: {
     marginBottom: spacing['2xl'],

@@ -12,6 +12,7 @@ import {
   TextInput,
   Alert,
 } from 'react-native';
+import LinearGradient from 'react-native-linear-gradient';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { HomeStackParamList } from '../../navigation/MainNavigator';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
@@ -20,11 +21,12 @@ import {
   joinCooperativeByCode,
   createCooperative,
 } from '../../store/slices/cooperativeSlice';
-import { Cooperative } from '../../models';
+import { Cooperative, GradientPreset } from '../../models';
 import { colors, spacing, borderRadius, shadows } from '../../theme';
 import Modal from '../../components/common/Modal';
 import Button from '../../components/common/Button';
 import logger from '../../utils/logger';
+import { getGradientConfig } from '../../utils/gradients';
 
 type HomeScreenNavigationProp = NativeStackNavigationProp<HomeStackParamList, 'Home'>;
 
@@ -35,56 +37,83 @@ interface Props {
 const CooperativeCard: React.FC<{
   cooperative: Cooperative;
   onPress: () => void;
-}> = ({ cooperative, onPress }) => (
-  <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
-    <Image
-      source={{ uri: cooperative.imageUrl || 'https://picsum.photos/400/200' }}
-      style={styles.cardImage}
-      resizeMode="cover"
-    />
-    <View style={styles.cardContent}>
-      <View style={styles.cardHeader}>
-        <Text style={styles.cardTitle}>{cooperative.name}</Text>
-        <View style={[styles.statusBadge, cooperative.status === 'active' && styles.statusActive]}>
-          <Text
-            style={[styles.statusText, cooperative.status === 'active' && styles.statusTextActive]}
-          >
-            {cooperative.status}
+}> = ({ cooperative, onPress }) => {
+  const useGradient = cooperative.useGradient !== false;
+  const gradientPreset = (cooperative.gradientPreset || 'ocean') as GradientPreset;
+  const gradientConfig = getGradientConfig(gradientPreset);
+
+  const renderBackground = () => {
+    if (useGradient || !cooperative.imageUrl) {
+      return (
+        <LinearGradient
+          colors={[...gradientConfig.colors] as [string, string, ...string[]]}
+          start={{ x: gradientConfig.start.x, y: gradientConfig.start.y }}
+          end={{ x: gradientConfig.end.x, y: gradientConfig.end.y }}
+          style={styles.cardGradient}
+        >
+          <View style={styles.gradientPattern}>
+            <View style={[styles.decorativeCircle, styles.circle1]} />
+            <View style={[styles.decorativeCircle, styles.circle2]} />
+          </View>
+        </LinearGradient>
+      );
+    }
+    return (
+      <Image
+        source={{ uri: cooperative.imageUrl }}
+        style={styles.cardImage}
+        resizeMode="cover"
+      />
+    );
+  };
+
+  return (
+    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
+      {renderBackground()}
+      <View style={styles.cardContent}>
+        <View style={styles.cardHeader}>
+          <Text style={styles.cardTitle}>{cooperative.name}</Text>
+          <View style={[styles.statusBadge, cooperative.status === 'active' && styles.statusActive]}>
+            <Text
+              style={[styles.statusText, cooperative.status === 'active' && styles.statusTextActive]}
+            >
+              {cooperative.status}
+            </Text>
+          </View>
+        </View>
+        {cooperative.code && (
+          <View style={styles.codeContainer}>
+            <Icon name="Key" size={14} color={colors.primary.main} />
+            <Text style={styles.codeText}>Code: {cooperative.code}</Text>
+          </View>
+        )}
+        {cooperative.description && (
+          <Text style={styles.cardDescription} numberOfLines={2}>
+            {cooperative.description}
           </Text>
+        )}
+        <View style={styles.cardStats}>
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{cooperative.memberCount}</Text>
+            <Text style={styles.statLabel}>Members</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>₦{(cooperative.userTotalContributions ?? 0).toLocaleString()}</Text>
+            <Text style={styles.statLabel}>My Contributions</Text>
+          </View>
         </View>
+        {cooperative.memberRole && (
+          <View style={styles.roleContainer}>
+            <Text style={styles.roleText}>
+              {cooperative.memberRole === 'admin' ? '👑 Admin' : cooperative.memberRole === 'moderator' ? '🛡️ Moderator' : '👤 Member'}
+            </Text>
+          </View>
+        )}
       </View>
-      {cooperative.code && (
-        <View style={styles.codeContainer}>
-          <Icon name="Key" size={14} color={colors.primary.main} />
-          <Text style={styles.codeText}>Code: {cooperative.code}</Text>
-        </View>
-      )}
-      {cooperative.description && (
-        <Text style={styles.cardDescription} numberOfLines={2}>
-          {cooperative.description}
-        </Text>
-      )}
-      <View style={styles.cardStats}>
-        <View style={styles.statItem}>
-          <Text style={styles.statValue}>{cooperative.memberCount}</Text>
-          <Text style={styles.statLabel}>Members</Text>
-        </View>
-        <View style={styles.statDivider} />
-        <View style={styles.statItem}>
-          <Text style={styles.statValue}>₦{(cooperative.userTotalContributions ?? 0).toLocaleString()}</Text>
-          <Text style={styles.statLabel}>My Contributions</Text>
-        </View>
-      </View>
-      {cooperative.memberRole && (
-        <View style={styles.roleContainer}>
-          <Text style={styles.roleText}>
-            {cooperative.memberRole === 'admin' ? '👑 Admin' : cooperative.memberRole === 'moderator' ? '🛡️ Moderator' : '👤 Member'}
-          </Text>
-        </View>
-      )}
-    </View>
-  </TouchableOpacity>
-);
+    </TouchableOpacity>
+  );
+};
 
 import Icon from '../../components/common/Icon';
 
@@ -620,6 +649,31 @@ const styles = StyleSheet.create({
     width: '100%',
     height: 120,
     backgroundColor: colors.secondary.dark,
+  },
+  cardGradient: {
+    width: '100%',
+    height: 120,
+  },
+  gradientPattern: {
+    flex: 1,
+    overflow: 'hidden',
+  },
+  decorativeCircle: {
+    position: 'absolute',
+    borderRadius: 1000,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  circle1: {
+    width: 100,
+    height: 100,
+    top: -20,
+    right: -20,
+  },
+  circle2: {
+    width: 80,
+    height: 80,
+    bottom: -30,
+    left: 20,
   },
   cardContent: {
     padding: spacing.lg,

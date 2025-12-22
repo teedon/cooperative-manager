@@ -1,13 +1,19 @@
 import { Injectable } from '@nestjs/common';
-import { HttpService } from '@nestjs/axios';
-import { firstValueFrom } from 'rxjs';
-import { formatToInternationalPhoneNumber } from './utils';
 import axios from 'axios';
+
+// Format phone number to international format (Nigeria)
+function formatToInternationalPhoneNumber(phone: string): string {
+  let formatted = phone.replace(/\D/g, '');
+  if (formatted.startsWith('0')) {
+    formatted = '234' + formatted.substring(1);
+  } else if (!formatted.startsWith('234')) {
+    formatted = '234' + formatted;
+  }
+  return '+' + formatted;
+}
 
 @Injectable()
 export class SmsService {
-  constructor(private readonly httpService: HttpService) {}
-
   async sendSMS(phoneNumber: string, message: string): Promise<void> {
     try {
       // Format phone number to international format
@@ -59,8 +65,8 @@ export class SmsService {
       } else {
         throw new Error(`Termii API error: ${response.data.message}`);
       }
-    } catch (error) {
-      throw new Error(`Failed to send SMS: ${error.message}`);
+    } catch (error: any) {
+      throw new Error(`Failed to send SMS: ${error?.message || 'Unknown error'}`);
     }
   }
 }

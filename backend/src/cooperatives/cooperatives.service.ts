@@ -629,16 +629,16 @@ export class CooperativesService {
       });
 
       const isPromotion = role === 'admin' || role === 'moderator';
-      await sendMailWithZoho(
-        updatedMember.user.email,
-        isPromotion ? 'Congratulations on Your Promotion!' : 'Your Role Has Been Updated',
-        generateMemberRoleChangeEmailTemplate(
+      await sendMailWithZoho({
+        recipient: updatedMember.user.email,
+        subject: isPromotion ? 'Congratulations on Your Promotion!' : 'Your Role Has Been Updated',
+        htmlContent: generateMemberRoleChangeEmailTemplate(
           memberName,
           cooperative?.name || 'the cooperative',
           role.charAt(0).toUpperCase() + role.slice(1),
           isPromotion,
         ),
-      );
+      });
     }
 
     return {

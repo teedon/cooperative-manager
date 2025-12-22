@@ -304,7 +304,6 @@ export class LoansService {
         status: 'active',
         role: { in: ['admin', 'owner'] },
         userId: { not: requestingUserId },
-        user: { email: { not: null } },
       },
       include: { user: { select: { email: true, firstName: true, lastName: true } } },
     });

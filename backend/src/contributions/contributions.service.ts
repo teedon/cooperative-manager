@@ -586,17 +586,17 @@ export class ContributionsService {
     // Send contribution recorded confirmation email
     if (subscription.member.user?.email) {
       const userName = `${subscription.member.user.firstName} ${subscription.member.user.lastName}`;
-      await sendMailWithZoho(
-        subscription.member.user.email,
-        'Contribution Recorded',
-        generateContributionRecordedEmailTemplate(
+      await sendMailWithZoho({
+        recipient: subscription.member.user.email,
+        subject: 'Contribution Recorded',
+        htmlContent: generateContributionRecordedEmailTemplate(
           userName,
           subscription.plan.cooperative.name,
           dto.amount,
           subscription.plan.name,
           new Date().toLocaleDateString('en-US', { dateStyle: 'full' }),
         ),
-      );
+      });
     }
 
     return payment;
@@ -864,17 +864,17 @@ export class ContributionsService {
         // Send contribution approved email
         if (payment.subscription.member.user?.email) {
           const userName = `${payment.subscription.member.user.firstName} ${payment.subscription.member.user.lastName}`;
-          await sendMailWithZoho(
-            payment.subscription.member.user.email,
-            'Contribution Approved',
-            generateContributionApprovedEmailTemplate(
+          await sendMailWithZoho({
+            recipient: payment.subscription.member.user.email,
+            subject: 'Contribution Approved',
+            htmlContent: generateContributionApprovedEmailTemplate(
               userName,
               payment.subscription.plan.cooperative.name,
               payment.amount,
               payment.subscription.plan.name,
               payment.subscription.totalPaid + payment.amount,
             ),
-          );
+          });
         }
       } else {
         await this.notificationsService.createNotification({
@@ -889,17 +889,17 @@ export class ContributionsService {
         // Send contribution rejected email
         if (payment.subscription.member.user?.email) {
           const userName = `${payment.subscription.member.user.firstName} ${payment.subscription.member.user.lastName}`;
-          await sendMailWithZoho(
-            payment.subscription.member.user.email,
-            'Contribution Rejected',
-            generateContributionRejectedEmailTemplate(
+          await sendMailWithZoho({
+            recipient: payment.subscription.member.user.email,
+            subject: 'Contribution Rejected',
+            htmlContent: generateContributionRejectedEmailTemplate(
               userName,
               payment.subscription.plan.cooperative.name,
               payment.amount,
               payment.subscription.plan.name,
               dto.rejectionReason || 'No reason provided',
             ),
-          );
+          });
         }
       }
     }

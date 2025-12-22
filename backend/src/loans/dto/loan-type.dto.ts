@@ -58,6 +58,15 @@ export class CreateLoanTypeDto {
   minGuarantors?: number;
 
   @IsOptional()
+  @IsNumber()
+  @Min(0)
+  applicationFee?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  deductInterestUpfront?: boolean;
+
+  @IsOptional()
   @IsBoolean()
   isActive?: boolean;
 
@@ -129,6 +138,15 @@ export class UpdateLoanTypeDto {
   @IsNumber()
   @Min(0)
   minGuarantors?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  applicationFee?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  deductInterestUpfront?: boolean;
 
   @IsOptional()
   @IsBoolean()

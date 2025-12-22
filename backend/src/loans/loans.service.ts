@@ -60,6 +60,8 @@ export class LoansService {
         maxActiveLoans: dto.maxActiveLoans ?? 1,
         requiresGuarantor: dto.requiresGuarantor ?? false,
         minGuarantors: dto.minGuarantors ?? 0,
+        applicationFee: dto.applicationFee ?? null,
+        deductInterestUpfront: dto.deductInterestUpfront ?? false,
         isActive: dto.isActive ?? true,
         requiresApproval: dto.requiresApproval ?? true,
         createdBy: requestingUserId,
@@ -564,6 +566,16 @@ export class LoansService {
       throw new BadRequestException(`Cannot disburse loan with status: ${loan.status}`);
     }
 
+    // Calculate deductions
+    const applicationFee = loan.loanType?.applicationFee || 0;
+    const deductInterestUpfront = loan.loanType?.deductInterestUpfront || false;
+    const interestDeductedUpfront = deductInterestUpfront ? loan.interestAmount : 0;
+    const netDisbursementAmount = loan.amount - applicationFee - interestDeductedUpfront;
+
+    if (netDisbursementAmount <= 0) {
+      throw new BadRequestException('Net disbursement amount must be greater than zero after deductions');
+    }
+
     // Generate repayment schedule
     const schedules = this.generateRepaymentSchedule(loan);
 
@@ -574,6 +586,9 @@ export class LoansService {
         data: {
           status: 'disbursed',
           amountDisbursed: loan.amount,
+          applicationFee,
+          interestDeductedUpfront,
+          netDisbursementAmount,
           disbursedAt: new Date(),
         },
         include: {
@@ -587,17 +602,17 @@ export class LoansService {
       ),
     ]);
 
-    // Add ledger entry
+    // Add ledger entry for the net disbursement amount
     await this.prisma.ledgerEntry.create({
       data: {
         cooperativeId: loan.cooperativeId,
         memberId: loan.memberId,
         type: 'loan_disbursement',
-        amount: -loan.amount, // Negative because money goes out to member
+        amount: -netDisbursementAmount, // Negative because money goes out to member
         balanceAfter: 0, // Will be calculated properly
         referenceId: loan.id,
         referenceType: 'loan',
-        description: `Loan disbursement: ₦${loan.amount.toLocaleString()}`,
+        description: `Loan disbursement: ₦${netDisbursementAmount.toLocaleString()}${applicationFee > 0 ? ` (Application fee: ₦${applicationFee.toLocaleString()})` : ''}${interestDeductedUpfront > 0 ? ` (Upfront interest: ₦${interestDeductedUpfront.toLocaleString()})` : ''}`,
         createdBy: requestingUserId,
       },
     });
@@ -606,8 +621,20 @@ export class LoansService {
       userId: requestingUserId,
       cooperativeId: loan.cooperativeId,
       action: 'loan_disbursed',
-      description: `Disbursed loan of ₦${loan.amount.toLocaleString()}`,
+      description: `Disbursed loan of ₦${loan.amount.toLocaleString()} (Net: ₦${netDisbursementAmount.toLocaleString()})`,
     });
+
+    // Build deduction message for notifications/emails
+    const deductionParts: string[] = [];
+    if (applicationFee > 0) {
+      deductionParts.push(`application fee of ₦${applicationFee.toLocaleString()}`);
+    }
+    if (interestDeductedUpfront > 0) {
+      deductionParts.push(`upfront interest of ₦${interestDeductedUpfront.toLocaleString()}`);
+    }
+    const deductionMessage = deductionParts.length > 0 
+      ? ` After deducting ${deductionParts.join(' and ')}, you will receive ₦${netDisbursementAmount.toLocaleString()}.`
+      : '';
 
     // Notify the member that their loan was disbursed
     if (updated.member.userId) {
@@ -616,7 +643,7 @@ export class LoansService {
         cooperativeId: loan.cooperativeId,
         type: 'loan_disbursed',
         title: 'Loan Disbursed',
-        body: `Your loan of ₦${loan.amount.toLocaleString()} has been disbursed. First repayment is due on ${schedules[0]?.dueDate.toLocaleDateString()}.`,
+        body: `Your loan of ₦${loan.amount.toLocaleString()} has been disbursed.${deductionMessage} First repayment is due on ${schedules[0]?.dueDate.toLocaleDateString()}.`,
         data: { loanId: loan.id },
       });
     }
@@ -638,6 +665,9 @@ export class LoansService {
           loan.amount,
           schedules[0]?.dueDate.toLocaleDateString() || 'TBD',
           loan.monthlyRepayment,
+          applicationFee,
+          interestDeductedUpfront,
+          netDisbursementAmount,
         ),
       ).catch(err => console.error('Failed to send loan disbursement email:', err));
     }
@@ -667,6 +697,22 @@ export class LoansService {
 
     if (!['disbursed', 'repaying'].includes(loan.status)) {
       throw new BadRequestException('Loan is not in a repayable state');
+    }
+
+    // Check for duplicate repayment with same amount in the last 2 minutes (prevents double-clicks)
+    const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
+    const recentLedgerEntry = await this.prisma.ledgerEntry.findFirst({
+      where: {
+        referenceId: loanId,
+        referenceType: 'loan',
+        type: 'loan_repayment',
+        amount: dto.amount,
+        createdAt: { gte: twoMinutesAgo },
+      },
+    });
+
+    if (recentLedgerEntry) {
+      throw new BadRequestException('A similar repayment was recorded recently. Please wait before recording another repayment.');
     }
 
     // Find pending schedules and apply payment

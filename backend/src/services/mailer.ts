@@ -700,7 +700,28 @@ export function generateLoanDisbursedEmailTemplate(
   amount: number,
   firstPaymentDate: string,
   monthlyPayment: number,
+  applicationFee: number = 0,
+  interestDeductedUpfront: number = 0,
+  netDisbursementAmount?: number,
 ): string {
+  const actualNetAmount = netDisbursementAmount ?? (amount - applicationFee - interestDeductedUpfront);
+  const hasDeductions = applicationFee > 0 || interestDeductedUpfront > 0;
+
+  const deductionRows = `
+    ${applicationFee > 0 ? `
+      <tr>
+        <td>Application Fee</td>
+        <td style="color: #ef4444;">-₦${applicationFee.toLocaleString()}</td>
+      </tr>
+    ` : ''}
+    ${interestDeductedUpfront > 0 ? `
+      <tr>
+        <td>Upfront Interest</td>
+        <td style="color: #ef4444;">-₦${interestDeductedUpfront.toLocaleString()}</td>
+      </tr>
+    ` : ''}
+  `;
+
   const content = `
     <div class="header">
       <div class="header-icon">💸</div>
@@ -711,10 +732,27 @@ export function generateLoanDisbursedEmailTemplate(
       <p class="message">
         Your loan has been disbursed! The funds are now available.
       </p>
-      <div class="amount">₦${amount.toLocaleString()}</div>
-      <div class="success-box">
-        ✅ Funds have been successfully disbursed to your account.
-      </div>
+      <div class="amount">₦${actualNetAmount.toLocaleString()}</div>
+      ${hasDeductions ? `
+        <div class="info-box" style="background-color: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 4px;">
+          <strong style="color: #92400e;">📋 Disbursement Breakdown</strong>
+          <table class="details-table" style="margin-top: 10px;">
+            <tr>
+              <td>Loan Amount</td>
+              <td>₦${amount.toLocaleString()}</td>
+            </tr>
+            ${deductionRows}
+            <tr style="border-top: 1px solid #e5e7eb; font-weight: bold;">
+              <td>Amount Received</td>
+              <td style="color: ${PRIMARY_COLOR};">₦${actualNetAmount.toLocaleString()}</td>
+            </tr>
+          </table>
+        </div>
+      ` : `
+        <div class="success-box">
+          ✅ Funds have been successfully disbursed to your account.
+        </div>
+      `}
       <div class="highlight-box">
         <h3 style="margin: 0 0 15px 0; color: ${PRIMARY_COLOR};">📅 Repayment Schedule</h3>
         <table class="details-table">

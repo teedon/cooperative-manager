@@ -553,6 +553,22 @@ export class ContributionsService {
       throw new BadRequestException('Cannot record payment for inactive subscription');
     }
 
+    // Check for duplicate pending payment with same amount in the last 5 minutes
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    const existingPendingPayment = await this.prisma.contributionPayment.findFirst({
+      where: {
+        subscriptionId,
+        memberId: subscription.memberId,
+        amount: dto.amount,
+        status: 'pending',
+        createdAt: { gte: fiveMinutesAgo },
+      },
+    });
+
+    if (existingPendingPayment) {
+      throw new BadRequestException('A similar payment was already recorded recently. Please wait before recording another payment or check your pending payments.');
+    }
+
     const payment = await this.prisma.contributionPayment.create({
       data: {
         subscriptionId,

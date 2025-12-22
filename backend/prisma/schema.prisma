@@ -302,6 +302,11 @@ model Loan {
   amountRepaid       Int @default(0)
   outstandingBalance Int @default(0)
 
+  // Fee tracking
+  applicationFee         Int @default(0) // Application fee charged
+  interestDeductedUpfront Int @default(0) // Interest deducted upfront from disbursement
+  netDisbursementAmount  Int @default(0) // Actual amount disbursed after deductions
+
   // Status and workflow
   status            String // 'pending' | 'approved' | 'rejected' | 'disbursed' | 'repaying' | 'completed' | 'defaulted'
   initiatedBy       String // 'member' | 'admin'
@@ -358,6 +363,10 @@ model LoanType {
   // Guarantor requirements
   requiresGuarantor Boolean @default(false)
   minGuarantors     Int     @default(0)
+
+  // Fee configuration
+  applicationFee      Int?     // Optional application fee amount
+  deductInterestUpfront Boolean @default(false) // If true, interest is deducted from disbursement
 
   // Admin settings
   isActive         Boolean @default(true)

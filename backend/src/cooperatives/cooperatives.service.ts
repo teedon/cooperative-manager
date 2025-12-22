@@ -12,6 +12,7 @@ import {
   ALL_PERMISSIONS,
   DEFAULT_ROLE_PERMISSIONS,
 } from '../common/permissions';
+import { sendMailWithZoho, generateMemberRoleChangeEmailTemplate } from '../services/mailer';
 
 @Injectable()
 export class CooperativesService {
@@ -464,6 +465,8 @@ export class CooperativesService {
     if (!isAdmin) {
       return members.map((member) => ({
         ...member,
+        // Parse permissions from JSON string to array
+        permissions: parsePermissions(member.permissions),
         // Only show virtualBalance for the requesting user's own record
         virtualBalance: member.userId === requestingUserId ? member.virtualBalance : null,
         // Add a flag to indicate if financial data is hidden
@@ -474,6 +477,8 @@ export class CooperativesService {
     // Admin can see all data
     return members.map((member) => ({
       ...member,
+      // Parse permissions from JSON string to array
+      permissions: parsePermissions(member.permissions),
       isFinancialDataHidden: false,
     }));
   }
@@ -615,6 +620,26 @@ export class CooperativesService {
       action: 'member_role_updated',
       description: `Updated ${memberName}'s role to ${role}`,
     });
+
+    // Send role change email to the member
+    if (updatedMember.user?.email) {
+      const cooperative = await this.prisma.cooperative.findUnique({
+        where: { id: cooperativeId },
+        select: { name: true },
+      });
+
+      const isPromotion = role === 'admin' || role === 'moderator';
+      await sendMailWithZoho(
+        updatedMember.user.email,
+        isPromotion ? 'Congratulations on Your Promotion!' : 'Your Role Has Been Updated',
+        generateMemberRoleChangeEmailTemplate(
+          memberName,
+          cooperative?.name || 'the cooperative',
+          role.charAt(0).toUpperCase() + role.slice(1),
+          isPromotion,
+        ),
+      );
+    }
 
     return {
       ...updatedMember,

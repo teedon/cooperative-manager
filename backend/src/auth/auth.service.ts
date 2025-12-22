@@ -5,6 +5,12 @@ import * as bcrypt from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
 import { randomBytes } from 'crypto';
 import { ActivitiesService } from '../activities/activities.service';
+import {
+  sendEmail,
+  generateWelcomeEmailTemplate,
+  generatePasswordResetEmailTemplate,
+  generatePasswordResetSuccessEmailTemplate,
+} from '../services/mailer';
 
 type TokenPair = { accessToken: string; refreshToken: string };
 
@@ -72,6 +78,13 @@ export class AuthService {
       undefined,
       { email: user.email, firstName: user.firstName, lastName: user.lastName },
     );
+
+    // Send welcome email
+    sendEmail(
+      user.email,
+      'Welcome to CoopManager!',
+      generateWelcomeEmailTemplate(`${user.firstName} ${user.lastName}`),
+    ).catch(err => console.error('Failed to send welcome email:', err));
 
     return { user: safe, accessToken, refreshToken };
   }
@@ -199,6 +212,19 @@ export class AuthService {
       { email: user.email },
     );
 
+    // Generate a 6-digit OTP for the email
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    // Send password reset email with OTP (showing the reset token as OTP for simplicity)
+    sendEmail(
+      user.email,
+      'Password Reset Request - CoopManager',
+      generatePasswordResetEmailTemplate(
+        `${user.firstName} ${user.lastName}`,
+        resetToken.substring(0, 6).toUpperCase(), // Use first 6 chars as OTP display
+      ),
+    ).catch(err => console.error('Failed to send password reset email:', err));
+
     // In production, you would send an email here with the reset link
     // For now, we return the token (in production, never return the token directly!)
     // The token should be sent via email with a link like: /reset-password?token=xxx
@@ -279,6 +305,13 @@ export class AuthService {
       undefined,
       { email: matchedUser.email },
     );
+
+    // Send password reset success email
+    sendEmail(
+      matchedUser.email,
+      'Password Reset Successful - CoopManager',
+      generatePasswordResetSuccessEmailTemplate(`${matchedUser.firstName} ${matchedUser.lastName}`),
+    ).catch(err => console.error('Failed to send password reset success email:', err));
 
     return { message: 'Password reset successfully. Please login with your new password.' };
   }

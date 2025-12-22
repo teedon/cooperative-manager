@@ -5,6 +5,14 @@ import { NotificationsService } from '../notifications/notifications.service';
 import { CreateLoanTypeDto, UpdateLoanTypeDto } from './dto/loan-type.dto';
 import { RequestLoanDto, InitiateLoanDto, ApproveLoanDto, RejectLoanDto, RecordRepaymentDto } from './dto/loan.dto';
 import { PERMISSIONS, hasPermission, parsePermissions, Permission } from '../common/permissions';
+import {
+  sendEmail,
+  generateLoanRequestEmailTemplate,
+  generateLoanApprovedEmailTemplate,
+  generateLoanRejectedEmailTemplate,
+  generateLoanDisbursedEmailTemplate,
+  generateNewLoanRequestNotificationEmailTemplate,
+} from '../services/mailer';
 
 @Injectable()
 export class LoansService {
@@ -268,6 +276,55 @@ export class LoansService {
       [requestingUserId], // Exclude the requester
     );
 
+    // Get cooperative name for emails
+    const cooperative = await this.prisma.cooperative.findUnique({
+      where: { id: cooperativeId },
+      select: { name: true },
+    });
+
+    // Send confirmation email to the member
+    if (loan.member.user?.email) {
+      sendEmail(
+        loan.member.user.email,
+        'Loan Request Submitted - CoopManager',
+        generateLoanRequestEmailTemplate(
+          memberName,
+          cooperative?.name || 'Your Cooperative',
+          dto.amount,
+          dto.purpose,
+          dto.duration,
+        ),
+      ).catch(err => console.error('Failed to send loan request email:', err));
+    }
+
+    // Notify admins via email
+    const admins = await this.prisma.member.findMany({
+      where: {
+        cooperativeId,
+        status: 'active',
+        role: { in: ['admin', 'owner'] },
+        userId: { not: requestingUserId },
+        user: { email: { not: null } },
+      },
+      include: { user: { select: { email: true, firstName: true, lastName: true } } },
+    });
+
+    for (const admin of admins) {
+      if (admin.user?.email) {
+        sendEmail(
+          admin.user.email,
+          'New Loan Request Pending - CoopManager',
+          generateNewLoanRequestNotificationEmailTemplate(
+            `${admin.user.firstName} ${admin.user.lastName}`,
+            cooperative?.name || 'Your Cooperative',
+            memberName,
+            dto.amount,
+            dto.purpose,
+          ),
+        ).catch(err => console.error('Failed to send admin notification email:', err));
+      }
+    }
+
     return loan;
   }
 
@@ -394,6 +451,29 @@ export class LoansService {
       });
     }
 
+    // Send approval email to the member
+    if (updated.member.user?.email) {
+      const cooperative = await this.prisma.cooperative.findUnique({
+        where: { id: loan.cooperativeId },
+        select: { name: true },
+      });
+      const memberName = `${updated.member.user.firstName} ${updated.member.user.lastName}`;
+      
+      sendEmail(
+        updated.member.user.email,
+        'Loan Approved! - CoopManager',
+        generateLoanApprovedEmailTemplate(
+          memberName,
+          cooperative?.name || 'Your Cooperative',
+          loan.amount,
+          loan.interestRate,
+          loan.duration,
+          loan.monthlyRepayment,
+          loan.totalRepayment,
+        ),
+      ).catch(err => console.error('Failed to send loan approval email:', err));
+    }
+
     return updated;
   }
 
@@ -444,6 +524,26 @@ export class LoansService {
         actionRoute: 'LoanDetail',
         actionParams: { loanId: loan.id },
       });
+    }
+
+    // Send rejection email to the member
+    if (updated.member.user?.email) {
+      const cooperative = await this.prisma.cooperative.findUnique({
+        where: { id: loan.cooperativeId },
+        select: { name: true },
+      });
+      const memberName = `${updated.member.user.firstName} ${updated.member.user.lastName}`;
+      
+      sendEmail(
+        updated.member.user.email,
+        'Loan Request Declined - CoopManager',
+        generateLoanRejectedEmailTemplate(
+          memberName,
+          cooperative?.name || 'Your Cooperative',
+          loan.amount,
+          dto.reason,
+        ),
+      ).catch(err => console.error('Failed to send loan rejection email:', err));
     }
 
     return updated;
@@ -520,6 +620,27 @@ export class LoansService {
         body: `Your loan of ₦${loan.amount.toLocaleString()} has been disbursed. First repayment is due on ${schedules[0]?.dueDate.toLocaleDateString()}.`,
         data: { loanId: loan.id },
       });
+    }
+
+    // Send disbursement email to the member
+    if (updated.member.user?.email) {
+      const cooperative = await this.prisma.cooperative.findUnique({
+        where: { id: loan.cooperativeId },
+        select: { name: true },
+      });
+      const memberName = `${updated.member.user.firstName} ${updated.member.user.lastName}`;
+      
+      sendEmail(
+        updated.member.user.email,
+        'Loan Disbursed - CoopManager',
+        generateLoanDisbursedEmailTemplate(
+          memberName,
+          cooperative?.name || 'Your Cooperative',
+          loan.amount,
+          schedules[0]?.dueDate.toLocaleDateString() || 'TBD',
+          loan.monthlyRepayment,
+        ),
+      ).catch(err => console.error('Failed to send loan disbursement email:', err));
     }
 
     // Refetch to include schedules

@@ -6,6 +6,7 @@ import { CreateContributionPlanDto } from './dto/create-contribution-plan.dto';
 import { SubscribeToContributionDto, UpdateSubscriptionDto } from './dto/subscription.dto';
 import { RecordPaymentDto, ApprovePaymentDto } from './dto/payment.dto';
 import { PERMISSIONS, Permission, hasPermission, parsePermissions } from '../common/permissions';
+import { sendMailWithZoho, generateContributionApprovedEmailTemplate, generateContributionRejectedEmailTemplate, generateContributionRecordedEmailTemplate } from '../services/mailer';
 
 @Injectable()
 export class ContributionsService {
@@ -526,7 +527,11 @@ export class ContributionsService {
     const subscription = await this.prisma.contributionSubscription.findUnique({
       where: { id: subscriptionId },
       include: {
-        plan: true,
+        plan: {
+          include: {
+            cooperative: true,
+          },
+        },
         member: {
           include: {
             user: true,
@@ -577,6 +582,22 @@ export class ContributionsService {
       description: `Recorded payment of ₦${dto.amount.toLocaleString()} for "${subscription.plan.name}"`,
       metadata: { paymentId: payment.id, subscriptionId, amount: dto.amount },
     });
+
+    // Send contribution recorded confirmation email
+    if (subscription.member.user?.email) {
+      const userName = `${subscription.member.user.firstName} ${subscription.member.user.lastName}`;
+      await sendMailWithZoho(
+        subscription.member.user.email,
+        'Contribution Recorded',
+        generateContributionRecordedEmailTemplate(
+          userName,
+          subscription.plan.cooperative.name,
+          dto.amount,
+          subscription.plan.name,
+          new Date().toLocaleDateString('en-US', { dateStyle: 'full' }),
+        ),
+      );
+    }
 
     return payment;
   }
@@ -709,7 +730,11 @@ export class ContributionsService {
       include: {
         subscription: {
           include: {
-            plan: true,
+            plan: {
+              include: {
+                cooperative: true,
+              },
+            },
             member: {
               include: {
                 user: true,
@@ -835,6 +860,22 @@ export class ContributionsService {
           body: `Your contribution payment of ₦${payment.amount.toLocaleString()} for "${payment.subscription.plan.name}" has been approved.`,
           data: { paymentId, planId: payment.subscription.planId },
         });
+
+        // Send contribution approved email
+        if (payment.subscription.member.user?.email) {
+          const userName = `${payment.subscription.member.user.firstName} ${payment.subscription.member.user.lastName}`;
+          await sendMailWithZoho(
+            payment.subscription.member.user.email,
+            'Contribution Approved',
+            generateContributionApprovedEmailTemplate(
+              userName,
+              payment.subscription.plan.cooperative.name,
+              payment.amount,
+              payment.subscription.plan.name,
+              payment.subscription.totalPaid + payment.amount,
+            ),
+          );
+        }
       } else {
         await this.notificationsService.createNotification({
           userId: payment.subscription.member.userId,
@@ -844,6 +885,22 @@ export class ContributionsService {
           body: `Your contribution payment of ₦${payment.amount.toLocaleString()} was rejected. Reason: ${dto.rejectionReason}`,
           data: { paymentId, planId: payment.subscription.planId },
         });
+
+        // Send contribution rejected email
+        if (payment.subscription.member.user?.email) {
+          const userName = `${payment.subscription.member.user.firstName} ${payment.subscription.member.user.lastName}`;
+          await sendMailWithZoho(
+            payment.subscription.member.user.email,
+            'Contribution Rejected',
+            generateContributionRejectedEmailTemplate(
+              userName,
+              payment.subscription.plan.cooperative.name,
+              payment.amount,
+              payment.subscription.plan.name,
+              dto.rejectionReason || 'No reason provided',
+            ),
+          );
+        }
       }
     }
 

@@ -36,6 +36,24 @@ export interface SignupData {
 export type MemberRole = 'admin' | 'moderator' | 'member';
 export type CooperativeStatus = 'active' | 'inactive' | 'suspended';
 
+// Predefined Cooperative Roles
+export type PredefinedRoleType =
+  | 'president'
+  | 'vice_president'
+  | 'secretary'
+  | 'financial_secretary'
+  | 'treasurer'
+  | 'pro'
+  | 'auditor'
+  | 'welfare_officer';
+
+export interface PredefinedRole {
+  role: PredefinedRoleType;
+  label: string;
+  description: string;
+  permissions: string[];
+}
+
 // Activity Types
 export interface Activity {
   id: string;
@@ -98,6 +116,7 @@ export interface CooperativeMember {
   userId?: string;
   user?: User;
   role: MemberRole;
+  roleTitle?: PredefinedRoleType; // The predefined role title (e.g., 'president', 'treasurer')
   permissions?: string[]; // Custom permissions for moderators
   joinedAt: string;
   virtualBalance: number | null; // null when hidden from non-admin users
@@ -564,6 +583,8 @@ export interface LoanType {
   maxActiveLoans: number;
   requiresGuarantor: boolean;
   minGuarantors: number;
+  applicationFee?: number;
+  deductInterestUpfront: boolean;
   isActive: boolean;
   requiresApproval: boolean;
   createdBy: string;
@@ -591,6 +612,9 @@ export interface LoanRequest {
   amountDisbursed: number;
   amountRepaid: number;
   outstandingBalance: number;
+  applicationFee: number;
+  interestDeductedUpfront: number;
+  netDisbursementAmount: number;
   status: LoanStatus;
   initiatedBy: 'member' | 'admin';
   initiatedByUserId?: string;

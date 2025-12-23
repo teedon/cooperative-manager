@@ -269,16 +269,6 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             color={colors.success.main}
           />
           <QuickAction
-            icon="ShoppingCart"
-            label="Group Buys"
-            onPress={() => {
-              if (cooperatives.length > 0) {
-                navigation.navigate('GroupBuyList', { cooperativeId: cooperatives[0].id });
-              }
-            }}
-            color={colors.warning.main}
-          />
-          <QuickAction
             icon="CreditCard"
             label="Request Loan"
             onPress={() => {
@@ -289,11 +279,11 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
             color={colors.accent.main}
           />
           <QuickAction
-            icon="BarChart"
-            label="View Ledger"
+            icon="LayoutDashboard"
+            label="My Dashboard"
             onPress={() => {
               if (cooperatives.length > 0) {
-                navigation.navigate('Ledger', { cooperativeId: cooperatives[0].id });
+                navigation.navigate('CooperativeDetail', { cooperativeId: cooperatives[0].id });
               }
             }}
             color={colors.primary.main}

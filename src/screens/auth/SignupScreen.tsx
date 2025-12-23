@@ -24,6 +24,7 @@ import {
 } from '../../utils/validation';
 import { colors, spacing, borderRadius, shadows } from '../../theme';
 import Icon from '../../components/common/Icon';
+import Logo from '../../components/common/Logo';
 
 type SignupScreenNavigationProp = NativeStackNavigationProp<AuthStackParamList, 'Signup'>;
 
@@ -115,8 +116,9 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
           {/* Header Section */}
           <View style={styles.header}>
             <View style={styles.logoContainer}>
-              <Icon name="UserPlus" size={40} color={colors.primary.main} />
+              <Logo size={64} />
             </View>
+            <Text style={styles.appName}>CoopManager</Text>
             <Text style={styles.title}>Create Account</Text>
             <Text style={styles.subtitle}>Join a community cooperative today</Text>
           </View>
@@ -300,13 +302,14 @@ const styles = StyleSheet.create({
     marginBottom: spacing['2xl'],
   },
   logoContainer: {
-    width: 72,
-    height: 72,
-    borderRadius: borderRadius.xl,
-    backgroundColor: colors.primary.light,
-    justifyContent: 'center',
-    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  appName: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.primary.main,
     marginBottom: spacing.md,
+    letterSpacing: 0.5,
   },
   title: {
     fontSize: 26,

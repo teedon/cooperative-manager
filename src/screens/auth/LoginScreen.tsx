@@ -18,6 +18,7 @@ import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { login } from '../../store/slices/authSlice';
 import { colors, spacing, borderRadius, shadows } from '../../theme';
 import Icon from '../../components/common/Icon';
+import Logo from '../../components/common/Logo';
 
 type LoginScreenNavigationProp = NativeStackNavigationProp<AuthStackParamList, 'Login'>;
 
@@ -91,8 +92,9 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
           {/* Header Section */}
           <View style={styles.header}>
             <View style={styles.logoContainer}>
-              <Icon name="Users" size={40} color={colors.primary.main} />
+              <Logo size={72} />
             </View>
+            <Text style={styles.appName}>CoopManager</Text>
             <Text style={styles.title}>Welcome Back</Text>
             <Text style={styles.subtitle}>Sign in to continue managing your cooperatives</Text>
           </View>
@@ -211,13 +213,14 @@ const styles = StyleSheet.create({
     marginBottom: spacing['3xl'],
   },
   logoContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: borderRadius.xl,
-    backgroundColor: colors.primary.light,
-    justifyContent: 'center',
-    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  appName: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.primary.main,
     marginBottom: spacing.lg,
+    letterSpacing: 0.5,
   },
   title: {
     fontSize: 28,

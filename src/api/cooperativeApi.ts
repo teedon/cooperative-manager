@@ -1,5 +1,5 @@
 import apiClient from './client';
-import { Cooperative, CooperativeMember, ApiResponse, GradientPreset } from '../models';
+import { Cooperative, CooperativeMember, ApiResponse, GradientPreset, PredefinedRole } from '../models';
 import logger from '../utils/logger';
 
 export interface UpdateCooperativeData {
@@ -145,11 +145,12 @@ export const cooperativeApi = {
     cooperativeId: string,
     memberId: string,
     role: string,
-    permissions?: string[]
+    permissions?: string[],
+    roleTitle?: string | null
   ): Promise<ApiResponse<CooperativeMember>> => {
     const response = await apiClient.put<ApiResponse<CooperativeMember>>(
       `/cooperatives/${cooperativeId}/members/${memberId}/role`,
-      { role, permissions }
+      { role, permissions, roleTitle }
     );
     return response.data;
   },
@@ -187,6 +188,14 @@ export const cooperativeApi = {
       permissions: string[];
       defaultRolePermissions: Record<string, string[]>;
     }>>('/cooperatives/permissions/available');
+    return response.data;
+  },
+
+  // Get predefined cooperative roles with their permissions
+  getPredefinedRoles: async (): Promise<ApiResponse<PredefinedRole[]>> => {
+    const response = await apiClient.get<ApiResponse<PredefinedRole[]>>(
+      '/cooperatives/roles/predefined'
+    );
     return response.data;
   },
 

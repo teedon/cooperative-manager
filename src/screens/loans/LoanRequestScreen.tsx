@@ -8,6 +8,8 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  Modal,
+  FlatList,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { HomeStackParamList } from '../../navigation/MainNavigator';
@@ -46,6 +48,7 @@ const LoanRequestScreen: React.FC<Props> = ({ route, navigation }) => {
     duration: '6',
   });
   const [errors, setErrors] = useState<FormErrors>({});
+  const [showDurationPicker, setShowDurationPicker] = useState(false);
 
   useEffect(() => {
     dispatch(fetchLoanTypes(cooperativeId));
@@ -102,32 +105,46 @@ const LoanRequestScreen: React.FC<Props> = ({ route, navigation }) => {
   const duration = parseInt(formData.duration || '6');
   const interestRate = selectedLoanType?.interestRate || 5;
   const interestType = selectedLoanType?.interestType || 'flat';
+  const applicationFee = selectedLoanType?.applicationFee || 0;
+  const deductInterestUpfront = selectedLoanType?.deductInterestUpfront || false;
 
-  // Calculate loan summary based on interest type
+  // Calculate loan summary based on interest type and upfront deduction
   const loanSummary = useMemo(() => {
     if (amount <= 0 || duration <= 0) return null;
 
     let totalInterest: number;
     let monthlyRepayment: number;
     let totalRepayment: number;
+    let netDisbursement: number;
 
     if (interestType === 'flat') {
-      // Flat rate: interest on original principal for entire duration
-      totalInterest = amount * (interestRate / 100) * (duration / 12);
-      totalRepayment = amount + totalInterest;
-      monthlyRepayment = totalRepayment / duration;
+      // Flat rate: one-time percentage of principal
+      totalInterest = Math.ceil(amount * interestRate / 100);
     } else {
-      // Reducing balance (EMI calculation)
+      // Reducing balance - calculate total interest
       const monthlyRate = interestRate / 100 / 12;
       if (monthlyRate === 0) {
-        monthlyRepayment = amount / duration;
+        totalInterest = 0;
       } else {
-        monthlyRepayment =
+        const emi = Math.ceil(
           (amount * monthlyRate * Math.pow(1 + monthlyRate, duration)) /
-          (Math.pow(1 + monthlyRate, duration) - 1);
+          (Math.pow(1 + monthlyRate, duration) - 1)
+        );
+        totalInterest = emi * duration - amount;
       }
-      totalRepayment = monthlyRepayment * duration;
-      totalInterest = totalRepayment - amount;
+    }
+
+    if (deductInterestUpfront) {
+      // Upfront interest: interest is deducted from disbursement
+      // Member repays only the principal amount
+      totalRepayment = amount;
+      monthlyRepayment = Math.ceil(amount / duration);
+      netDisbursement = amount - totalInterest - applicationFee;
+    } else {
+      // Normal: member repays principal + interest
+      totalRepayment = amount + totalInterest;
+      monthlyRepayment = Math.ceil(totalRepayment / duration);
+      netDisbursement = amount - applicationFee;
     }
 
     return {
@@ -135,8 +152,11 @@ const LoanRequestScreen: React.FC<Props> = ({ route, navigation }) => {
       totalInterest,
       totalRepayment,
       monthlyRepayment,
+      applicationFee,
+      deductInterestUpfront,
+      netDisbursement,
     };
-  }, [amount, duration, interestRate, interestType]);
+  }, [amount, duration, interestRate, interestType, applicationFee, deductInterestUpfront]);
 
   const onSubmit = async () => {
     if (!validateForm()) return;
@@ -177,24 +197,35 @@ const LoanRequestScreen: React.FC<Props> = ({ route, navigation }) => {
     setErrors({ ...errors, loanTypeId: undefined });
   };
 
-  // Generate duration options based on selected loan type
-  const durationOptions = useMemo(() => {
+  // Generate duration options - show first 5 as buttons, rest in dropdown
+  const { visibleDurations, dropdownDurations, allDurations } = useMemo(() => {
+    let allOptions: number[] = [];
     if (selectedLoanType) {
-      const options: number[] = [];
-      for (
-        let i = selectedLoanType.minDuration;
-        i <= selectedLoanType.maxDuration;
-        i += Math.max(1, Math.floor((selectedLoanType.maxDuration - selectedLoanType.minDuration) / 4))
-      ) {
-        options.push(i);
+      for (let i = selectedLoanType.minDuration; i <= selectedLoanType.maxDuration; i++) {
+        allOptions.push(i);
       }
-      if (!options.includes(selectedLoanType.maxDuration)) {
-        options.push(selectedLoanType.maxDuration);
+    } else {
+      for (let i = 1; i <= 24; i++) {
+        allOptions.push(i);
       }
-      return options.slice(0, 5);
     }
-    return [3, 6, 12, 18, 24];
+    
+    const maxVisible = 5;
+    const visible = allOptions.slice(0, maxVisible);
+    const dropdown = allOptions.slice(maxVisible);
+    
+    return {
+      visibleDurations: visible,
+      dropdownDurations: dropdown,
+      allDurations: allOptions,
+    };
   }, [selectedLoanType]);
+
+  // Check if current duration is in dropdown list
+  const isDropdownSelection = useMemo(() => {
+    const currentDuration = parseInt(formData.duration);
+    return dropdownDurations.includes(currentDuration);
+  }, [formData.duration, dropdownDurations]);
 
   if (loanTypesLoading) {
     return (
@@ -310,8 +341,8 @@ const LoanRequestScreen: React.FC<Props> = ({ route, navigation }) => {
               Range: {selectedLoanType.minDuration} - {selectedLoanType.maxDuration} months
             </Text>
           )}
-          <View style={styles.durationOptions}>
-            {durationOptions.map((months) => (
+          <View style={styles.durationContainer}>
+            {visibleDurations.map((months) => (
               <TouchableOpacity
                 key={months}
                 style={[
@@ -333,16 +364,83 @@ const LoanRequestScreen: React.FC<Props> = ({ route, navigation }) => {
                 </Text>
               </TouchableOpacity>
             ))}
+            {dropdownDurations.length > 0 && (
+              <TouchableOpacity
+                style={[
+                  styles.durationOption,
+                  styles.durationDropdownButton,
+                  isDropdownSelection && styles.durationOptionActive,
+                ]}
+                onPress={() => setShowDurationPicker(true)}
+              >
+                <Text
+                  style={[
+                    styles.durationOptionText,
+                    isDropdownSelection && styles.durationOptionTextActive,
+                  ]}
+                >
+                  {isDropdownSelection ? formData.duration : `${dropdownDurations[0]}+`}
+                </Text>
+                <Text style={[styles.dropdownArrow, isDropdownSelection && styles.dropdownArrowActive]}>▼</Text>
+              </TouchableOpacity>
+            )}
           </View>
           {errors.duration && <Text style={styles.errorText}>{errors.duration}</Text>}
         </View>
+
+        {/* Duration Picker Modal */}
+        <Modal
+          visible={showDurationPicker}
+          transparent={true}
+          animationType="slide"
+          onRequestClose={() => setShowDurationPicker(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Select Duration (months)</Text>
+                <TouchableOpacity onPress={() => setShowDurationPicker(false)}>
+                  <Text style={styles.modalClose}>✕</Text>
+                </TouchableOpacity>
+              </View>
+              <FlatList
+                data={allDurations}
+                keyExtractor={(item) => String(item)}
+                numColumns={4}
+                contentContainerStyle={styles.modalGrid}
+                renderItem={({ item: months }) => (
+                  <TouchableOpacity
+                    style={[
+                      styles.modalOption,
+                      formData.duration === String(months) && styles.modalOptionActive,
+                    ]}
+                    onPress={() => {
+                      setFormData({ ...formData, duration: String(months) });
+                      setErrors({ ...errors, duration: undefined });
+                      setShowDurationPicker(false);
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.modalOptionText,
+                        formData.duration === String(months) && styles.modalOptionTextActive,
+                      ]}
+                    >
+                      {months}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+              />
+            </View>
+          </View>
+        </Modal>
 
         {/* Loan Summary */}
         {loanSummary && (
           <View style={styles.calculationCard}>
             <Text style={styles.calculationTitle}>Loan Summary</Text>
             <View style={styles.calcRow}>
-              <Text style={styles.calcLabel}>Principal Amount</Text>
+              <Text style={styles.calcLabel}>Loan Amount</Text>
               <Text style={styles.calcValue}>{formatCurrency(loanSummary.principal)}</Text>
             </View>
             <View style={styles.calcRow}>
@@ -356,9 +454,33 @@ const LoanRequestScreen: React.FC<Props> = ({ route, navigation }) => {
               <Text style={styles.calcValue}>{duration} months</Text>
             </View>
             <View style={styles.calcRow}>
-              <Text style={styles.calcLabel}>Total Interest</Text>
+              <Text style={styles.calcLabel}>Interest Amount</Text>
               <Text style={styles.calcValue}>{formatCurrency(loanSummary.totalInterest)}</Text>
             </View>
+            
+            {/* Show deductions if applicable */}
+            {(loanSummary.deductInterestUpfront || loanSummary.applicationFee > 0) && (
+              <View style={styles.deductionSection}>
+                <Text style={styles.deductionTitle}>Deductions at Disbursement</Text>
+                {loanSummary.applicationFee > 0 && (
+                  <View style={styles.calcRow}>
+                    <Text style={styles.deductionLabel}>Application Fee</Text>
+                    <Text style={styles.deductionValue}>-{formatCurrency(loanSummary.applicationFee)}</Text>
+                  </View>
+                )}
+                {loanSummary.deductInterestUpfront && (
+                  <View style={styles.calcRow}>
+                    <Text style={styles.deductionLabel}>Upfront Interest</Text>
+                    <Text style={styles.deductionValue}>-{formatCurrency(loanSummary.totalInterest)}</Text>
+                  </View>
+                )}
+                <View style={[styles.calcRow, styles.netRow]}>
+                  <Text style={styles.netLabel}>You Will Receive</Text>
+                  <Text style={styles.netValue}>{formatCurrency(loanSummary.netDisbursement)}</Text>
+                </View>
+              </View>
+            )}
+
             <View style={[styles.calcRow, styles.highlightRow]}>
               <Text style={styles.highlightLabel}>Monthly Repayment</Text>
               <Text style={styles.highlightValue}>
@@ -369,6 +491,11 @@ const LoanRequestScreen: React.FC<Props> = ({ route, navigation }) => {
               <Text style={styles.totalLabel}>Total Repayment</Text>
               <Text style={styles.totalValue}>{formatCurrency(loanSummary.totalRepayment)}</Text>
             </View>
+            {loanSummary.deductInterestUpfront && (
+              <Text style={styles.upfrontNote}>
+                * Interest deducted upfront. You repay only the principal amount.
+              </Text>
+            )}
           </View>
         )}
 
@@ -521,18 +648,47 @@ const styles = StyleSheet.create({
     minHeight: 100,
     textAlignVertical: 'top',
   },
+  durationContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  durationScrollView: {
+    marginBottom: 4,
+  },
+  durationScrollContent: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+  },
   durationOptions: {
     flexDirection: 'row',
     gap: 10,
+    flexWrap: 'wrap',
   },
   durationOption: {
-    flex: 1,
+    minWidth: 48,
     paddingVertical: 12,
+    paddingHorizontal: 16,
     borderRadius: 8,
     backgroundColor: '#fff',
     borderWidth: 1,
     borderColor: '#e2e8f0',
     alignItems: 'center',
+    justifyContent: 'center',
+  },
+  durationDropdownButton: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  dropdownArrow: {
+    fontSize: 8,
+    color: '#64748b',
+    marginLeft: 2,
+  },
+  dropdownArrowActive: {
+    color: '#fff',
   },
   durationOptionActive: {
     backgroundColor: '#8b5cf6',
@@ -611,6 +767,55 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#8b5cf6',
   },
+  // Deduction styles
+  deductionSection: {
+    backgroundColor: '#fef3c7',
+    marginHorizontal: -16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginTop: 8,
+    marginBottom: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#f59e0b',
+  },
+  deductionTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#92400e',
+    marginBottom: 8,
+  },
+  deductionLabel: {
+    fontSize: 13,
+    color: '#92400e',
+  },
+  deductionValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#dc2626',
+  },
+  netRow: {
+    borderTopWidth: 1,
+    borderTopColor: '#fcd34d',
+    marginTop: 8,
+    paddingTop: 8,
+  },
+  netLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#92400e',
+  },
+  netValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#059669',
+  },
+  upfrontNote: {
+    fontSize: 11,
+    color: '#64748b',
+    fontStyle: 'italic',
+    marginTop: 8,
+    textAlign: 'center',
+  },
   submitButton: {
     backgroundColor: '#8b5cf6',
     paddingVertical: 16,
@@ -631,6 +836,64 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     textAlign: 'center',
     lineHeight: 18,
+  },
+  // Modal styles for duration picker
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '60%',
+    paddingBottom: 30,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#0f172a',
+  },
+  modalClose: {
+    fontSize: 20,
+    color: '#64748b',
+    padding: 4,
+  },
+  modalGrid: {
+    padding: 16,
+  },
+  modalOption: {
+    flex: 1,
+    margin: 4,
+    paddingVertical: 14,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    alignItems: 'center',
+    minWidth: 60,
+  },
+  modalOptionActive: {
+    backgroundColor: '#8b5cf6',
+    borderColor: '#8b5cf6',
+  },
+  modalOptionText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  modalOptionTextActive: {
+    color: '#fff',
   },
 });
 

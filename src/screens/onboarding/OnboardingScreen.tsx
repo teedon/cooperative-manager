@@ -146,8 +146,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.xl,
-    paddingTop: 60,
-    paddingBottom: 120,
+    paddingTop: 80,
+    paddingBottom: 140,
   },
   illustrationContainer: {
     flex: 1,
@@ -173,8 +173,8 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   buttonContainer: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.lg,
   },
   nextButton: {
     backgroundColor: colorTheme.primary.main,
@@ -203,8 +203,9 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   skipButton: {
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.lg,
+    marginLeft: spacing.md,
   },
   skipButtonText: {
     color: colorTheme.text.secondary,

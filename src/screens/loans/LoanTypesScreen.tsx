@@ -41,6 +41,8 @@ const LoanTypesScreen: React.FC<Props> = ({ route }) => {
     maxDuration: string;
     interestRate: string;
     interestType: 'flat' | 'reducing_balance';
+    applicationFee: string;
+    deductInterestUpfront: boolean;
     minMembershipDuration: string;
     minSavingsBalance: string;
     maxActiveLoans: string;
@@ -57,6 +59,8 @@ const LoanTypesScreen: React.FC<Props> = ({ route }) => {
     maxDuration: '12',
     interestRate: '',
     interestType: 'flat',
+    applicationFee: '',
+    deductInterestUpfront: false,
     minMembershipDuration: '0',
     minSavingsBalance: '0',
     maxActiveLoans: '1',
@@ -89,6 +93,8 @@ const LoanTypesScreen: React.FC<Props> = ({ route }) => {
       maxDuration: '12',
       interestRate: '',
       interestType: 'flat',
+      applicationFee: '',
+      deductInterestUpfront: false,
       minMembershipDuration: '0',
       minSavingsBalance: '0',
       maxActiveLoans: '1',
@@ -116,6 +122,8 @@ const LoanTypesScreen: React.FC<Props> = ({ route }) => {
       maxDuration: loanType.maxDuration.toString(),
       interestRate: loanType.interestRate.toString(),
       interestType: loanType.interestType,
+      applicationFee: (loanType.applicationFee || '').toString(),
+      deductInterestUpfront: loanType.deductInterestUpfront || false,
       minMembershipDuration: (loanType.minMembershipDuration || 0).toString(),
       minSavingsBalance: (loanType.minSavingsBalance || 0).toString(),
       maxActiveLoans: loanType.maxActiveLoans.toString(),
@@ -150,6 +158,8 @@ const LoanTypesScreen: React.FC<Props> = ({ route }) => {
       maxDuration: parseInt(formData.maxDuration),
       interestRate: parseFloat(formData.interestRate),
       interestType: formData.interestType,
+      applicationFee: formData.applicationFee ? parseFloat(formData.applicationFee) : undefined,
+      deductInterestUpfront: formData.deductInterestUpfront,
       minMembershipDuration: parseInt(formData.minMembershipDuration) || undefined,
       minSavingsBalance: parseFloat(formData.minSavingsBalance) || undefined,
       maxActiveLoans: parseInt(formData.maxActiveLoans),
@@ -235,6 +245,16 @@ const LoanTypesScreen: React.FC<Props> = ({ route }) => {
             {item.minDuration} - {item.maxDuration} months
           </Text>
         </View>
+        {item.applicationFee && item.applicationFee > 0 && (
+          <View style={[styles.tag, styles.infoTag]}>
+            <Text style={styles.infoTagText}>Fee: {formatCurrency(item.applicationFee)}</Text>
+          </View>
+        )}
+        {item.deductInterestUpfront && (
+          <View style={[styles.tag, styles.infoTag]}>
+            <Text style={styles.infoTagText}>Upfront Interest</Text>
+          </View>
+        )}
         {item.requiresApproval && (
           <View style={[styles.tag, styles.warningTag]}>
             <Text style={styles.warningTagText}>Requires Approval</Text>
@@ -438,6 +458,20 @@ const LoanTypesScreen: React.FC<Props> = ({ route }) => {
           </View>
 
           {renderFormField(
+            'Application Fee (₦)',
+            formData.applicationFee,
+            (text) => setFormData({ ...formData, applicationFee: text }),
+            { keyboardType: 'numeric', placeholder: 'Optional - e.g., 500' }
+          )}
+
+          {renderSwitch(
+            'Deduct Interest Upfront',
+            formData.deductInterestUpfront,
+            (value) => setFormData({ ...formData, deductInterestUpfront: value }),
+            'Deduct total interest from disbursement amount'
+          )}
+
+          {renderFormField(
             'Max Active Loans',
             formData.maxActiveLoans,
             (text) => setFormData({ ...formData, maxActiveLoans: text }),
@@ -563,6 +597,13 @@ const styles = StyleSheet.create({
   warningTagText: {
     fontSize: 12,
     color: '#92400e',
+  },
+  infoTag: {
+    backgroundColor: '#dbeafe',
+  },
+  infoTagText: {
+    fontSize: 12,
+    color: '#1e40af',
   },
   loanCount: {
     fontSize: 12,

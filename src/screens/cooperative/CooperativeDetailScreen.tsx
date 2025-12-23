@@ -59,6 +59,7 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     canEditSettings,
     canViewExpenses,
     canApproveExpenses,
+    canViewReports,
   } = usePermissions(cooperativeId);
 
   const loadData = useCallback(async () => {
@@ -139,7 +140,7 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     { key: 'overview', label: 'Overview' },
     { key: 'members', label: 'Members' },
     { key: 'contributions', label: 'Contributions' },
-    { key: 'groupbuys', label: 'Group Buys' },
+    // { key: 'groupbuys', label: 'Group Buys' }, // Hidden for now
     { key: 'loans', label: 'Loans' },
   ];
 
@@ -182,9 +183,9 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         </View>
         <View style={styles.statCard}>
           <Text style={styles.statCardValue}>
-            {groupBuys.filter((g) => g.status === 'open').length}
+            {loans.filter((l) => l.status === 'active').length}
           </Text>
-          <Text style={styles.statCardLabel}>Active Group Buys</Text>
+          <Text style={styles.statCardLabel}>Active Loans</Text>
         </View>
       </View>
 
@@ -346,6 +347,24 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               <View style={styles.actionContent}>
                 <Text style={styles.actionTitle}>Manage Expenses</Text>
                 <Text style={styles.actionSubtitle}>Track and record cooperative expenses</Text>
+              </View>
+              <Icon name="ChevronRight" size={20} color={colors.text.disabled} style={styles.actionArrow} />
+            </TouchableOpacity>
+          )}
+
+          {/* Reports - requires canViewReports */}
+          {canViewReports && (
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => navigation.navigate('Reports', { 
+                cooperativeId, 
+                cooperativeName: currentCooperative?.name || 'Cooperative'
+              })}
+            >
+              <Icon name="FileText" size={24} color="#8B5CF6" style={styles.actionIcon} />
+              <View style={styles.actionContent}>
+                <Text style={styles.actionTitle}>Reports</Text>
+                <Text style={styles.actionSubtitle}>Generate and export financial reports</Text>
               </View>
               <Icon name="ChevronRight" size={20} color={colors.text.disabled} style={styles.actionArrow} />
             </TouchableOpacity>
@@ -929,7 +948,7 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       {activeTab === 'overview' && renderOverview()}
       {activeTab === 'members' && renderMembers()}
       {activeTab === 'contributions' && renderContributions()}
-      {activeTab === 'groupbuys' && renderGroupBuys()}
+      {/* {activeTab === 'groupbuys' && renderGroupBuys()} Hidden for now */}
       {activeTab === 'loans' && renderLoans()}
     </ScrollView>
   );

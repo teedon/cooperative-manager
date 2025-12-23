@@ -54,6 +54,7 @@ import {
   CreateExpenseScreen,
   ExpenseDetailScreen,
 } from '../screens/expenses';
+import ReportsScreen from '../screens/reports/ReportsScreen';
 
 export type MainTabParamList = {
   HomeTab: undefined;
@@ -127,6 +128,8 @@ export type HomeStackParamList = {
   ExpenseList: { cooperativeId: string };
   CreateExpense: { cooperativeId: string };
   ExpenseDetail: { expenseId: string; cooperativeId: string; canApprove?: boolean };
+  // Reports screen
+  Reports: { cooperativeId: string; cooperativeName: string };
 };
 
 const HomeStackNavigator: React.FC = () => {
@@ -333,6 +336,12 @@ const HomeStackNavigator: React.FC = () => {
         name="ExpenseDetail"
         component={ExpenseDetailScreen}
         options={{ title: 'Expense Details' }}
+      />
+      {/* Reports Screen */}
+      <HomeStack.Screen
+        name="Reports"
+        component={ReportsScreen}
+        options={{ title: 'Reports' }}
       />
     </HomeStack.Navigator>
   );
@@ -542,6 +551,12 @@ const CoopsStackNavigator: React.FC = () => {
         name="ExpenseDetail"
         component={ExpenseDetailScreen}
         options={{ title: 'Expense Details' }}
+      />
+      {/* Reports Screen */}
+      <CoopsStack.Screen
+        name="Reports"
+        component={ReportsScreen}
+        options={{ title: 'Reports' }}
       />
     </CoopsStack.Navigator>
   );

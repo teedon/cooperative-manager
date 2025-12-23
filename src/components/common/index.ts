@@ -9,4 +9,5 @@ export { default as Avatar } from './Avatar';
 export { default as ListItem } from './ListItem';
 export { default as DatePicker } from './DatePicker';
 export { default as Logo } from './Logo';
+export { default as Icon } from './Icon';
 export * from './OnboardingIllustrations';

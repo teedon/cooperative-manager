@@ -396,14 +396,6 @@ const LandingScreen: React.FC = () => {
             <Text style={styles.greeting}>{greeting()},</Text>
             <Text style={styles.userName}>{user?.firstName || 'Member'} 👋</Text>
           </View>
-          <TouchableOpacity
-            style={styles.notificationButton}
-            onPress={() => {}}
-            activeOpacity={0.7}
-          >
-            <Icon name="Bell" size={22} color={colors.text.primary} />
-            {activities.length > 0 && <View style={styles.notificationBadge} />}
-          </TouchableOpacity>
         </View>
         <Text style={styles.subtitle}>
           Manage your cooperatives, contributions, and loans

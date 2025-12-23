@@ -25,6 +25,8 @@ import {
   PERMISSION_GROUPS,
   PERMISSION_LABELS,
   Permission,
+  PredefinedRole,
+  PredefinedRoleType,
 } from '../../models';
 import { usePermissions } from '../../hooks/usePermissions';
 
@@ -43,6 +45,7 @@ const AdminManagementScreen: React.FC<Props> = ({ route, navigation }) => {
   // State
   const [admins, setAdmins] = useState<CooperativeMember[]>([]);
   const [allMembers, setAllMembers] = useState<CooperativeMember[]>([]);
+  const [predefinedRoles, setPredefinedRoles] = useState<PredefinedRole[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedMember, setSelectedMember] = useState<CooperativeMember | null>(null);
@@ -50,8 +53,10 @@ const AdminManagementScreen: React.FC<Props> = ({ route, navigation }) => {
   const [showPermissionsModal, setShowPermissionsModal] = useState(false);
   const [showAddAdminModal, setShowAddAdminModal] = useState(false);
   const [selectedRole, setSelectedRole] = useState<MemberRole>('moderator');
+  const [selectedPredefinedRole, setSelectedPredefinedRole] = useState<PredefinedRoleType | null>(null);
   const [selectedPermissions, setSelectedPermissions] = useState<string[]>([]);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [showPredefinedRoles, setShowPredefinedRoles] = useState(true);
 
   // Load admins
   const loadAdmins = useCallback(async () => {
@@ -81,11 +86,23 @@ const AdminManagementScreen: React.FC<Props> = ({ route, navigation }) => {
     }
   }, [cooperativeId]);
 
+  // Load predefined roles
+  const loadPredefinedRoles = useCallback(async () => {
+    try {
+      const response = await cooperativeApi.getPredefinedRoles();
+      if (response.success) {
+        setPredefinedRoles(response.data);
+      }
+    } catch (error: any) {
+      console.error('Failed to load predefined roles:', error);
+    }
+  }, []);
+
   const loadData = useCallback(async () => {
     setIsLoading(true);
-    await Promise.all([loadAdmins(), loadAllMembers()]);
+    await Promise.all([loadAdmins(), loadAllMembers(), loadPredefinedRoles()]);
     setIsLoading(false);
-  }, [loadAdmins, loadAllMembers]);
+  }, [loadAdmins, loadAllMembers, loadPredefinedRoles]);
 
   useEffect(() => {
     loadData();
@@ -120,9 +137,23 @@ const AdminManagementScreen: React.FC<Props> = ({ route, navigation }) => {
   const handlePromoteMember = async (member: CooperativeMember) => {
     setSelectedMember(member);
     setSelectedRole('moderator');
+    setSelectedPredefinedRole(null);
     setSelectedPermissions([]);
+    setShowPredefinedRoles(true);
     setShowAddAdminModal(false);
     setShowRoleModal(true);
+  };
+
+  // Handle predefined role selection
+  const handleSelectPredefinedRole = (role: PredefinedRole) => {
+    setSelectedPredefinedRole(role.role);
+    setSelectedPermissions(role.permissions);
+    // If president, set as admin; otherwise moderator
+    if (role.role === 'president') {
+      setSelectedRole('admin');
+    } else {
+      setSelectedRole('moderator');
+    }
   };
 
   // Save role change
@@ -135,13 +166,15 @@ const AdminManagementScreen: React.FC<Props> = ({ route, navigation }) => {
         cooperativeId,
         selectedMember.id,
         selectedRole,
-        selectedRole === 'moderator' ? selectedPermissions : undefined
+        selectedRole === 'moderator' ? selectedPermissions : undefined,
+        selectedPredefinedRole || null
       );
 
       if (response.success) {
         Alert.alert('Success', 'Member role updated successfully');
         setShowRoleModal(false);
         setSelectedMember(null);
+        setSelectedPredefinedRole(null);
         await loadData();
       }
     } catch (error: any) {
@@ -209,12 +242,45 @@ const AdminManagementScreen: React.FC<Props> = ({ route, navigation }) => {
     );
   };
 
+  // Get role title label
+  const getRoleTitleLabel = (roleTitle?: string): string => {
+    const labels: Record<string, string> = {
+      president: 'President',
+      vice_president: 'Vice President',
+      secretary: 'Secretary',
+      financial_secretary: 'Financial Secretary',
+      treasurer: 'Treasurer',
+      pro: 'PRO',
+      auditor: 'Auditor',
+      welfare_officer: 'Welfare Officer',
+    };
+    return roleTitle ? labels[roleTitle] || roleTitle : '';
+  };
+
+  // Get role icon
+  const getRoleIcon = (roleTitle?: string): string => {
+    const icons: Record<string, string> = {
+      president: '👑',
+      vice_president: '🏛️',
+      secretary: '📝',
+      financial_secretary: '📊',
+      treasurer: '💰',
+      pro: '📢',
+      auditor: '🔍',
+      welfare_officer: '🤝',
+    };
+    return roleTitle ? icons[roleTitle] || '' : '';
+  };
+
   // Render admin card
   const renderAdminCard = ({ item }: { item: CooperativeMember }) => {
     const isFullAdmin = item.role === 'admin';
     const firstName = item.user?.firstName || item.firstName || 'Unknown';
     const lastName = item.user?.lastName || item.lastName || '';
     const email = item.user?.email || item.email || '';
+    const hasRoleTitle = !!item.roleTitle;
+    const roleIcon = getRoleIcon(item.roleTitle);
+    const roleTitleLabel = getRoleTitleLabel(item.roleTitle);
 
     return (
       <View style={styles.adminCard}>
@@ -232,7 +298,11 @@ const AdminManagementScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
           <View style={[styles.roleBadge, isFullAdmin && styles.adminBadge]}>
             <Text style={[styles.roleText, isFullAdmin && styles.adminRoleText]}>
-              {isFullAdmin ? '👑 Admin' : '🛡️ Moderator'}
+              {hasRoleTitle 
+                ? `${roleIcon} ${roleTitleLabel}` 
+                : isFullAdmin 
+                  ? '👑 Admin' 
+                  : '🛡️ Moderator'}
             </Text>
           </View>
         </View>
@@ -422,14 +492,78 @@ const AdminManagementScreen: React.FC<Props> = ({ route, navigation }) => {
       <Modal
         visible={showRoleModal}
         onClose={() => setShowRoleModal(false)}
-        title={`Promote ${selectedMember?.user.firstName || ''}`}
+        title={`Promote ${selectedMember?.user?.firstName || selectedMember?.firstName || ''}`}
       >
-        <View style={styles.modalContent}>
-          <Text style={styles.sectionLabel}>Select Role</Text>
+        <ScrollView style={styles.modalContent}>
+          {/* Predefined Roles Section */}
+          <TouchableOpacity 
+            style={styles.sectionToggle}
+            onPress={() => setShowPredefinedRoles(!showPredefinedRoles)}
+          >
+            <Text style={styles.sectionLabel}>Cooperative Roles</Text>
+            <Icon 
+              name={showPredefinedRoles ? 'ChevronUp' : 'ChevronDown'} 
+              size={20} 
+              color={colors.text.secondary} 
+            />
+          </TouchableOpacity>
+
+          {showPredefinedRoles && (
+            <View style={styles.predefinedRolesContainer}>
+              {predefinedRoles.map((role) => (
+                <TouchableOpacity
+                  key={role.role}
+                  style={[
+                    styles.predefinedRoleOption,
+                    selectedPredefinedRole === role.role && styles.predefinedRoleSelected,
+                  ]}
+                  onPress={() => handleSelectPredefinedRole(role)}
+                >
+                  <View style={styles.predefinedRoleHeader}>
+                    <Text style={[
+                      styles.predefinedRoleTitle,
+                      selectedPredefinedRole === role.role && styles.predefinedRoleTitleSelected,
+                    ]}>
+                      {role.role === 'president' && '👑 '}
+                      {role.role === 'treasurer' && '💰 '}
+                      {role.role === 'financial_secretary' && '📊 '}
+                      {role.role === 'secretary' && '📝 '}
+                      {role.role === 'vice_president' && '🏛️ '}
+                      {role.role === 'pro' && '📢 '}
+                      {role.role === 'auditor' && '🔍 '}
+                      {role.role === 'welfare_officer' && '🤝 '}
+                      {role.label}
+                    </Text>
+                    {selectedPredefinedRole === role.role && (
+                      <Icon name="Check" size={18} color={colors.primary.main} />
+                    )}
+                  </View>
+                  <Text style={styles.predefinedRoleDesc}>{role.description}</Text>
+                  <Text style={styles.predefinedRolePermCount}>
+                    {role.permissions.length} permissions
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          {/* Manual Role Selection */}
+          <View style={styles.dividerContainer}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or select manually</Text>
+            <View style={styles.dividerLine} />
+          </View>
 
           <TouchableOpacity
-            style={[styles.roleOption, selectedRole === 'admin' && styles.roleOptionSelected]}
-            onPress={() => setSelectedRole('admin')}
+            style={[
+              styles.roleOption, 
+              selectedRole === 'admin' && !selectedPredefinedRole && styles.roleOptionSelected
+            ]}
+            onPress={() => {
+              setSelectedRole('admin');
+              setSelectedPredefinedRole(null);
+              setSelectedPermissions([]);
+            }}
           >
             <Text style={styles.roleOptionTitle}>👑 Full Admin</Text>
             <Text style={styles.roleOptionDesc}>
@@ -438,20 +572,45 @@ const AdminManagementScreen: React.FC<Props> = ({ route, navigation }) => {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.roleOption, selectedRole === 'moderator' && styles.roleOptionSelected]}
-            onPress={() => setSelectedRole('moderator')}
+            style={[
+              styles.roleOption, 
+              selectedRole === 'moderator' && !selectedPredefinedRole && styles.roleOptionSelected
+            ]}
+            onPress={() => {
+              setSelectedRole('moderator');
+              setSelectedPredefinedRole(null);
+              setSelectedPermissions([]);
+            }}
           >
-            <Text style={styles.roleOptionTitle}>🛡️ Moderator</Text>
+            <Text style={styles.roleOptionTitle}>🛡️ Custom Moderator</Text>
             <Text style={styles.roleOptionDesc}>
               Custom permissions - select what they can access
             </Text>
           </TouchableOpacity>
 
-          {selectedRole === 'moderator' && (
-            <ScrollView style={styles.permissionsScroll}>
+          {selectedRole === 'moderator' && !selectedPredefinedRole && (
+            <View style={styles.customPermissionsSection}>
               <Text style={styles.sectionLabel}>Select Permissions</Text>
               {Object.keys(PERMISSION_GROUPS).map(renderPermissionGroup)}
-            </ScrollView>
+            </View>
+          )}
+
+          {/* Show selected permissions summary when predefined role is chosen */}
+          {selectedPredefinedRole && selectedRole === 'moderator' && (
+            <View style={styles.permissionsSummary}>
+              <Text style={styles.permissionsSummaryTitle}>
+                Assigned Permissions ({selectedPermissions.length})
+              </Text>
+              <TouchableOpacity
+                style={styles.customizeLink}
+                onPress={() => {
+                  setSelectedPredefinedRole(null);
+                  // Keep the permissions for customization
+                }}
+              >
+                <Text style={styles.customizeLinkText}>Customize permissions</Text>
+              </TouchableOpacity>
+            </View>
           )}
 
           <View style={styles.modalActions}>
@@ -464,11 +623,11 @@ const AdminManagementScreen: React.FC<Props> = ({ route, navigation }) => {
             <Button
               title={isUpdating ? 'Saving...' : 'Save'}
               onPress={handleSaveRole}
-              disabled={isUpdating || (selectedRole === 'moderator' && selectedPermissions.length === 0)}
+              disabled={isUpdating || (selectedRole === 'moderator' && selectedPermissions.length === 0 && !selectedPredefinedRole)}
               style={styles.modalButton}
             />
           </View>
-        </View>
+        </ScrollView>
       </Modal>
 
       {/* Edit Permissions Modal */}
@@ -676,7 +835,13 @@ const styles = StyleSheet.create({
     ...shadows.lg,
   },
   modalContent: {
-    maxHeight: 500,
+    maxHeight: 550,
+  },
+  sectionToggle: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
   },
   sectionLabel: {
     fontSize: 14,
@@ -684,6 +849,82 @@ const styles = StyleSheet.create({
     color: colors.text.primary,
     marginBottom: spacing.md,
     marginTop: spacing.sm,
+  },
+  predefinedRolesContainer: {
+    marginBottom: spacing.md,
+  },
+  predefinedRoleOption: {
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.border.light,
+    marginBottom: spacing.sm,
+    backgroundColor: colors.background.paper,
+  },
+  predefinedRoleSelected: {
+    borderColor: colors.primary.main,
+    borderWidth: 2,
+    backgroundColor: colors.primary.light,
+  },
+  predefinedRoleHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  predefinedRoleTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.text.primary,
+  },
+  predefinedRoleTitleSelected: {
+    color: colors.primary.main,
+  },
+  predefinedRoleDesc: {
+    fontSize: 12,
+    color: colors.text.secondary,
+    marginTop: spacing.xs,
+  },
+  predefinedRolePermCount: {
+    fontSize: 11,
+    color: colors.text.disabled,
+    marginTop: spacing.xs,
+  },
+  dividerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: spacing.md,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: colors.border.light,
+  },
+  dividerText: {
+    paddingHorizontal: spacing.sm,
+    fontSize: 12,
+    color: colors.text.disabled,
+  },
+  customPermissionsSection: {
+    marginTop: spacing.sm,
+  },
+  permissionsSummary: {
+    backgroundColor: colors.success.light,
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    marginTop: spacing.md,
+  },
+  permissionsSummaryTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.success.main,
+  },
+  customizeLink: {
+    marginTop: spacing.xs,
+  },
+  customizeLinkText: {
+    fontSize: 12,
+    color: colors.primary.main,
+    textDecorationLine: 'underline',
   },
   membersList: {
     maxHeight: 300,

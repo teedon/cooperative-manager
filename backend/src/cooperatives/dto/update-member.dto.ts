@@ -9,6 +9,11 @@ export class UpdateMemberRoleDto {
   @IsString({ each: true })
   @IsOptional()
   permissions?: string[];
+
+  @IsString()
+  @IsOptional()
+  @IsIn(['president', 'vice_president', 'secretary', 'financial_secretary', 'treasurer', 'pro', 'auditor', 'welfare_officer', null])
+  roleTitle?: string | null;
 }
 
 export class UpdateMemberPermissionsDto {

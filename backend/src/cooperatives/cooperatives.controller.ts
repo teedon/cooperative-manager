@@ -5,6 +5,7 @@ import { CreateCooperativeDto } from './dto/create-cooperative.dto';
 import { UpdateCooperativeDto } from './dto/update-cooperative.dto';
 import { UpdateMemberRoleDto, UpdateMemberPermissionsDto } from './dto/update-member.dto';
 import { CreateOfflineMemberDto, UpdateOfflineMemberDto } from './dto/offline-member.dto';
+import { getAllPredefinedRoles } from '../common/permissions';
 
 @Controller('cooperatives')
 export class CooperativesController {
@@ -184,6 +185,7 @@ export class CooperativesController {
         dto.role,
         dto.permissions,
         user.id,
+        dto.roleTitle,
       );
       return { success: true, message: 'Member role updated successfully', data };
     } catch (error: any) {
@@ -242,6 +244,12 @@ export class CooperativesController {
   async getAvailablePermissions() {
     const data = this.service.getAvailablePermissions();
     return { success: true, message: 'Permissions retrieved successfully', data };
+  }
+
+  @Get('roles/predefined')
+  async getPredefinedRoles() {
+    const data = getAllPredefinedRoles();
+    return { success: true, message: 'Predefined roles retrieved successfully', data };
   }
 
   // ==================== Offline Member Endpoints ====================

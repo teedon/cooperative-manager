@@ -228,7 +228,8 @@ export class LoansService {
       dto.amount,
       interestRate,
       dto.duration,
-      loanType?.interestType || 'flat'
+      loanType?.interestType || 'flat',
+      loanType?.deductInterestUpfront || false
     );
 
     // Create loan
@@ -357,7 +358,8 @@ export class LoansService {
       dto.amount,
       interestRate,
       dto.duration,
-      loanType?.interestType || 'flat'
+      loanType?.interestType || 'flat',
+      loanType?.deductInterestUpfront || false
     );
 
     // Create and auto-approve loan initiated by admin
@@ -910,7 +912,7 @@ export class LoansService {
     // TODO: Add more eligibility checks (membership duration, savings balance, etc.)
   }
 
-  private calculateLoanDetails(amount: number, interestRate: number, duration: number, interestType: string) {
+  private calculateLoanDetails(amount: number, interestRate: number, duration: number, interestType: string, deductInterestUpfront: boolean = false) {
     let interestAmount: number;
     let monthlyRepayment: number;
     let totalRepayment: number;
@@ -919,19 +921,26 @@ export class LoansService {
       // Reducing balance calculation
       const monthlyRate = interestRate / 100 / 12;
       if (monthlyRate === 0) {
-        monthlyRepayment = Math.ceil(amount / duration);
         interestAmount = 0;
       } else {
-        monthlyRepayment = Math.ceil(
+        const emi = Math.ceil(
           (amount * monthlyRate * Math.pow(1 + monthlyRate, duration)) /
             (Math.pow(1 + monthlyRate, duration) - 1)
         );
-        interestAmount = monthlyRepayment * duration - amount;
+        interestAmount = emi * duration - amount;
       }
-      totalRepayment = monthlyRepayment * duration;
     } else {
-      // Flat rate calculation
-      interestAmount = Math.ceil((amount * interestRate * duration) / (100 * 12));
+      // Flat rate calculation: one-time percentage of principal
+      interestAmount = Math.ceil(amount * interestRate / 100);
+    }
+
+    if (deductInterestUpfront) {
+      // Upfront interest: member repays only principal
+      // Interest is deducted from disbursement amount
+      totalRepayment = amount;
+      monthlyRepayment = Math.ceil(amount / duration);
+    } else {
+      // Normal: member repays principal + interest
       totalRepayment = amount + interestAmount;
       monthlyRepayment = Math.ceil(totalRepayment / duration);
     }

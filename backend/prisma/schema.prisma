@@ -72,7 +72,8 @@ model Member {
   notes           String? // Admin notes about this member
   addedBy         String? // userId of admin who added this offline member
 
-  role                      String // 'admin' | 'moderator' | 'member'
+  role                      String  // 'admin' | 'moderator' | 'member'
+  roleTitle                 String? // Predefined role title: 'president' | 'vice_president' | 'secretary' | 'financial_secretary' | 'treasurer' | 'pro' | 'auditor' | 'welfare_officer'
   permissions               String? // JSON string of permissions array
   joinedAt                  DateTime
   virtualBalance            Int                        @default(0)

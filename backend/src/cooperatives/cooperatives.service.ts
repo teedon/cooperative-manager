@@ -535,6 +535,7 @@ export class CooperativesService {
     role: string,
     permissions: string[] | undefined,
     requestingUserId: string,
+    roleTitle?: string | null,
   ) {
     const requestingMember = await this.prisma.member.findFirst({
       where: { cooperativeId, userId: requestingUserId, status: 'active' },
@@ -592,10 +593,16 @@ export class CooperativesService {
       permissionsToSet = null;
     }
 
+    // Determine roleTitle to set
+    // If role is 'member', clear the roleTitle
+    // If roleTitle is provided, use it; otherwise keep existing
+    const roleTitleToSet = role === 'member' ? null : (roleTitle !== undefined ? roleTitle : targetMember.roleTitle);
+
     const updatedMember = await this.prisma.member.update({
       where: { id: memberId },
       data: {
         role,
+        roleTitle: roleTitleToSet,
         permissions: permissionsToSet,
       },
       include: {

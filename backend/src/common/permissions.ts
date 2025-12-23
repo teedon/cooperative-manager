@@ -257,3 +257,227 @@ export function getPermissionGroupLabel(group: keyof typeof PERMISSION_GROUPS): 
   };
   return labels[group];
 }
+
+// Predefined cooperative roles based on popular practices
+export const PREDEFINED_ROLES = {
+  PRESIDENT: 'president',
+  VICE_PRESIDENT: 'vice_president',
+  SECRETARY: 'secretary',
+  FINANCIAL_SECRETARY: 'financial_secretary',
+  TREASURER: 'treasurer',
+  PRO: 'pro', // Public Relations Officer
+  AUDITOR: 'auditor',
+  WELFARE_OFFICER: 'welfare_officer',
+} as const;
+
+export type PredefinedRole = typeof PREDEFINED_ROLES[keyof typeof PREDEFINED_ROLES];
+
+// Permissions assigned to each predefined role
+export const PREDEFINED_ROLE_PERMISSIONS: Record<PredefinedRole, Permission[]> = {
+  [PREDEFINED_ROLES.PRESIDENT]: ALL_PERMISSIONS, // Full access
+  
+  [PREDEFINED_ROLES.VICE_PRESIDENT]: [
+    // Member management
+    PERMISSIONS.MEMBERS_VIEW,
+    PERMISSIONS.MEMBERS_APPROVE,
+    PERMISSIONS.MEMBERS_REJECT,
+    PERMISSIONS.MEMBERS_REMOVE,
+    PERMISSIONS.MEMBERS_VIEW_FINANCIALS,
+    // Contribution management
+    PERMISSIONS.CONTRIBUTIONS_VIEW,
+    PERMISSIONS.CONTRIBUTIONS_CREATE_PLAN,
+    PERMISSIONS.CONTRIBUTIONS_EDIT_PLAN,
+    PERMISSIONS.CONTRIBUTIONS_DELETE_PLAN,
+    PERMISSIONS.CONTRIBUTIONS_APPROVE_PAYMENTS,
+    PERMISSIONS.CONTRIBUTIONS_BULK_APPROVE,
+    PERMISSIONS.CONTRIBUTIONS_RECORD_FOR_OTHERS,
+    // Loan management
+    PERMISSIONS.LOANS_VIEW,
+    PERMISSIONS.LOANS_APPROVE,
+    PERMISSIONS.LOANS_REJECT,
+    PERMISSIONS.LOANS_CONFIGURE,
+    // Group buys
+    PERMISSIONS.GROUP_BUYS_VIEW,
+    PERMISSIONS.GROUP_BUYS_CREATE,
+    PERMISSIONS.GROUP_BUYS_EDIT,
+    PERMISSIONS.GROUP_BUYS_DELETE,
+    PERMISSIONS.GROUP_BUYS_MANAGE_ORDERS,
+    // Expenses
+    PERMISSIONS.EXPENSES_VIEW,
+    PERMISSIONS.EXPENSES_CREATE,
+    PERMISSIONS.EXPENSES_APPROVE,
+    PERMISSIONS.EXPENSES_MANAGE_CATEGORIES,
+    // Reports & Settings
+    PERMISSIONS.LEDGER_VIEW,
+    PERMISSIONS.REPORTS_VIEW,
+    PERMISSIONS.REPORTS_EXPORT,
+    PERMISSIONS.SETTINGS_VIEW,
+    PERMISSIONS.SETTINGS_EDIT,
+    // Can view admins but not manage
+    PERMISSIONS.ADMINS_VIEW,
+  ],
+  
+  [PREDEFINED_ROLES.SECRETARY]: [
+    // Full member management
+    PERMISSIONS.MEMBERS_VIEW,
+    PERMISSIONS.MEMBERS_APPROVE,
+    PERMISSIONS.MEMBERS_REJECT,
+    PERMISSIONS.MEMBERS_EDIT_ROLE,
+    // View contributions
+    PERMISSIONS.CONTRIBUTIONS_VIEW,
+    // View loans
+    PERMISSIONS.LOANS_VIEW,
+    // Group buys view
+    PERMISSIONS.GROUP_BUYS_VIEW,
+    // Reports
+    PERMISSIONS.LEDGER_VIEW,
+    PERMISSIONS.REPORTS_VIEW,
+    PERMISSIONS.REPORTS_EXPORT,
+    // Settings view
+    PERMISSIONS.SETTINGS_VIEW,
+    PERMISSIONS.ADMINS_VIEW,
+  ],
+  
+  [PREDEFINED_ROLES.FINANCIAL_SECRETARY]: [
+    // View members and financials
+    PERMISSIONS.MEMBERS_VIEW,
+    PERMISSIONS.MEMBERS_VIEW_FINANCIALS,
+    // Full contribution management
+    PERMISSIONS.CONTRIBUTIONS_VIEW,
+    PERMISSIONS.CONTRIBUTIONS_CREATE_PLAN,
+    PERMISSIONS.CONTRIBUTIONS_EDIT_PLAN,
+    PERMISSIONS.CONTRIBUTIONS_DELETE_PLAN,
+    PERMISSIONS.CONTRIBUTIONS_APPROVE_PAYMENTS,
+    PERMISSIONS.CONTRIBUTIONS_BULK_APPROVE,
+    PERMISSIONS.CONTRIBUTIONS_RECORD_FOR_OTHERS,
+    // Full loan management
+    PERMISSIONS.LOANS_VIEW,
+    PERMISSIONS.LOANS_APPROVE,
+    PERMISSIONS.LOANS_REJECT,
+    PERMISSIONS.LOANS_CONFIGURE,
+    // Expense management
+    PERMISSIONS.EXPENSES_VIEW,
+    PERMISSIONS.EXPENSES_CREATE,
+    PERMISSIONS.EXPENSES_EDIT,
+    PERMISSIONS.EXPENSES_APPROVE,
+    PERMISSIONS.EXPENSES_MANAGE_CATEGORIES,
+    // Full ledger and reports
+    PERMISSIONS.LEDGER_VIEW,
+    PERMISSIONS.REPORTS_VIEW,
+    PERMISSIONS.REPORTS_EXPORT,
+    // View settings
+    PERMISSIONS.SETTINGS_VIEW,
+  ],
+  
+  [PREDEFINED_ROLES.TREASURER]: [
+    // View members and financials
+    PERMISSIONS.MEMBERS_VIEW,
+    PERMISSIONS.MEMBERS_VIEW_FINANCIALS,
+    // Contribution payments
+    PERMISSIONS.CONTRIBUTIONS_VIEW,
+    PERMISSIONS.CONTRIBUTIONS_APPROVE_PAYMENTS,
+    PERMISSIONS.CONTRIBUTIONS_BULK_APPROVE,
+    PERMISSIONS.CONTRIBUTIONS_RECORD_FOR_OTHERS,
+    // Loan payments only (not approval)
+    PERMISSIONS.LOANS_VIEW,
+    // Full expense management
+    PERMISSIONS.EXPENSES_VIEW,
+    PERMISSIONS.EXPENSES_CREATE,
+    PERMISSIONS.EXPENSES_EDIT,
+    PERMISSIONS.EXPENSES_DELETE,
+    PERMISSIONS.EXPENSES_APPROVE,
+    // Full ledger access
+    PERMISSIONS.LEDGER_VIEW,
+    PERMISSIONS.REPORTS_VIEW,
+    PERMISSIONS.REPORTS_EXPORT,
+  ],
+  
+  [PREDEFINED_ROLES.PRO]: [
+    // View members
+    PERMISSIONS.MEMBERS_VIEW,
+    // View contributions
+    PERMISSIONS.CONTRIBUTIONS_VIEW,
+    // Group buys management (for promotions)
+    PERMISSIONS.GROUP_BUYS_VIEW,
+    PERMISSIONS.GROUP_BUYS_CREATE,
+    PERMISSIONS.GROUP_BUYS_EDIT,
+    // View reports
+    PERMISSIONS.REPORTS_VIEW,
+  ],
+  
+  [PREDEFINED_ROLES.AUDITOR]: [
+    // View all financial data without modification rights
+    PERMISSIONS.MEMBERS_VIEW,
+    PERMISSIONS.MEMBERS_VIEW_FINANCIALS,
+    PERMISSIONS.CONTRIBUTIONS_VIEW,
+    PERMISSIONS.LOANS_VIEW,
+    PERMISSIONS.EXPENSES_VIEW,
+    PERMISSIONS.LEDGER_VIEW,
+    PERMISSIONS.REPORTS_VIEW,
+    PERMISSIONS.REPORTS_EXPORT,
+    PERMISSIONS.SETTINGS_VIEW,
+    PERMISSIONS.ADMINS_VIEW,
+  ],
+  
+  [PREDEFINED_ROLES.WELFARE_OFFICER]: [
+    // Member management
+    PERMISSIONS.MEMBERS_VIEW,
+    PERMISSIONS.MEMBERS_APPROVE,
+    // View contributions
+    PERMISSIONS.CONTRIBUTIONS_VIEW,
+    // Loan view (for welfare purposes)
+    PERMISSIONS.LOANS_VIEW,
+    // Group buys
+    PERMISSIONS.GROUP_BUYS_VIEW,
+    PERMISSIONS.GROUP_BUYS_CREATE,
+    PERMISSIONS.GROUP_BUYS_EDIT,
+    PERMISSIONS.GROUP_BUYS_MANAGE_ORDERS,
+    // View reports
+    PERMISSIONS.REPORTS_VIEW,
+  ],
+};
+
+// Get readable label for predefined role
+export function getPredefinedRoleLabel(role: PredefinedRole): string {
+  const labels: Record<PredefinedRole, string> = {
+    [PREDEFINED_ROLES.PRESIDENT]: 'President',
+    [PREDEFINED_ROLES.VICE_PRESIDENT]: 'Vice President',
+    [PREDEFINED_ROLES.SECRETARY]: 'Secretary',
+    [PREDEFINED_ROLES.FINANCIAL_SECRETARY]: 'Financial Secretary',
+    [PREDEFINED_ROLES.TREASURER]: 'Treasurer',
+    [PREDEFINED_ROLES.PRO]: 'Public Relations Officer',
+    [PREDEFINED_ROLES.AUDITOR]: 'Auditor',
+    [PREDEFINED_ROLES.WELFARE_OFFICER]: 'Welfare Officer',
+  };
+  return labels[role];
+}
+
+// Get predefined role description
+export function getPredefinedRoleDescription(role: PredefinedRole): string {
+  const descriptions: Record<PredefinedRole, string> = {
+    [PREDEFINED_ROLES.PRESIDENT]: 'Full administrative access to all cooperative functions',
+    [PREDEFINED_ROLES.VICE_PRESIDENT]: 'Manages most operations; acts in President\'s absence',
+    [PREDEFINED_ROLES.SECRETARY]: 'Handles member records, minutes, and correspondence',
+    [PREDEFINED_ROLES.FINANCIAL_SECRETARY]: 'Manages contributions, loans, and financial records',
+    [PREDEFINED_ROLES.TREASURER]: 'Handles cash, payments, and expense disbursements',
+    [PREDEFINED_ROLES.PRO]: 'Manages communications and group buy promotions',
+    [PREDEFINED_ROLES.AUDITOR]: 'Reviews financial records; read-only access to all data',
+    [PREDEFINED_ROLES.WELFARE_OFFICER]: 'Manages member welfare and group buying activities',
+  };
+  return descriptions[role];
+}
+
+// Get all predefined roles as array for UI
+export function getAllPredefinedRoles(): Array<{
+  role: PredefinedRole;
+  label: string;
+  description: string;
+  permissions: Permission[];
+}> {
+  return Object.values(PREDEFINED_ROLES).map((role) => ({
+    role,
+    label: getPredefinedRoleLabel(role),
+    description: getPredefinedRoleDescription(role),
+    permissions: PREDEFINED_ROLE_PERMISSIONS[role],
+  }));
+}

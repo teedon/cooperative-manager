@@ -17,7 +17,7 @@ const SignupPage: React.FC = () => {
 
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { loading, error, isAuthenticated } = useAppSelector((state: any) => state.auth);
+  const { isLoading: loading, error, isAuthenticated } = useAppSelector((state: any) => state.auth);
 
   useEffect(() => {
     if (isAuthenticated) {

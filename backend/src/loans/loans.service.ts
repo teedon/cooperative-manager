@@ -783,6 +783,22 @@ export class LoansService {
       description: `Recorded loan repayment of ₦${dto.amount.toLocaleString()}`,
     });
 
+    // Notify the member about the repayment
+    if (updated.member.userId) {
+      const message = newStatus === 'completed'
+        ? `Your loan has been fully repaid! Thank you for completing your loan of ₦${loan.amount.toLocaleString()}.`
+        : `Your loan repayment of ₦${dto.amount.toLocaleString()} has been recorded. Outstanding balance: ₦${Math.max(0, newOutstanding).toLocaleString()}.`;
+
+      await this.notificationsService.createNotification({
+        userId: updated.member.userId,
+        cooperativeId: loan.cooperativeId,
+        type: newStatus === 'completed' ? 'loan_completed' : 'loan_repayment_recorded',
+        title: newStatus === 'completed' ? 'Loan Fully Repaid' : 'Loan Repayment Recorded',
+        body: message,
+        data: { loanId: loan.id, amountPaid: dto.amount, outstandingBalance: Math.max(0, newOutstanding) },
+      });
+    }
+
     return updated;
   }
 

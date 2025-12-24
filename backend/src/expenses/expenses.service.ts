@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ActivitiesService } from '../activities/activities.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { CreateExpenseDto, UpdateExpenseDto, ApproveExpenseDto } from './dto/create-expense.dto';
 import { CreateExpenseCategoryDto, UpdateExpenseCategoryDto } from './dto/create-category.dto';
 import { PERMISSIONS, Permission, hasPermission, parsePermissions } from '../common/permissions';
@@ -10,6 +11,7 @@ export class ExpensesService {
   constructor(
     private prisma: PrismaService,
     private activitiesService: ActivitiesService,
+    private notificationsService: NotificationsService,
   ) {}
 
   // Default expense categories
@@ -303,6 +305,23 @@ export class ExpensesService {
       `Recorded expense "${dto.title}" for ₦${dto.amount.toLocaleString()}`,
       cooperativeId,
       { expenseId: expense.id, amount: dto.amount },
+    );
+
+    // Get the user who created the expense for notification
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { firstName: true, lastName: true },
+    });
+    const creatorName = user ? `${user.firstName} ${user.lastName}` : 'A member';
+
+    // Notify admins about the new expense pending approval
+    await this.notificationsService.notifyCooperativeAdmins(
+      cooperativeId,
+      'expense_pending',
+      'New Expense Recorded',
+      `${creatorName} recorded an expense "${dto.title}" for ₦${dto.amount.toLocaleString()}. Pending your approval.`,
+      { expenseId: expense.id, amount: dto.amount },
+      [userId], // Exclude the creator
     );
 
     return expense;
@@ -607,6 +626,34 @@ export class ExpensesService {
       cooperativeId,
       { expenseId, status: dto.status, amount: expense.amount },
     );
+
+    // Notify the expense creator about the approval/rejection
+    if (expense.createdBy) {
+      const cooperative = await this.prisma.cooperative.findUnique({
+        where: { id: cooperativeId },
+        select: { name: true },
+      });
+
+      if (dto.status === 'approved') {
+        await this.notificationsService.createNotification({
+          userId: expense.createdBy,
+          cooperativeId,
+          type: 'expense_approved',
+          title: 'Expense Approved',
+          body: `Your expense "${expense.title}" for ₦${expense.amount.toLocaleString()} has been approved in ${cooperative?.name || 'your cooperative'}.`,
+          data: { expenseId },
+        });
+      } else {
+        await this.notificationsService.createNotification({
+          userId: expense.createdBy,
+          cooperativeId,
+          type: 'expense_rejected',
+          title: 'Expense Rejected',
+          body: `Your expense "${expense.title}" for ₦${expense.amount.toLocaleString()} was rejected. Reason: ${dto.rejectionReason}`,
+          data: { expenseId, rejectionReason: dto.rejectionReason },
+        });
+      }
+    }
 
     return this.getExpense(cooperativeId, expenseId, userId);
   }

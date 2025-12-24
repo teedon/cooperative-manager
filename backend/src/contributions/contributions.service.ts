@@ -615,6 +615,20 @@ export class ContributionsService {
       });
     }
 
+    // Notify admins about the new contribution payment for approval
+    const memberName = subscription.member.user 
+      ? `${subscription.member.user.firstName} ${subscription.member.user.lastName}`
+      : 'A member';
+    
+    await this.notificationsService.notifyCooperativeAdmins(
+      subscription.plan.cooperativeId,
+      'contribution_pending',
+      'New Contribution Payment',
+      `${memberName} recorded a contribution of ₦${dto.amount.toLocaleString()} for "${subscription.plan.name}". Pending your approval.`,
+      { paymentId: payment.id, subscriptionId, amount: dto.amount },
+      [userId], // Exclude the member who made the payment
+    );
+
     return payment;
   }
 

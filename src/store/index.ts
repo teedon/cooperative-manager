@@ -7,6 +7,7 @@ import loanReducer from './slices/loanSlice';
 import ledgerReducer from './slices/ledgerSlice';
 import notificationReducer from './slices/notificationSlice';
 import subscriptionReducer from './slices/subscriptionSlice';
+import postsReducer from './slices/postsSlice';
 
 // Root reducer that handles reset on logout
 const appReducer = combineReducers({
@@ -18,6 +19,7 @@ const appReducer = combineReducers({
   ledger: ledgerReducer,
   notification: notificationReducer,
   subscription: subscriptionReducer,
+  posts: postsReducer,
 });
 
 // Custom root reducer to handle global reset

@@ -10,3 +10,4 @@ export * from './notificationApi';
 export * from './subscriptionApi';
 export * from './expenseApi';
 export * from './reportsApi';
+export * from './postsApi';

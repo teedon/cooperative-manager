@@ -801,6 +801,84 @@ export interface PaginatedResponse<T> {
   };
 }
 
+// Message Wall / Posts Types
+export type PostType = 'announcement' | 'member_post' | 'system';
+export type ReactionType = 'like' | 'love' | 'celebrate' | 'support' | 'insightful' | 'thinking';
+
+export interface Post {
+  id: string;
+  cooperativeId: string;
+  authorId: string;
+  authorType: 'admin' | 'member' | 'system';
+  authorUserId?: string;
+  authorName?: string;
+  authorAvatar?: string;
+  title?: string;
+  content: string;
+  imageUrl?: string;
+  isPinned: boolean;
+  pinnedAt?: string;
+  pinnedBy?: string;
+  requiresApproval: boolean;
+  isApproved: boolean;
+  approvedBy?: string;
+  approvedAt?: string;
+  postType: PostType;
+  isDeleted: boolean;
+  deletedAt?: string;
+  deletedBy?: string;
+  createdAt: string;
+  updatedAt: string;
+  userReaction?: ReactionType | null;
+  reactionCounts: Record<ReactionType, number>;
+  _count?: {
+    reactions: number;
+    comments: number;
+  };
+}
+
+export interface Reaction {
+  id: string;
+  postId?: string;
+  commentId?: string;
+  userId: string;
+  reactionType: ReactionType;
+  createdAt: string;
+}
+
+export interface Comment {
+  id: string;
+  postId: string;
+  authorUserId: string;
+  authorName?: string;
+  content: string;
+  parentCommentId?: string;
+  isDeleted: boolean;
+  deletedAt?: string;
+  deletedBy?: string;
+  createdAt: string;
+  updatedAt: string;
+  reactions?: Reaction[];
+  replies?: Comment[];
+  _count?: {
+    replies: number;
+  };
+}
+
+export interface PostsState {
+  posts: Post[];
+  currentPost: Post | null;
+  comments: Comment[];
+  isLoading: boolean;
+  error: string | null;
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
 // Navigation Types
 export type RootStackParamList = {
   Auth: undefined;
@@ -834,4 +912,6 @@ export type CooperativeStackParamList = {
   Ledger: { cooperativeId: string; memberId?: string };
   MemberDashboard: { cooperativeId: string; memberId: string };
   CooperativeSettings: { cooperativeId: string };
+  MessageWall: { cooperativeId: string };
+  PostDetail: { postId: string };
 };

@@ -70,7 +70,7 @@ const StatCard: React.FC<StatCardProps> = ({
 const DashboardPage: React.FC = () => {
   const dispatch = useAppDispatch();
   const { user } = useAppSelector((state) => state.auth);
-  const { cooperatives, loading } = useAppSelector((state) => state.cooperative);
+  const { cooperatives, isLoading: loading } = useAppSelector((state) => state.cooperative);
 
   useEffect(() => {
     dispatch(fetchCooperatives());
@@ -116,7 +116,7 @@ const DashboardPage: React.FC = () => {
       {/* Welcome section */}
       <div>
         <h1 className="text-2xl font-bold text-[#0F172A]">
-          Welcome back, {user?.name?.split(' ')[0] || 'User'}!
+          Welcome back, {user?.firstName || 'User'}!
         </h1>
         <p className="text-[#64748B] mt-1">
           Here's what's happening with your cooperatives today.

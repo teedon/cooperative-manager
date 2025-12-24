@@ -7,7 +7,7 @@ import { Card, CardBody, Button, Input, Badge, Spinner } from '@/components/comm
 
 const CooperativeListPage: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { cooperatives, loading } = useAppSelector((state) => state.cooperative);
+  const { cooperatives, isLoading: loading } = useAppSelector((state) => state.cooperative);
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {

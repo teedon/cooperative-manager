@@ -26,7 +26,7 @@ const PlaceholderPage: React.FC<{ title: string }> = ({ title }) => (
 
 const AppContent: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { isAuthenticated, loading } = useAppSelector((state) => state.auth);
+  const { isAuthenticated, isLoading: loading } = useAppSelector((state) => state.auth);
 
   useEffect(() => {
     // Check for existing auth token and fetch profile

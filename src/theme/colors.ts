@@ -51,7 +51,6 @@ const dark = {
   text: { primary: '#f8fafc', secondary: '#cbd5e1', disabled: '#6b7280' },
 };
 
-export { light, dark };
 /**
  * Centralized color scheme for the Cooperative Manager app
  * Primary: Blue - Trust, reliability, community
@@ -135,8 +134,16 @@ export const colors = {
     dark: '#94A3B8',
   },
 
+  // Common colors
+  common: {
+    white: '#FFFFFF',
+    black: '#000000',
+    transparent: 'transparent',
+  },
+
   // Overlay
   overlay: 'rgba(0, 0, 0, 0.5)',
 };
 
+export { light, dark };
 export default colors;

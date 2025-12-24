@@ -32,6 +32,11 @@ const NOTIFICATION_TYPE_TO_PREFERENCE: Record<string, string> = {
   role_changed: 'memberUpdates',
   announcement: 'announcements',
   mention: 'mentions',
+  post_created: 'announcements',
+  post_announcement: 'announcements',
+  post_comment: 'mentions',
+  post_reaction: 'mentions',
+  poll_created: 'announcements',
 };
 
 @Injectable()
@@ -407,6 +412,8 @@ export class NotificationsService {
     body: string,
     data?: Record<string, any>,
     excludeUserIds: string[] = [],
+    actionRoute?: string,
+    actionParams?: Record<string, any>,
   ) {
     // Get all active members of the cooperative
     const members = await this.prisma.member.findMany({
@@ -432,6 +439,9 @@ export class NotificationsService {
           title,
           body,
           data,
+          actionType: actionRoute ? 'navigate' : undefined,
+          actionRoute,
+          actionParams,
         }),
       ),
     );

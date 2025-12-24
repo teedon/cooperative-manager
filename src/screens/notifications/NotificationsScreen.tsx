@@ -131,6 +131,17 @@ const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
         }
         break;
 
+      case 'post_created':
+      case 'post_announcement':
+      case 'post_comment':
+      case 'post_reaction':
+        if (data?.postId) {
+          navigation.navigate('PostDetail', { postId: data.postId });
+        } else if (cooperativeId) {
+          navigation.navigate('MessageWall', { cooperativeId });
+        }
+        break;
+
       default:
         if (cooperativeId) {
           navigation.navigate('CooperativeDetail', { cooperativeId });
@@ -178,6 +189,10 @@ const NotificationsScreen: React.FC<Props> = ({ navigation }) => {
       announcement: 'Megaphone',
       mention: 'AtSign',
       system: 'Info',
+      post_created: 'MessageSquare',
+      post_announcement: 'Megaphone',
+      post_comment: 'MessageCircle',
+      post_reaction: 'Heart',
     };
     return iconMap[type] || 'Bell';
   };

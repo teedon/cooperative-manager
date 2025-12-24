@@ -8,6 +8,7 @@ import ledgerReducer from './slices/ledgerSlice';
 import notificationReducer from './slices/notificationSlice';
 import subscriptionReducer from './slices/subscriptionSlice';
 import postsReducer from './slices/postsSlice';
+import pollsReducer from './slices/pollsSlice';
 
 // Root reducer that handles reset on logout
 const appReducer = combineReducers({
@@ -20,6 +21,7 @@ const appReducer = combineReducers({
   notification: notificationReducer,
   subscription: subscriptionReducer,
   posts: postsReducer,
+  polls: pollsReducer,
 });
 
 // Custom root reducer to handle global reset

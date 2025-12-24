@@ -1,5 +1,4 @@
 import { TextStyle } from 'react-native';
-import colors from './colors';
 
 export const fontSizes = {
   xs: 10,
@@ -31,28 +30,24 @@ export const typography = {
   h1: {
     fontSize: fontSizes['4xl'],
     fontWeight: fontWeights.bold,
-    color: colors.text.primary,
     lineHeight: fontSizes['4xl'] * lineHeights.tight,
   } as TextStyle,
 
   h2: {
     fontSize: fontSizes['3xl'],
     fontWeight: fontWeights.bold,
-    color: colors.text.primary,
     lineHeight: fontSizes['3xl'] * lineHeights.tight,
   } as TextStyle,
 
   h3: {
     fontSize: fontSizes['2xl'],
     fontWeight: fontWeights.semibold,
-    color: colors.text.primary,
     lineHeight: fontSizes['2xl'] * lineHeights.tight,
   } as TextStyle,
 
   h4: {
     fontSize: fontSizes.xl,
     fontWeight: fontWeights.semibold,
-    color: colors.text.primary,
     lineHeight: fontSizes.xl * lineHeights.tight,
   } as TextStyle,
 
@@ -60,21 +55,18 @@ export const typography = {
   body: {
     fontSize: fontSizes.md,
     fontWeight: fontWeights.regular,
-    color: colors.text.primary,
     lineHeight: fontSizes.md * lineHeights.normal,
   } as TextStyle,
 
   bodyLarge: {
     fontSize: fontSizes.lg,
     fontWeight: fontWeights.regular,
-    color: colors.text.primary,
     lineHeight: fontSizes.lg * lineHeights.normal,
   } as TextStyle,
 
   bodySmall: {
     fontSize: fontSizes.sm,
     fontWeight: fontWeights.regular,
-    color: colors.text.secondary,
     lineHeight: fontSizes.sm * lineHeights.normal,
   } as TextStyle,
 
@@ -82,14 +74,12 @@ export const typography = {
   label: {
     fontSize: fontSizes.md,
     fontWeight: fontWeights.semibold,
-    color: colors.text.primary,
     lineHeight: fontSizes.md * lineHeights.normal,
   } as TextStyle,
 
   caption: {
     fontSize: fontSizes.xs,
     fontWeight: fontWeights.regular,
-    color: colors.text.secondary,
     lineHeight: fontSizes.xs * lineHeights.normal,
   } as TextStyle,
 

@@ -104,17 +104,53 @@ export class PostsService {
       metadata: { postId: post.id },
     });
 
+    // Send push notification to all cooperative members (except the author)
+    if (post.isApproved) {
+      const authorName = member.user
+        ? `${member.user.firstName} ${member.user.lastName}`
+        : member.isOfflineMember
+          ? `${member.firstName} ${member.lastName}`
+          : 'A member';
+
+      const notificationType = postType === 'announcement' ? 'post_announcement' : 'post_created';
+      const notificationTitle = postType === 'announcement'
+        ? `📢 New Announcement in ${post.cooperative.name}`
+        : `New Post in ${post.cooperative.name}`;
+      const notificationBody = sanitizedTitle
+        ? `${authorName} posted: ${sanitizedTitle}`
+        : `${authorName} shared a new post`;
+
+      await this.notificationsService.notifyCooperativeMembers(
+        cooperativeId,
+        notificationType,
+        notificationTitle,
+        notificationBody,
+        {
+          postId: post.id,
+          authorName,
+          postType: post.postType,
+        },
+        [userId], // Exclude the post author from receiving the notification
+        'PostDetail', // Navigation route
+        { postId: post.id, cooperativeId }, // Navigation params
+      );
+    }
+
     return post;
   }
 
   async findAll(cooperativeId: string, userId: string, query: any) {
     const { page = 1, limit = 20, search, includeUnpinned = true } = query;
 
+    // Convert to integers to avoid Prisma type errors
+    const pageNum = parseInt(String(page), 10) || 1;
+    const limitNum = parseInt(String(limit), 10) || 20;
+
     // Verify user is a member
     const member = await this.getMemberInfo(userId, cooperativeId);
     const isAdmin = member.role === 'admin';
 
-    const skip = (page - 1) * limit;
+    const skip = (pageNum - 1) * limitNum;
 
     const where: any = {
       cooperativeId,
@@ -204,7 +240,7 @@ export class PostsService {
           createdAt: 'desc',
         },
         skip,
-        take: limit,
+        take: limitNum,
       });
 
       const regularTotal = await this.prisma.post.count({
@@ -260,10 +296,10 @@ export class PostsService {
     return {
       posts: enhancedPosts,
       pagination: {
-        page: Number(page),
-        limit: Number(limit),
+        page: pageNum,
+        limit: limitNum,
         total,
-        totalPages: Math.ceil(total / limit),
+        totalPages: Math.ceil(total / limitNum),
       },
     };
   }

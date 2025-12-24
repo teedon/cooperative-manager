@@ -54,6 +54,7 @@ model Cooperative {
   expenseCategories  ExpenseCategory[]
   expenses           Expense[]
   posts              Post[]
+  polls              Poll[]
 }
 
 model Member {
@@ -819,4 +820,82 @@ model Comment {
   @@index([parentCommentId])
   @@index([createdAt])
   @@index([isDeleted])
+}
+
+// ========== POLLS MODELS ==========
+
+// Polls for cooperative voting
+model Poll {
+  id            String      @id @default(cuid())
+  cooperativeId String
+  cooperative   Cooperative @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+
+  // Creator information
+  createdByUserId String
+  createdByName   String? // Cached display name
+
+  // Poll content
+  question    String
+  description String?
+
+  // Poll settings
+  allowMultipleVotes Boolean  @default(false) // Allow selecting multiple options
+  isAnonymous        Boolean  @default(false) // Hide who voted for what
+  endsAt             DateTime? // Optional end date
+
+  // Status
+  isActive  Boolean @default(true)
+  isPinned  Boolean @default(false)
+  pinnedAt  DateTime?
+  isDeleted Boolean @default(false)
+  deletedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  options PollOption[]
+  votes   PollVote[]
+
+  @@index([cooperativeId])
+  @@index([createdByUserId])
+  @@index([isActive])
+  @@index([isPinned])
+  @@index([createdAt])
+}
+
+// Poll options/choices
+model PollOption {
+  id     String @id @default(cuid())
+  pollId String
+  poll   Poll   @relation(fields: [pollId], references: [id], onDelete: Cascade)
+
+  text      String
+  sortOrder Int    @default(0)
+
+  createdAt DateTime @default(now())
+
+  // Relations
+  votes PollVote[]
+
+  @@index([pollId])
+}
+
+// Individual votes
+model PollVote {
+  id       String     @id @default(cuid())
+  pollId   String
+  poll     Poll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  optionId String
+  option   PollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  // Voter
+  userId String
+
+  createdAt DateTime @default(now())
+
+  @@unique([pollId, optionId, userId]) // Prevent duplicate votes for same option
+  @@index([pollId])
+  @@index([optionId])
+  @@index([userId])
 }

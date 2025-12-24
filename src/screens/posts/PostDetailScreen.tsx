@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,11 +9,13 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
-import { Heart, MessageCircle, Send } from 'lucide-react-native';
-import { CooperativeStackParamList, ReactionType } from '../../models';
+import { Heart, MessageCircle, Send, Reply, MoreVertical, Trash2 } from 'lucide-react-native';
+import { CooperativeStackParamList, ReactionType, Comment } from '../../models';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import {
   fetchPostById,
@@ -21,10 +23,11 @@ import {
   addComment,
   addReaction,
   removeReaction,
+  deleteComment,
   clearCurrentPost,
 } from '../../store/slices/postsSlice';
 import Avatar from '../../components/common/Avatar';
-import Button from '../../components/common/Button';
+import ReactionPicker, { getReactionIcon, getReactionColor } from '../../components/posts/ReactionPicker';
 import colors from '../../theme/colors';
 import { spacing, borderRadius, shadows } from '../../theme/spacing';
 import { typography } from '../../theme/typography';
@@ -44,10 +47,13 @@ interface Props {
 const PostDetailScreen: React.FC<Props> = ({ navigation, route }) => {
   const { postId } = route.params;
   const dispatch = useAppDispatch();
+  const { user } = useAppSelector((state) => state.auth);
 
   const { currentPost, comments, isLoading } = useAppSelector((state) => state.posts);
   const [commentText, setCommentText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [replyingTo, setReplyingTo] = useState<Comment | null>(null);
+  const [reactionPickerVisible, setReactionPickerVisible] = useState(false);
 
   useEffect(() => {
     loadPost();
@@ -61,13 +67,22 @@ const PostDetailScreen: React.FC<Props> = ({ navigation, route }) => {
     await dispatch(fetchComments(postId));
   };
 
-  const handleReaction = async () => {
+  const handleReactionPress = () => {
+    setReactionPickerVisible(true);
+  };
+
+  const handleReactionSelect = async (reactionType: ReactionType) => {
     if (!currentPost) return;
 
-    if (currentPost.userReaction) {
-      await dispatch(removeReaction(postId));
-    } else {
-      await dispatch(addReaction({ postId, reactionType: 'like' as ReactionType }));
+    try {
+      if (currentPost.userReaction === reactionType) {
+        await dispatch(removeReaction(postId)).unwrap();
+      } else {
+        await dispatch(addReaction({ postId, reactionType })).unwrap();
+      }
+      loadPost();
+    } catch (error) {
+      Alert.alert('Error', 'Failed to update reaction');
     }
   };
 
@@ -76,13 +91,49 @@ const PostDetailScreen: React.FC<Props> = ({ navigation, route }) => {
 
     setIsSubmitting(true);
     try {
-      await dispatch(addComment({ postId, data: { content: commentText } }));
+      const data: any = { content: commentText.trim() };
+      if (replyingTo) {
+        data.parentCommentId = replyingTo.id;
+      }
+      await dispatch(addComment({ postId, data })).unwrap();
       setCommentText('');
+      setReplyingTo(null);
+      loadPost();
     } catch (error) {
       Alert.alert('Error', 'Failed to add comment');
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleReplyToComment = (comment: Comment) => {
+    setReplyingTo(comment);
+  };
+
+  const handleCancelReply = () => {
+    setReplyingTo(null);
+  };
+
+  const handleDeleteComment = (commentId: string) => {
+    Alert.alert(
+      'Delete Comment',
+      'Are you sure you want to delete this comment?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await dispatch(deleteComment(commentId)).unwrap();
+              loadPost();
+            } catch (error) {
+              Alert.alert('Error', 'Failed to delete comment');
+            }
+          },
+        },
+      ],
+    );
   };
 
   if (isLoading || !currentPost) {
@@ -136,20 +187,35 @@ const PostDetailScreen: React.FC<Props> = ({ navigation, route }) => {
 
         {/* Reactions */}
         <View style={styles.reactions}>
-          <TouchableOpacity style={styles.reactionButton} onPress={handleReaction}>
-            <Heart
-              size={24}
-              color={hasUserReacted ? colors.primary.main : colors.text.secondary}
-              fill={hasUserReacted ? colors.primary.main : 'transparent'}
-            />
-            {totalReactions > 0 && (
-              <Text
-                style={[styles.reactionCount, hasUserReacted && styles.reactionCountActive]}
-              >
-                {totalReactions}
-              </Text>
+          <TouchableOpacity style={styles.reactionButton} onPress={handleReactionPress}>
+            {hasUserReacted && currentPost.userReaction ? (
+              <>
+                {getReactionIcon(currentPost.userReaction as ReactionType, 24)}
+                <Text style={[styles.reactionCount, { color: getReactionColor(currentPost.userReaction as ReactionType) }]}>
+                  {totalReactions}
+                </Text>
+              </>
+            ) : (
+              <>
+                <Heart size={24} color={colors.text.secondary} />
+                {totalReactions > 0 && (
+                  <Text style={styles.reactionCount}>{totalReactions}</Text>
+                )}
+              </>
             )}
           </TouchableOpacity>
+
+          {/* Reaction counts by type */}
+          {currentPost.reactionCounts && Object.keys(currentPost.reactionCounts).length > 0 && (
+            <View style={styles.reactionSummary}>
+              {Object.entries(currentPost.reactionCounts).map(([type, count]) => (
+                <View key={type} style={styles.reactionSummaryItem}>
+                  {getReactionIcon(type as ReactionType, 14)}
+                  <Text style={styles.reactionSummaryCount}>{count as number}</Text>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
 
         {/* Comments Section */}
@@ -164,48 +230,127 @@ const PostDetailScreen: React.FC<Props> = ({ navigation, route }) => {
               <Text style={styles.emptyCommentsSubtext}>Be the first to comment!</Text>
             </View>
           ) : (
-            comments.map((comment) => (
-              <View key={comment.id} style={styles.comment}>
-                <Avatar name={comment.authorName} />
-                <View style={styles.commentContent}>
-                  <Text style={styles.commentAuthor}>{comment.authorName}</Text>
-                  <Text style={styles.commentText}>{comment.content}</Text>
-                  <Text style={styles.commentTime}>
-                    {formatDistanceToNow(new Date(comment.createdAt))}
-                  </Text>
+            comments.map((comment) => {
+              const isOwnComment = comment.authorUserId === user?.id;
+              const isParentComment = !comment.parentCommentId;
+              const replies = comments.filter((c) => c.parentCommentId === comment.id);
+
+              if (!isParentComment) return null; // Render replies under parent
+
+              return (
+                <View key={comment.id}>
+                  {/* Parent Comment */}
+                  <View style={styles.comment}>
+                    <Avatar name={comment.authorName} size={36} />
+                    <View style={styles.commentContent}>
+                      <View style={styles.commentHeader}>
+                        <Text style={styles.commentAuthor}>{comment.authorName}</Text>
+                        {isOwnComment && (
+                          <TouchableOpacity onPress={() => handleDeleteComment(comment.id)}>
+                            <Trash2 size={16} color={colors.error.main} />
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                      <Text style={styles.commentText}>{comment.content}</Text>
+                      <View style={styles.commentFooter}>
+                        <Text style={styles.commentTime}>
+                          {formatDistanceToNow(new Date(comment.createdAt))}
+                        </Text>
+                        <TouchableOpacity
+                          style={styles.replyButton}
+                          onPress={() => handleReplyToComment(comment)}
+                        >
+                          <Reply size={14} color={colors.primary.main} />
+                          <Text style={styles.replyButtonText}>Reply</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  </View>
+
+                  {/* Replies */}
+                  {replies.map((reply) => {
+                    const isOwnReply = reply.authorUserId === user?.id;
+                    return (
+                      <View key={reply.id} style={styles.replyContainer}>
+                        <View style={styles.replyLine} />
+                        <View style={styles.reply}>
+                          <Avatar name={reply.authorName} size={28} />
+                          <View style={styles.commentContent}>
+                            <View style={styles.commentHeader}>
+                              <Text style={styles.commentAuthor}>{reply.authorName}</Text>
+                              {isOwnReply && (
+                                <TouchableOpacity onPress={() => handleDeleteComment(reply.id)}>
+                                  <Trash2 size={14} color={colors.error.main} />
+                                </TouchableOpacity>
+                              )}
+                            </View>
+                            <Text style={styles.commentText}>{reply.content}</Text>
+                            <Text style={styles.commentTime}>
+                              {formatDistanceToNow(new Date(reply.createdAt))}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                    );
+                  })}
                 </View>
-              </View>
-            ))
+              );
+            })
           )}
         </View>
       </ScrollView>
 
+      {/* Reply indicator */}
+      {replyingTo && (
+        <View style={styles.replyIndicator}>
+          <Text style={styles.replyIndicatorText}>
+            Replying to <Text style={styles.replyIndicatorName}>{replyingTo.authorName}</Text>
+          </Text>
+          <TouchableOpacity onPress={handleCancelReply}>
+            <Text style={styles.cancelReplyText}>Cancel</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Comment Input */}
-      <View style={styles.commentInputContainer}>
-        <TextInput
-          style={styles.commentInput}
-          placeholder="Write a comment..."
-          placeholderTextColor={colors.text.disabled}
-          value={commentText}
-          onChangeText={setCommentText}
-          multiline
-          maxLength={500}
-        />
-        <TouchableOpacity
-          style={[
-            styles.sendButton,
-            (!commentText.trim() || isSubmitting) && styles.sendButtonDisabled,
-          ]}
-          onPress={handleAddComment}
-          disabled={!commentText.trim() || isSubmitting}
-        >
-          {isSubmitting ? (
-            <ActivityIndicator size="small" color={colors.common.white} />
-          ) : (
-            <Send size={20} color={colors.common.white} />
-          )}
-        </TouchableOpacity>
-      </View>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 88 : 0}
+      >
+        <View style={styles.commentInputContainer}>
+          <TextInput
+            style={styles.commentInput}
+            placeholder={replyingTo ? `Reply to ${replyingTo.authorName}...` : 'Write a comment...'}
+            placeholderTextColor={colors.text.disabled}
+            value={commentText}
+            onChangeText={setCommentText}
+            multiline
+            maxLength={500}
+          />
+          <TouchableOpacity
+            style={[
+              styles.sendButton,
+              (!commentText.trim() || isSubmitting) && styles.sendButtonDisabled,
+            ]}
+            onPress={handleAddComment}
+            disabled={!commentText.trim() || isSubmitting}
+          >
+            {isSubmitting ? (
+              <ActivityIndicator size="small" color={colors.common.white} />
+            ) : (
+              <Send size={20} color={colors.common.white} />
+            )}
+          </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+
+      {/* Reaction Picker */}
+      <ReactionPicker
+        visible={reactionPickerVisible}
+        onClose={() => setReactionPickerVisible(false)}
+        onSelect={handleReactionSelect}
+        currentReaction={currentPost.userReaction as ReactionType || null}
+      />
     </View>
   );
 };
@@ -337,6 +482,88 @@ const styles = StyleSheet.create({
   commentTime: {
     ...typography.body.small,
     color: colors.text.secondary,
+  },
+  commentHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.xs,
+  },
+  commentFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacing.xs,
+  },
+  replyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: spacing.md,
+  },
+  replyButtonText: {
+    ...typography.body.small,
+    color: colors.primary.main,
+    marginLeft: spacing.xs,
+    fontWeight: '600',
+  },
+  replyContainer: {
+    flexDirection: 'row',
+    marginLeft: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  replyLine: {
+    width: 2,
+    backgroundColor: colors.border.light,
+    marginRight: spacing.sm,
+    borderRadius: 1,
+  },
+  reply: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: spacing.sm,
+    backgroundColor: colors.background.paper,
+    borderRadius: borderRadius.md,
+  },
+  replyIndicator: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: spacing.sm,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.primary.light,
+    borderTopWidth: 1,
+    borderTopColor: colors.border.light,
+  },
+  replyIndicatorText: {
+    ...typography.body.small,
+    color: colors.text.secondary,
+  },
+  replyIndicatorName: {
+    fontWeight: '600',
+    color: colors.primary.main,
+  },
+  cancelReplyText: {
+    ...typography.body.small,
+    color: colors.error.main,
+    fontWeight: '600',
+  },
+  reactionSummary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: spacing.md,
+    paddingLeft: spacing.md,
+    borderLeftWidth: 1,
+    borderLeftColor: colors.border.light,
+  },
+  reactionSummaryItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: spacing.sm,
+  },
+  reactionSummaryCount: {
+    ...typography.body.small,
+    color: colors.text.secondary,
+    marginLeft: 2,
   },
   commentInputContainer: {
     flexDirection: 'row',

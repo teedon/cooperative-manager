@@ -748,7 +748,11 @@ export type NotificationType =
   | 'role_changed'
   | 'announcement'
   | 'mention'
-  | 'system';
+  | 'system'
+  | 'post_created'
+  | 'post_announcement'
+  | 'post_comment'
+  | 'post_reaction';
 
 export interface Notification {
   id: string;
@@ -914,4 +918,6 @@ export type CooperativeStackParamList = {
   CooperativeSettings: { cooperativeId: string };
   MessageWall: { cooperativeId: string };
   PostDetail: { postId: string };
+  CreatePost: { cooperativeId: string };
+  CreatePoll: { cooperativeId: string };
 };

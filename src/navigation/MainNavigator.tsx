@@ -57,6 +57,8 @@ import {
 import ReportsScreen from '../screens/reports/ReportsScreen';
 import MessageWallScreen from '../screens/posts/MessageWallScreen';
 import PostDetailScreen from '../screens/posts/PostDetailScreen';
+import CreatePostScreen from '../screens/posts/CreatePostScreen';
+import CreatePollScreen from '../screens/polls/CreatePollScreen';
 
 export type MainTabParamList = {
   HomeTab: undefined;
@@ -359,6 +361,16 @@ const HomeStackNavigator: React.FC = () => {
         component={PostDetailScreen}
         options={{ title: 'Post' }}
       />
+      <HomeStack.Screen
+        name="CreatePost"
+        component={CreatePostScreen}
+        options={{ title: 'Create Post' }}
+      />
+      <HomeStack.Screen
+        name="CreatePoll"
+        component={CreatePollScreen}
+        options={{ title: 'Create Poll' }}
+      />
     </HomeStack.Navigator>
   );
 };
@@ -584,6 +596,16 @@ const CoopsStackNavigator: React.FC = () => {
         name="PostDetail"
         component={PostDetailScreen}
         options={{ title: 'Post' }}
+      />
+      <CoopsStack.Screen
+        name="CreatePost"
+        component={CreatePostScreen}
+        options={{ title: 'Create Post' }}
+      />
+      <CoopsStack.Screen
+        name="CreatePoll"
+        component={CreatePollScreen}
+        options={{ title: 'Create Poll' }}
       />
     </CoopsStack.Navigator>
   );

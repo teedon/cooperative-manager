@@ -53,6 +53,7 @@ model Cooperative {
   subscription       Subscription?
   expenseCategories  ExpenseCategory[]
   expenses           Expense[]
+  posts              Post[]
 }
 
 model Member {
@@ -705,4 +706,117 @@ model Expense {
   @@index([status])
   @@index([expenseDate])
   @@index([createdBy])
+}
+
+// ========== MESSAGE WALL / POSTS MODELS ==========
+
+// Posts in the cooperative message wall
+model Post {
+  id            String      @id @default(cuid())
+  cooperativeId String
+  cooperative   Cooperative @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+
+  // Author information
+  authorId     String
+  authorType   String // 'admin' | 'member' | 'system'
+  authorUserId String? // userId if author is a user (member/admin)
+  authorName   String? // Display name for system posts
+
+  // Post content
+  title   String?
+  content String
+  imageUrl String? // Optional image attachment
+
+  // Post metadata
+  isPinned      Boolean  @default(false)
+  pinnedAt      DateTime?
+  pinnedBy      String? // userId who pinned
+  requiresApproval Boolean @default(false)
+  isApproved    Boolean  @default(true)
+  approvedBy    String? // userId who approved
+  approvedAt    DateTime?
+  
+  // Type of post
+  postType String @default("member_post") // 'announcement' | 'member_post' | 'system'
+
+  // Visibility and moderation
+  isDeleted Boolean @default(false)
+  deletedAt DateTime?
+  deletedBy String? // userId who deleted
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  reactions Reaction[]
+  comments  Comment[]
+
+  @@index([cooperativeId])
+  @@index([authorUserId])
+  @@index([isPinned])
+  @@index([isApproved])
+  @@index([postType])
+  @@index([createdAt])
+  @@index([isDeleted])
+}
+
+// Reactions to posts and comments
+model Reaction {
+  id String @id @default(cuid())
+
+  // Target - either a post or a comment
+  postId    String?
+  post      Post?    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  commentId String?
+  comment   Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  // User who reacted
+  userId String
+
+  // Reaction type
+  reactionType String // 'like' | 'love' | 'celebrate' | 'support' | 'insightful' | 'thinking'
+
+  createdAt DateTime @default(now())
+
+  @@unique([postId, userId, reactionType])
+  @@unique([commentId, userId, reactionType])
+  @@index([postId])
+  @@index([commentId])
+  @@index([userId])
+}
+
+// Comments on posts (with threading support)
+model Comment {
+  id     String @id @default(cuid())
+  postId String
+  post   Post   @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  // Author information
+  authorUserId String
+  authorName   String? // Cached display name
+
+  // Comment content
+  content String
+
+  // Threading support
+  parentCommentId String?
+  parentComment   Comment?  @relation("CommentReplies", fields: [parentCommentId], references: [id], onDelete: Cascade)
+  replies         Comment[] @relation("CommentReplies")
+
+  // Moderation
+  isDeleted Boolean  @default(false)
+  deletedAt DateTime?
+  deletedBy String? // userId who deleted
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  reactions Reaction[]
+
+  @@index([postId])
+  @@index([authorUserId])
+  @@index([parentCommentId])
+  @@index([createdAt])
+  @@index([isDeleted])
 }

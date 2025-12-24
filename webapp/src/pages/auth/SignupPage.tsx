@@ -125,7 +125,7 @@ const SignupPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-9 text-[#64748B] hover:text-[#1E88E5]"
+                  className="absolute right-3 top-[42px] text-[#64748B] hover:text-[#1E88E5]"
                 >
                   {showPassword ? (
                     <EyeOff className="w-5 h-5" />

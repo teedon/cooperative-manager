@@ -47,7 +47,7 @@ const LoginPage: React.FC = () => {
         <Card className="p-0 shadow-lg border border-[#E2E8F0]">
           <CardBody className="space-y-7 p-8">
             {error && (
-              <div className="p-3 rounded-lg bg-[#FEE2E2] text-[#DC2626] text-sm">
+              <div className="p-3 rounded-lg bg-[#FEE2E2] text-[#EF4444] text-sm">
                 {error}
               </div>
             )}
@@ -76,7 +76,7 @@ const LoginPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-10 text-[#64748B] hover:text-[#0F172A]"
+                  className="absolute right-3 top-[42px] text-[#64748B] hover:text-[#0F172A]"
                 >
                   {showPassword ? (
                     <EyeOff className="w-5 h-5" />

@@ -32,22 +32,22 @@ const LoginPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[--color-background] py-12 px-4">
+    <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC] py-12 px-4">
       <div className="w-full max-w-md space-y-8">
         {/* Logo/Brand */}
         <div className="text-center space-y-2 mb-6">
-          <h1 className="text-3xl font-bold text-[--color-primary-main] tracking-tight">
+          <h1 className="text-3xl font-bold text-[#1E88E5] tracking-tight">
             Cooperative Manager
           </h1>
-          <p className="text-[--color-text-secondary] text-base">
+          <p className="text-[#64748B] text-base">
             Sign in to your account
           </p>
         </div>
 
-        <Card className="p-0 shadow-lg border border-[--color-border-light]">
+        <Card className="p-0 shadow-lg border border-[#E2E8F0]">
           <CardBody className="space-y-7 p-8">
             {error && (
-              <div className="p-3 rounded-lg bg-[--color-error-light] text-[--color-error-main] text-sm">
+              <div className="p-3 rounded-lg bg-[#FEE2E2] text-[#DC2626] text-sm">
                 {error}
               </div>
             )}
@@ -76,7 +76,7 @@ const LoginPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-9 text-[--color-text-secondary] hover:text-[--color-text-primary]"
+                  className="absolute right-3 top-10 text-[#64748B] hover:text-[#0F172A]"
                 >
                   {showPassword ? (
                     <EyeOff className="w-5 h-5" />
@@ -90,15 +90,15 @@ const LoginPage: React.FC = () => {
                 <label className="flex items-center">
                   <input
                     type="checkbox"
-                    className="w-4 h-4 rounded border-[--color-border-main] text-[--color-primary-main] focus:ring-[--color-primary-main]"
+                    className="w-4 h-4 rounded border-[#CBD5E1] text-[#1E88E5] focus:ring-[#1E88E5]"
                   />
-                  <span className="ml-2 text-sm text-[--color-text-secondary]">
+                  <span className="ml-2 text-sm text-[#64748B]">
                     Remember me
                   </span>
                 </label>
                 <Link
                   to="/forgot-password"
-                  className="text-sm text-[--color-primary-main] hover:underline"
+                  className="text-sm text-[#1E88E5] hover:underline"
                 >
                   Forgot password?
                 </Link>
@@ -111,10 +111,10 @@ const LoginPage: React.FC = () => {
 
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-[--color-border-light]" />
+                <div className="w-full border-t border-[#E2E8F0]" />
               </div>
               <div className="relative flex justify-center text-sm">
-                <span className="px-2 bg-[--color-surface] text-[--color-text-secondary]">
+                <span className="px-2 bg-white text-[#64748B]">
                   New to Cooperative Manager?
                 </span>
               </div>

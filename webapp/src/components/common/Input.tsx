@@ -17,14 +17,14 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
         {label && (
           <label
             htmlFor={inputId}
-            className="block text-sm font-medium text-[var(--color-text-primary)] mb-1.5"
+            className="block text-sm font-semibold text-[#0F172A] mb-2"
           >
             {label}
           </label>
         )}
         <div className="relative">
           {icon && (
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[var(--color-text-secondary)]">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-[#64748B]">
               {icon}
             </div>
           )}
@@ -32,16 +32,16 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             ref={ref}
             id={inputId}
             className={`
-              w-full px-4 py-2.5 rounded-lg border transition-all duration-200
-              bg-[var(--color-surface)]
-              text-[var(--color-text-primary)]
-              placeholder:text-[var(--color-text-disabled)]
-              focus:outline-none focus:ring-2 focus:ring-[var(--color-primary-main)] focus:border-transparent
-              disabled:bg-[var(--color-secondary-main)] disabled:cursor-not-allowed
+              w-full px-4 py-3 rounded-lg border transition-all duration-200
+              bg-[#F8FAFC]
+              text-[#0F172A]
+              placeholder:text-[#94A3B8]
+              focus:outline-none focus:ring-2 focus:ring-[#1E88E5] focus:border-transparent
+              disabled:bg-[#F5F5F5] disabled:cursor-not-allowed
               ${icon ? 'pl-10' : ''}
               ${error 
-                ? 'border-[var(--color-error-main)] focus:ring-[var(--color-error-main)]' 
-                : 'border-[var(--color-border-main)]'
+                ? 'border-[#EF4444] focus:ring-[#EF4444]' 
+                : 'border-[#E2E8F0]'
               }
               ${className}
             `}
@@ -49,15 +49,15 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
           />
           {error && (
             <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-              <AlertCircle className="w-5 h-5 text-[var(--color-error-main)]" />
+              <AlertCircle className="w-5 h-5 text-[#EF4444]" />
             </div>
           )}
         </div>
         {error && (
-          <p className="mt-1.5 text-sm text-[var(--color-error-main)]">{error}</p>
+          <p className="mt-1.5 text-sm text-[#EF4444]">{error}</p>
         )}
         {hint && !error && (
-          <p className="mt-1.5 text-sm text-[var(--color-text-secondary)]">{hint}</p>
+          <p className="mt-1.5 text-sm text-[#64748B]">{hint}</p>
         )}
       </div>
     );

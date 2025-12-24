@@ -15,7 +15,7 @@ const Spinner: React.FC<SpinnerProps> = ({ size = 'md', className = '' }) => {
 
   return (
     <Loader2
-      className={`animate-spin text-[var(--color-primary-main)] ${sizes[size]} ${className}`}
+      className={`animate-spin text-[#1E88E5] ${sizes[size]} ${className}`}
     />
   );
 };
@@ -27,10 +27,10 @@ interface LoadingOverlayProps {
 const LoadingOverlay: React.FC<LoadingOverlayProps> = ({ message }) => {
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-[var(--color-surface)] rounded-xl p-8 flex flex-col items-center space-y-4">
+      <div className="bg-white rounded-xl p-8 flex flex-col items-center space-y-4">
         <Spinner size="lg" />
         {message && (
-          <p className="text-[var(--color-text-primary)] font-medium">{message}</p>
+          <p className="text-[#0F172A] font-medium">{message}</p>
         )}
       </div>
     </div>

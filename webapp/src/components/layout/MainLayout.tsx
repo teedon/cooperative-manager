@@ -33,8 +33,8 @@ const NavItem: React.FC<NavItemProps> = ({ to, icon, label, isActive, onClick })
     className={`
       flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200
       ${isActive
-        ? 'bg-[--color-primary-main] text-white'
-        : 'text-[--color-text-secondary] hover:bg-[--color-secondary-main] hover:text-[--color-primary-main]'
+        ? 'bg-[#1E88E5] text-white'
+        : 'text-[#64748B] hover:bg-[#F5F5F5] hover:text-[#1E88E5]'
       }
     `}
   >
@@ -70,7 +70,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
   ];
 
   return (
-    <div className="min-h-screen bg-[--color-background]">
+    <div className="min-h-screen bg-[#F8FAFC]">
       {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
         <div
@@ -82,7 +82,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       {/* Sidebar */}
       <aside
         className={`
-          fixed top-0 left-0 z-50 h-full w-64 bg-[--color-surface] border-r border-[--color-border-light]
+          fixed top-0 left-0 z-50 h-full w-64 bg-white border-r border-[#E2E8F0]
           transform transition-transform duration-300 ease-in-out
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
           lg:translate-x-0
@@ -90,20 +90,20 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       >
         <div className="flex flex-col h-full">
           {/* Logo */}
-          <div className="flex items-center justify-between px-6 py-5 border-b border-[--color-border-light]">
+          <div className="flex items-center justify-between px-6 py-5 border-b border-[#E2E8F0]">
             <Link to="/dashboard" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-[--color-primary-main] rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 bg-[#1E88E5] rounded-lg flex items-center justify-center">
                 <Users className="w-5 h-5 text-white" />
               </div>
-              <span className="text-lg font-bold text-[--color-text-primary]">
+              <span className="text-lg font-bold text-[#0F172A]">
                 CoopManager
               </span>
             </Link>
             <button
               onClick={() => setSidebarOpen(false)}
-              className="lg:hidden p-1 rounded hover:bg-[--color-secondary-main]"
+              className="lg:hidden p-1 rounded hover:bg-[#F5F5F5]"
             >
-              <X className="w-5 h-5 text-[--color-text-secondary]" />
+              <X className="w-5 h-5 text-[#64748B]" />
             </button>
           </div>
 
@@ -120,7 +120,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
           </nav>
 
           {/* Settings & Logout */}
-          <div className="px-4 py-4 border-t border-[--color-border-light] space-y-1">
+          <div className="px-4 py-4 border-t border-[#E2E8F0] space-y-1">
             <NavItem
               to="/settings"
               icon={<Settings className="w-5 h-5" />}
@@ -130,7 +130,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             />
             <button
               onClick={handleLogout}
-              className="flex items-center space-x-3 px-4 py-3 rounded-lg w-full text-[--color-error-main] hover:bg-[--color-error-light] transition-all duration-200"
+              className="flex items-center space-x-3 px-4 py-3 rounded-lg w-full text-[#EF4444] hover:bg-[#FEE2E2] transition-all duration-200"
             >
               <LogOut className="w-5 h-5" />
               <span className="font-medium">Logout</span>
@@ -142,14 +142,14 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
       {/* Main content */}
       <div className="lg:pl-64">
         {/* Top header */}
-        <header className="sticky top-0 z-30 bg-[--color-surface] border-b border-[--color-border-light]">
+        <header className="sticky top-0 z-30 bg-white border-b border-[#E2E8F0]">
           <div className="flex items-center justify-between px-4 lg:px-6 py-4">
             {/* Mobile menu button */}
             <button
               onClick={() => setSidebarOpen(true)}
-              className="lg:hidden p-2 rounded-lg hover:bg-[var(--color-secondary-main)]"
+              className="lg:hidden p-2 rounded-lg hover:bg-[#F5F5F5]"
             >
-              <Menu className="w-6 h-6 text-[var(--color-text-secondary)]" />
+              <Menu className="w-6 h-6 text-[#64748B]" />
             </button>
 
             {/* Search - can be added later */}
@@ -158,47 +158,47 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             {/* Right side */}
             <div className="flex items-center space-x-4">
               {/* Notifications */}
-              <button className="relative p-2 rounded-lg hover:bg-[var(--color-secondary-main)]">
-                <Bell className="w-5 h-5 text-[var(--color-text-secondary)]" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-[var(--color-error-main)] rounded-full" />
+              <button className="relative p-2 rounded-lg hover:bg-[#F5F5F5]">
+                <Bell className="w-5 h-5 text-[#64748B]" />
+                <span className="absolute top-1 right-1 w-2 h-2 bg-[#EF4444] rounded-full" />
               </button>
 
               {/* Profile dropdown */}
               <div className="relative">
                 <button
                   onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-                  className="flex items-center space-x-2 p-2 rounded-lg hover:bg-[var(--color-secondary-main)]"
+                  className="flex items-center space-x-2 p-2 rounded-lg hover:bg-[#F5F5F5]"
                 >
-                  <div className="w-8 h-8 bg-[var(--color-primary-light)] rounded-full flex items-center justify-center">
-                    <User className="w-4 h-4 text-[var(--color-primary-main)]" />
+                  <div className="w-8 h-8 bg-[#E3F2FD] rounded-full flex items-center justify-center">
+                    <User className="w-4 h-4 text-[#1E88E5]" />
                   </div>
-                  <span className="hidden sm:block text-sm font-medium text-[--color-text-primary]">
+                  <span className="hidden sm:block text-sm font-medium text-[#0F172A]">
                     {/* Use user?.email or fallback */}
                     {user?.email || 'User'}
                   </span>
-                  <ChevronDown className="w-4 h-4 text-[var(--color-text-secondary)]" />
+                  <ChevronDown className="w-4 h-4 text-[#64748B]" />
                 </button>
 
                 {profileDropdownOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-[var(--color-surface)] rounded-lg shadow-lg border border-[var(--color-border-light)] py-1">
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-[#E2E8F0] py-1">
                     <Link
                       to="/profile"
-                      className="block px-4 py-2 text-sm text-[var(--color-text-primary)] hover:bg-[var(--color-secondary-main)]"
+                      className="block px-4 py-2 text-sm text-[#0F172A] hover:bg-[#F5F5F5]"
                       onClick={() => setProfileDropdownOpen(false)}
                     >
                       Your Profile
                     </Link>
                     <Link
                       to="/settings"
-                      className="block px-4 py-2 text-sm text-[var(--color-text-primary)] hover:bg-[var(--color-secondary-main)]"
+                      className="block px-4 py-2 text-sm text-[#0F172A] hover:bg-[#F5F5F5]"
                       onClick={() => setProfileDropdownOpen(false)}
                     >
                       Settings
                     </Link>
-                    <hr className="my-1 border-[var(--color-border-light)]" />
+                    <hr className="my-1 border-[#E2E8F0]" />
                     <button
                       onClick={handleLogout}
-                      className="block w-full text-left px-4 py-2 text-sm text-[var(--color-error-main)] hover:bg-[var(--color-error-light)]"
+                      className="block w-full text-left px-4 py-2 text-sm text-[#EF4444] hover:bg-[#FEE2E2]"
                     >
                       Sign out
                     </button>

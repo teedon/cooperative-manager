@@ -14,12 +14,12 @@ const Badge: React.FC<BadgeProps> = ({
   className = '',
 }) => {
   const variants = {
-    primary: 'bg-[var(--color-primary-light)] text-[var(--color-primary-dark)]',
-    success: 'bg-[var(--color-success-light)] text-[var(--color-success-dark)]',
-    warning: 'bg-[var(--color-warning-light)] text-[var(--color-warning-dark)]',
-    error: 'bg-[var(--color-error-light)] text-[var(--color-error-dark)]',
-    info: 'bg-[var(--color-info-light)] text-[var(--color-info-dark)]',
-    default: 'bg-[var(--color-secondary-main)] text-[var(--color-text-secondary)]',
+    primary: 'bg-[#E3F2FD] text-[#1565C0]',
+    success: 'bg-[#DCFCE7] text-[#16A34A]',
+    warning: 'bg-[#FEF3C7] text-[#D97706]',
+    error: 'bg-[#FEE2E2] text-[#DC2626]',
+    info: 'bg-[#E0F2FE] text-[#0284C7]',
+    default: 'bg-[#F5F5F5] text-[#64748B]',
   };
 
   const sizes = {

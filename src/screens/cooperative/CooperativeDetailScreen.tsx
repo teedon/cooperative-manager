@@ -455,6 +455,18 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
           <Icon name="ChevronRight" size={20} color={colors.text.disabled} style={styles.actionArrow} />
         </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={() => navigation.navigate('MessageWall', { cooperativeId })}
+        >
+          <Icon name="MessageCircle" size={24} color="#10B981" style={styles.actionIcon} />
+          <View style={styles.actionContent}>
+            <Text style={styles.actionTitle}>Message Wall</Text>
+            <Text style={styles.actionSubtitle}>View posts and announcements</Text>
+          </View>
+          <Icon name="ChevronRight" size={20} color={colors.text.disabled} style={styles.actionArrow} />
+        </TouchableOpacity>
       </View>
     </View>
   );

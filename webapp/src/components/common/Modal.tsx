@@ -52,24 +52,24 @@ const Modal: React.FC<ModalProps> = ({
     >
       <div
         className={`
-          w-full ${sizes[size]} bg-[var(--color-surface)] rounded-xl shadow-xl
+          w-full ${sizes[size]} bg-white rounded-xl shadow-xl
           transform transition-all duration-200 animate-modal-enter
         `}
         onClick={(e) => e.stopPropagation()}
       >
         {(title || showCloseButton) && (
-          <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-border-light)]">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-[#E2E8F0]">
             {title && (
-              <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">
+              <h2 className="text-lg font-semibold text-[#0F172A]">
                 {title}
               </h2>
             )}
             {showCloseButton && (
               <button
                 onClick={onClose}
-                className="p-1 rounded-lg hover:bg-[var(--color-secondary-main)] transition-colors"
+                className="p-1 rounded-lg hover:bg-[#F5F5F5] transition-colors"
               >
-                <X className="w-5 h-5 text-[var(--color-text-secondary)]" />
+                <X className="w-5 h-5 text-[#64748B]" />
               </button>
             )}
           </div>

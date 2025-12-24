@@ -24,21 +24,21 @@ const Button: React.FC<ButtonProps> = ({
 
   const variants = {
     primary:
-      'bg-[var(--color-primary-main)] text-white hover:bg-[var(--color-primary-dark)] focus:ring-[var(--color-primary-main)]',
+      'bg-[#1E88E5] text-white hover:bg-[#1565C0] focus:ring-[#1E88E5]',
     secondary:
-      'bg-[var(--color-secondary-main)] text-[var(--color-text-primary)] hover:bg-[var(--color-secondary-dark)] focus:ring-[var(--color-secondary-dark)]',
+      'bg-[#F5F5F5] text-[#0F172A] hover:bg-[#E0E0E0] focus:ring-[#E0E0E0]',
     outline:
-      'border-2 border-[var(--color-primary-main)] text-[var(--color-primary-main)] hover:bg-[var(--color-primary-main)] hover:text-white focus:ring-[var(--color-primary-main)]',
+      'border-2 border-[#1E88E5] text-[#1E88E5] hover:bg-[#1E88E5] hover:text-white focus:ring-[#1E88E5]',
     ghost:
-      'text-[var(--color-text-secondary)] hover:bg-[var(--color-secondary-main)] focus:ring-[var(--color-secondary-dark)]',
+      'text-[#64748B] hover:bg-[#F5F5F5] focus:ring-[#E0E0E0]',
     danger:
-      'bg-[var(--color-error-main)] text-white hover:bg-[var(--color-error-dark)] focus:ring-[var(--color-error-main)]',
+      'bg-[#EF4444] text-white hover:bg-[#DC2626] focus:ring-[#EF4444]',
   };
 
   const sizes = {
     sm: 'px-3 py-1.5 text-sm',
-    md: 'px-4 py-2.5 text-base',
-    lg: 'px-6 py-3 text-lg',
+    md: 'px-4 py-3.5 text-base',
+    lg: 'px-6 py-3.5 text-lg',
   };
 
   return (

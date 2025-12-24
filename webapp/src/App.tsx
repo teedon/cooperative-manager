@@ -18,15 +18,15 @@ import { CooperativeListPage } from '@/pages/cooperative';
 const PlaceholderPage: React.FC<{ title: string }> = ({ title }) => (
   <div className="flex items-center justify-center h-64">
     <div className="text-center">
-      <h2 className="text-xl font-semibold text-[var(--color-text-primary)]">{title}</h2>
-      <p className="text-[var(--color-text-secondary)] mt-2">Coming soon...</p>
+      <h2 className="text-xl font-semibold text-[#0F172A]">{title}</h2>
+      <p className="text-[#64748B] mt-2">Coming soon...</p>
     </div>
   </div>
 );
 
 const AppContent: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { isAuthenticated, loading } = useAppSelector((state) => state.auth);
+  const { isAuthenticated, isLoading: loading } = useAppSelector((state) => state.auth);
 
   useEffect(() => {
     // Check for existing auth token and fetch profile
@@ -38,7 +38,7 @@ const AppContent: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[var(--color-background)]">
+      <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC]">
         <Spinner size="lg" />
       </div>
     );

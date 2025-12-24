@@ -7,7 +7,7 @@ import { Card, CardBody, Button, Input, Badge, Spinner } from '@/components/comm
 
 const CooperativeListPage: React.FC = () => {
   const dispatch = useAppDispatch();
-  const { cooperatives, loading } = useAppSelector((state) => state.cooperative);
+  const { cooperatives, isLoading: loading } = useAppSelector((state) => state.cooperative);
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
@@ -23,10 +23,10 @@ const CooperativeListPage: React.FC = () => {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">
+          <h1 className="text-2xl font-bold text-[#0F172A]">
             Cooperatives
           </h1>
-          <p className="text-[var(--color-text-secondary)] mt-1">
+          <p className="text-[#64748B] mt-1">
             Manage your cooperative memberships
           </p>
         </div>
@@ -58,11 +58,11 @@ const CooperativeListPage: React.FC = () => {
       ) : filteredCooperatives.length === 0 ? (
         <Card>
           <CardBody className="text-center py-12">
-            <Users className="w-16 h-16 mx-auto text-[var(--color-text-disabled)]" />
-            <h3 className="mt-4 text-lg font-medium text-[var(--color-text-primary)]">
+            <Users className="w-16 h-16 mx-auto text-[#94A3B8]" />
+            <h3 className="mt-4 text-lg font-medium text-[#0F172A]">
               {searchQuery ? 'No cooperatives found' : 'No cooperatives yet'}
             </h3>
-            <p className="mt-2 text-[var(--color-text-secondary)]">
+            <p className="mt-2 text-[#64748B]">
               {searchQuery
                 ? 'Try adjusting your search query'
                 : 'Get started by creating a new cooperative or joining an existing one.'}
@@ -82,14 +82,14 @@ const CooperativeListPage: React.FC = () => {
                 <CardBody>
                   <div className="flex items-start justify-between">
                     <div className="flex items-center space-x-3">
-                      <div className="w-12 h-12 bg-[var(--color-primary-light)] rounded-lg flex items-center justify-center">
-                        <Users className="w-6 h-6 text-[var(--color-primary-main)]" />
+                      <div className="w-12 h-12 bg-[#E3F2FD] rounded-lg flex items-center justify-center">
+                        <Users className="w-6 h-6 text-[#1E88E5]" />
                       </div>
                       <div>
-                        <h3 className="font-semibold text-[var(--color-text-primary)]">
+                        <h3 className="font-semibold text-[#0F172A]">
                           {coop.name}
                         </h3>
-                        <p className="text-sm text-[var(--color-text-secondary)]">
+                        <p className="text-sm text-[#64748B]">
                           {coop.memberCount || 0} members
                         </p>
                       </div>
@@ -100,21 +100,21 @@ const CooperativeListPage: React.FC = () => {
                   </div>
 
                   {coop.description && (
-                    <p className="mt-4 text-sm text-[var(--color-text-secondary)] line-clamp-2">
+                    <p className="mt-4 text-sm text-[#64748B] line-clamp-2">
                       {coop.description}
                     </p>
                   )}
 
-                  <div className="mt-4 pt-4 border-t border-[var(--color-border-light)] flex items-center justify-between text-sm">
+                  <div className="mt-4 pt-4 border-t border-[#E2E8F0] flex items-center justify-between text-sm">
                     <div>
-                      <span className="text-[var(--color-text-secondary)]">
+                      <span className="text-[#64748B]">
                         Monthly contribution:
                       </span>
-                      <span className="ml-1 font-medium text-[var(--color-text-primary)]">
+                      <span className="ml-1 font-medium text-[#0F172A]">
                         ₦{(coop.contributionAmount || 0).toLocaleString()}
                       </span>
                     </div>
-                    <span className="text-[var(--color-primary-main)]">View →</span>
+                    <span className="text-[#1E88E5]">View →</span>
                   </div>
                 </CardBody>
               </Card>

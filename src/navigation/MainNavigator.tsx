@@ -55,6 +55,8 @@ import {
   ExpenseDetailScreen,
 } from '../screens/expenses';
 import ReportsScreen from '../screens/reports/ReportsScreen';
+import MessageWallScreen from '../screens/posts/MessageWallScreen';
+import PostDetailScreen from '../screens/posts/PostDetailScreen';
 
 export type MainTabParamList = {
   HomeTab: undefined;
@@ -130,6 +132,9 @@ export type HomeStackParamList = {
   ExpenseDetail: { expenseId: string; cooperativeId: string; canApprove?: boolean };
   // Reports screen
   Reports: { cooperativeId: string; cooperativeName: string };
+  // Message Wall screens
+  MessageWall: { cooperativeId: string };
+  PostDetail: { postId: string };
 };
 
 const HomeStackNavigator: React.FC = () => {
@@ -342,6 +347,17 @@ const HomeStackNavigator: React.FC = () => {
         name="Reports"
         component={ReportsScreen}
         options={{ title: 'Reports' }}
+      />
+      {/* Message Wall Screens */}
+      <HomeStack.Screen
+        name="MessageWall"
+        component={MessageWallScreen}
+        options={{ title: 'Message Wall' }}
+      />
+      <HomeStack.Screen
+        name="PostDetail"
+        component={PostDetailScreen}
+        options={{ title: 'Post' }}
       />
     </HomeStack.Navigator>
   );
@@ -557,6 +573,17 @@ const CoopsStackNavigator: React.FC = () => {
         name="Reports"
         component={ReportsScreen}
         options={{ title: 'Reports' }}
+      />
+      {/* Message Wall Screens */}
+      <CoopsStack.Screen
+        name="MessageWall"
+        component={MessageWallScreen}
+        options={{ title: 'Message Wall' }}
+      />
+      <CoopsStack.Screen
+        name="PostDetail"
+        component={PostDetailScreen}
+        options={{ title: 'Post' }}
       />
     </CoopsStack.Navigator>
   );

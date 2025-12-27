@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, BadRequestException, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { UsersService } from '../users/users.service';
 import { PrismaService } from '../prisma/prisma.service';
 import * as bcrypt from 'bcryptjs';
@@ -267,13 +267,23 @@ export class AuthService {
       { invitationId: invite.id },
     );
 
-    await this.notificationsService.notifyCooperativeAdmins(
-      invite.cooperativeId,
-      'member_joined',
-      'Member Joined via Invitation',
-      `${user.firstName} ${user.lastName} joined via invitation`,
-      { memberId: member.id },
-    );
+    // Notify admins if notifications service is available
+    // TODO: Inject NotificationsService if needed
+    /*
+    try {
+      if (this.notificationsService) {
+        await this.notificationsService.notifyCooperativeAdmins(
+          invite.cooperativeId,
+          'member_joined',
+          'Member Joined via Invitation',
+          `${user.firstName} ${user.lastName} joined via invitation`,
+          { memberId: member.id },
+        );
+      }
+    } catch (err) {
+      console.warn('Failed to send notification', err);
+    }
+    */
 
     const coop = await this.prisma.cooperative.findUnique({ where: { id: invite.cooperativeId } });
 

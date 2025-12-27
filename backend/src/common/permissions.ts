@@ -15,6 +15,7 @@ export const PERMISSIONS = {
   MEMBERS_REMOVE: 'members:remove',
   MEMBERS_EDIT_ROLE: 'members:edit_role',
   MEMBERS_VIEW_FINANCIALS: 'members:view_financials',
+  MEMBERS_INVITE: 'members:invite',
 
   // Contribution Management
   CONTRIBUTIONS_VIEW: 'contributions:view',
@@ -73,6 +74,7 @@ export const PERMISSION_GROUPS = {
     PERMISSIONS.MEMBERS_REMOVE,
     PERMISSIONS.MEMBERS_EDIT_ROLE,
     PERMISSIONS.MEMBERS_VIEW_FINANCIALS,
+    PERMISSIONS.MEMBERS_INVITE,
   ],
   CONTRIBUTION_MANAGEMENT: [
     PERMISSIONS.CONTRIBUTIONS_VIEW,
@@ -208,6 +210,7 @@ export function getPermissionLabel(permission: Permission): string {
     [PERMISSIONS.MEMBERS_REMOVE]: 'Remove Members',
     [PERMISSIONS.MEMBERS_EDIT_ROLE]: 'Edit Member Roles',
     [PERMISSIONS.MEMBERS_VIEW_FINANCIALS]: 'View Member Financials',
+    [PERMISSIONS.MEMBERS_INVITE]: 'Invite Members',
     [PERMISSIONS.CONTRIBUTIONS_VIEW]: 'View Contributions',
     [PERMISSIONS.CONTRIBUTIONS_CREATE_PLAN]: 'Create Contribution Plans',
     [PERMISSIONS.CONTRIBUTIONS_EDIT_PLAN]: 'Edit Contribution Plans',

@@ -116,21 +116,6 @@ export class AuthController {
   }
 
   @UseGuards(AuthGuard('jwt'))
-  @Get('pending-invitations')
-  async pendingInvitations(@Request() req: any) {
-    try {
-      const user = req.user;
-      const data = await this.auth.getPendingInvitationsByEmail(user.email);
-      return { success: true, message: 'Pending invitations retrieved', data };
-    } catch (error: any) {
-      throw new HttpException(
-        { success: false, message: error.message || 'Failed to fetch pending invitations', data: null },
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-  }
-
-  @UseGuards(AuthGuard('jwt'))
   @Post('logout')
   async logout(@Request() req: any) {
     try {

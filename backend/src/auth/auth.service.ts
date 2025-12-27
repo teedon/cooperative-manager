@@ -171,6 +171,115 @@ export class AuthService {
     return safe;
   }
 
+  /**
+   * Return pending invitations for a given email address.
+   * Used after signup/login so users can see invites addressed to them.
+   */
+  async getPendingInvitationsByEmail(email: string) {
+    if (!email) return [];
+    const invites = await this.prisma.invitation.findMany({
+      where: {
+        email: { equals: email, mode: 'insensitive' },
+        status: 'pending',
+        OR: [
+          { expiresAt: null },
+          { expiresAt: { gt: new Date() } },
+        ],
+      },
+      include: {
+        cooperative: true,
+        inviter: true,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    return invites;
+  }
+
+  /**
+   * Accept an invitation by id for the authenticated user.
+   * Creates a Member entry, marks invite accepted and returns cooperative info.
+   */
+  async acceptInvitation(userId: string, invitationId: string) {
+    const invite = await this.prisma.invitation.findUnique({ where: { id: invitationId } });
+    if (!invite) throw new NotFoundException('Invitation not found');
+    if (invite.status !== 'pending') throw new BadRequestException('Invitation is not pending');
+    
+    // Check if invitation has expired
+    if (invite.expiresAt && invite.expiresAt < new Date()) {
+      await this.prisma.invitation.update({ where: { id: invitationId }, data: { status: 'expired' } });
+      throw new BadRequestException('This invitation has expired');
+    }
+
+    // Ensure the invite targets this user's email or phone (if provided)
+    const user = await this.users.findById(userId);
+    if (!user) throw new UnauthorizedException('User not found');
+
+    if (invite.email) {
+      if (invite.email.toLowerCase() !== user.email.toLowerCase()) {
+        throw new ForbiddenException('This invitation was not sent to your email');
+      }
+    }
+    if (invite.phone && user.phone) {
+      const cleanInvitePhone = invite.phone.replace(/\D/g, '');
+      const cleanUserPhone = user.phone.replace(/\D/g, '');
+      if (cleanInvitePhone !== cleanUserPhone) {
+        throw new ForbiddenException('This invitation was not sent to your phone number');
+      }
+    }
+
+    // Check if user is already a member
+    const existing = await this.prisma.member.findFirst({ where: { cooperativeId: invite.cooperativeId, userId } });
+    if (existing) {
+      // mark invitation accepted anyway
+      await this.prisma.invitation.update({ where: { id: invitationId }, data: { status: 'accepted', acceptedBy: userId, acceptedAt: new Date() } });
+      throw new BadRequestException('You are already a member of this cooperative');
+    }
+
+    // Create member as active
+    const member = await this.prisma.member.create({
+      data: {
+        cooperativeId: invite.cooperativeId,
+        userId,
+        role: 'member',
+        joinedAt: new Date(),
+        status: 'active',
+        virtualBalance: 0,
+      },
+    });
+
+    // Update cooperative member count (best-effort)
+    try {
+      await this.prisma.cooperative.update({ where: { id: invite.cooperativeId }, data: { memberCount: { increment: 1 } as any } });
+    } catch (err) {
+      // ignore errors here
+      console.warn('Failed to increment memberCount for cooperative', invite.cooperativeId, err);
+    }
+
+    // Mark invitation accepted
+    await this.prisma.invitation.update({ where: { id: invitationId }, data: { status: 'accepted', acceptedBy: userId, acceptedAt: new Date() } });
+
+    // Log activity and notify
+    await this.activitiesService.log(
+      userId,
+      'invitation.accepted',
+      `Accepted invitation to join cooperative`,
+      invite.cooperativeId,
+      { invitationId: invite.id },
+    );
+
+    await this.notificationsService.notifyCooperativeAdmins(
+      invite.cooperativeId,
+      'member_joined',
+      'Member Joined via Invitation',
+      `${user.firstName} ${user.lastName} joined via invitation`,
+      { memberId: member.id },
+    );
+
+    const coop = await this.prisma.cooperative.findUnique({ where: { id: invite.cooperativeId } });
+
+    return { cooperative: coop, member };
+  }
+
   async logout(userId: string) {
     await this.users.clearRefreshToken(userId);
     return { success: true };

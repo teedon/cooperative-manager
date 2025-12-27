@@ -16,6 +16,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { signup } from '../../store/slices/authSlice';
+import { authApi } from '../../api/authApi';
 import {
   validateEmail,
   validatePassword,
@@ -89,6 +90,55 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
     try {
       const { confirmPassword: _, ...signupData } = formData;
       await dispatch(signup(signupData)).unwrap();
+
+      // After successful signup, check if there are pending invitations addressed to this email
+      try {
+        const pendingResp = await authApi.getPendingInvitations();
+        if (pendingResp.success && Array.isArray(pendingResp.data) && pendingResp.data.length > 0) {
+          const names = pendingResp.data.map((i: any) => i.cooperative?.name || i.code || 'Cooperative');
+          const message = `You have ${pendingResp.data.length} pending invitation(s):\n\n` + names.join('\n');
+          const first = pendingResp.data[0];
+          Alert.alert('Pending Invitations', message, [
+            {
+              text: 'Accept First',
+              onPress: async () => {
+                try {
+                  if (first && first.id) {
+                    const acceptResp = await authApi.acceptInvitation(first.id);
+                    if (acceptResp.success) {
+                      // Navigate to the cooperative detail after acceptance
+                      navigation.navigate('Home' as any, {});
+                      setTimeout(() => {
+                        navigation.navigate('CooperativeDetail' as any, { cooperativeId: first.cooperativeId });
+                      }, 300);
+                    } else {
+                      Alert.alert('Invite', acceptResp.message || 'Failed to accept invitation');
+                    }
+                  }
+                } catch (e) {
+                  console.warn('Failed to accept invitation', e);
+                  Alert.alert('Invite', 'Failed to accept invitation.');
+                }
+              },
+            },
+            {
+              text: 'View',
+              onPress: () => {
+                if (first && first.cooperativeId) {
+                  navigation.navigate('Home' as any, {});
+                  setTimeout(() => {
+                    navigation.navigate('CooperativeDetail' as any, { cooperativeId: first.cooperativeId });
+                  }, 300);
+                }
+              },
+            },
+            { text: 'Later', style: 'cancel' },
+          ]);
+        }
+      } catch (err) {
+        // ignore errors - not critical for signup
+        console.warn('Failed to fetch pending invites:', err);
+      }
     } catch (err: any) {
       const errorMessage = err?.response?.data?.message || err?.message || 'Please try again.';
       Alert.alert('Signup Failed', errorMessage);

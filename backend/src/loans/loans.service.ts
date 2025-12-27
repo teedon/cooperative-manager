@@ -805,10 +805,20 @@ export class LoansService {
   // ==================== LOAN QUERIES ====================
 
   async getLoans(cooperativeId: string, requestingUserId: string) {
-    await this.validateMembership(cooperativeId, requestingUserId);
+    const member = await this.validateMembership(cooperativeId, requestingUserId);
+
+    // Check if user has permission to view all loans
+    const permissions = parsePermissions(member.permissions);
+    const canViewAllLoans = hasPermission(member.role, permissions, PERMISSIONS.LOANS_VIEW);
+
+    // If user has LOANS_VIEW permission, return all loans
+    // Otherwise, return only their own loans
+    const whereClause = canViewAllLoans 
+      ? { cooperativeId }
+      : { cooperativeId, memberId: member.id };
 
     return this.prisma.loan.findMany({
-      where: { cooperativeId },
+      where: whereClause,
       include: {
         member: { include: { user: true } },
         loanType: true,

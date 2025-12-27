@@ -5,6 +5,7 @@ import { CreateCooperativeDto } from './dto/create-cooperative.dto';
 import { UpdateCooperativeDto } from './dto/update-cooperative.dto';
 import { UpdateMemberRoleDto, UpdateMemberPermissionsDto } from './dto/update-member.dto';
 import { CreateOfflineMemberDto, UpdateOfflineMemberDto } from './dto/offline-member.dto';
+import { SendInviteDto, SendWhatsAppInviteDto } from './dto/invite.dto';
 import { getAllPredefinedRoles } from '../common/permissions';
 
 @Controller('cooperatives')
@@ -147,6 +148,76 @@ export class CooperativesController {
     } catch (error: any) {
       throw new HttpException(
         { success: false, message: error.message || 'Failed to reject member', data: null },
+        error.status || HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  // ==================== INVITATION ENDPOINTS ====================
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post(':id/invite/email')
+  async sendEmailInvites(
+    @Param('id') cooperativeId: string,
+    @Body() dto: SendInviteDto,
+    @Request() req: any,
+  ) {
+    try {
+      const user = req.user;
+      const data = await this.service.sendEmailInvites(cooperativeId, dto, user.id);
+      return { success: true, message: 'Email invitations sent successfully', data };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to send email invitations', data: null },
+        error.status || HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post(':id/invite/whatsapp')
+  async sendWhatsAppInvites(
+    @Param('id') cooperativeId: string,
+    @Body() dto: SendWhatsAppInviteDto,
+    @Request() req: any,
+  ) {
+    try {
+      const user = req.user;
+      const data = await this.service.generateWhatsAppInviteLinks(cooperativeId, dto, user.id);
+      return { success: true, message: 'WhatsApp invite links generated successfully', data };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to generate WhatsApp invite links', data: null },
+        error.status || HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get(':id/invitations')
+  async getInvitations(@Param('id') cooperativeId: string, @Request() req: any) {
+    try {
+      const user = req.user;
+      const data = await this.service.getInvitations(cooperativeId, user.id);
+      return { success: true, message: 'Invitations retrieved successfully', data };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to retrieve invitations', data: null },
+        error.status || HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Delete('invitations/:invitationId')
+  async revokeInvitation(@Param('invitationId') invitationId: string, @Request() req: any) {
+    try {
+      const user = req.user;
+      const data = await this.service.revokeInvitation(invitationId, user.id);
+      return { success: true, message: 'Invitation revoked successfully', data };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to revoke invitation', data: null },
         error.status || HttpStatus.BAD_REQUEST,
       );
     }

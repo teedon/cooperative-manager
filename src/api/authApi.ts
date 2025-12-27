@@ -63,6 +63,16 @@ export const authApi = {
     return response.data;
   },
 
+  getPendingInvitations: async (): Promise<ApiResponse<any[]>> => {
+    const response = await apiClient.get<ApiResponse<any[]>>('/auth/pending-invitations');
+    return response.data;
+  },
+
+  acceptInvitation: async (invitationId: string): Promise<ApiResponse<any>> => {
+    const response = await apiClient.post<ApiResponse<any>>(`/auth/invitations/${invitationId}/accept`);
+    return response.data;
+  },
+
   // Profile Management
   getProfile: async (): Promise<ApiResponse<User>> => {
     const response = await apiClient.get<ApiResponse<User>>('/users/profile');

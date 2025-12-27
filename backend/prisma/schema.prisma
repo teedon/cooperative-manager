@@ -28,6 +28,7 @@ model User {
   notifications           Notification[]          @relation("UserNotifications")
   fcmTokens               FcmToken[]              @relation("UserFcmTokens")
   notificationPreferences NotificationPreference? @relation("UserNotificationPreferences")
+  invitationsSent         Invitation[]
 }
 
 model Cooperative {
@@ -55,6 +56,7 @@ model Cooperative {
   expenses           Expense[]
   posts              Post[]
   polls              Poll[]
+  invitations        Invitation[]
 }
 
 model Member {
@@ -473,6 +475,28 @@ model Notification {
   @@index([cooperativeId])
   @@index([isRead])
   @@index([createdAt])
+}
+
+// Invitations created when admins invite people via email/whatsapp
+model Invitation {
+  id            String      @id @default(cuid())
+  cooperative   Cooperative @relation(fields: [cooperativeId], references: [id])
+  cooperativeId String
+  inviter       User?       @relation(fields: [inviterId], references: [id])
+  inviterId     String?
+  email         String?
+  phone         String?
+  message       String?
+  code          String?     // cooperative code included in the invite
+  status        String      @default("pending") // pending | accepted | revoked
+  acceptedBy    String?     // userId who accepted
+  acceptedAt    DateTime?
+  expiresAt     DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@index([email])
+  @@index([cooperativeId])
 }
 
 model FcmToken {

@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException, ConflictException, 
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCooperativeDto } from './dto/create-cooperative.dto';
 import { UpdateCooperativeDto } from './dto/update-cooperative.dto';
+import { SendInviteDto, SendWhatsAppInviteDto } from './dto/invite.dto';
 import { ActivitiesService } from '../activities/activities.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { 
@@ -12,7 +13,7 @@ import {
   ALL_PERMISSIONS,
   DEFAULT_ROLE_PERMISSIONS,
 } from '../common/permissions';
-import { sendMailWithZoho, generateMemberRoleChangeEmailTemplate } from '../services/mailer';
+import { sendMailWithZoho, generateMemberRoleChangeEmailTemplate, generateCooperativeInviteEmailTemplate } from '../services/mailer';
 
 @Injectable()
 export class CooperativesService {
@@ -385,7 +386,280 @@ export class CooperativesService {
       });
     }
 
-    return { message: 'Member request rejected' };
+    return { message: 'Member request rejected', memberId };
+  }
+
+  // ==================== INVITATION METHODS ====================
+
+  async sendEmailInvites(cooperativeId: string, dto: SendInviteDto, userId: string) {
+    // Verify cooperative exists
+    const cooperative = await this.findOne(cooperativeId);
+    if (!cooperative) {
+      throw new NotFoundException('Cooperative not found');
+    }
+
+    // Check if user is admin or moderator
+    const member = await this.prisma.member.findFirst({
+      where: {
+        cooperativeId,
+        userId,
+        status: 'active',
+      },
+      include: { user: true },
+    });
+
+    if (!member) {
+      throw new ForbiddenException('You are not a member of this cooperative');
+    }
+
+    const permissions = parsePermissions(member.permissions);
+    if (!hasPermission(member.role, permissions, PERMISSIONS.MEMBERS_INVITE)) {
+      throw new ForbiddenException('You do not have permission to invite members');
+    }
+
+    const inviterName = member.user ? `${member.user.firstName} ${member.user.lastName}` : 'A cooperative admin';
+    const appUrl = process.env.FRONTEND_URL || 'https://coopmanager.app';
+    const deepLink = `coopmanager://join?code=${cooperative.code}`;
+    const webLink = `${appUrl}/join?code=${cooperative.code}`;
+    
+    const results = [];
+    
+    for (const email of dto.emails) {
+      try {
+        const htmlContent = generateCooperativeInviteEmailTemplate(
+          email,
+          inviterName,
+          cooperative.name,
+          cooperative.code,
+        );
+
+        // Enhance the email template with deep link
+        const enhancedHtmlContent = htmlContent.replace(
+          '<a href="#" class="button">Join Cooperative</a>',
+          `<a href="${deepLink}" class="button" style="margin-right: 10px;">Open in App</a>
+           <a href="${webLink}" class="button" style="background: #6366f1;">Join via Web</a>`
+        );
+
+        const emailSent = await sendMailWithZoho({
+          recipient: email,
+          subject: `You're invited to join ${cooperative.name}`,
+          htmlContent: enhancedHtmlContent,
+        });
+
+        // Persist invitation record so the invite can be claimed when the user signs up
+        try {
+          await this.prisma.invitation.create({
+            data: {
+              cooperativeId: cooperative.id,
+              inviterId: userId,
+              email: email,
+              message: dto.message ?? null,
+              code: cooperative.code,
+              status: emailSent ? 'pending' : 'pending',
+              expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days expiration
+            },
+          });
+        } catch (err) {
+          // non-fatal - we still return email results even if persistence fails
+          console.error('Failed to persist invitation for', email, err);
+        }
+
+        results.push({
+          email,
+          sent: emailSent,
+          message: emailSent ? 'Invitation sent successfully' : 'Failed to send invitation',
+        });
+      } catch (error) {
+        results.push({
+          email,
+          sent: false,
+          message: 'Failed to send invitation',
+        });
+      }
+    }
+
+    // Log activity
+    await this.activitiesService.log(
+      userId,
+      'members.invite_sent',
+      `Sent ${dto.emails.length} email invitation(s) to join "${cooperative.name}"`,
+      cooperativeId,
+      { emails: dto.emails, cooperativeName: cooperative.name },
+    );
+
+    return {
+      cooperativeCode: cooperative.code,
+      cooperativeName: cooperative.name,
+      deepLink,
+      webLink,
+      results,
+    };
+  }
+
+  async generateWhatsAppInviteLinks(cooperativeId: string, dto: SendWhatsAppInviteDto, userId: string) {
+    // Verify cooperative exists
+    const cooperative = await this.findOne(cooperativeId);
+    if (!cooperative) {
+      throw new NotFoundException('Cooperative not found');
+    }
+
+    // Check if user is admin or moderator
+    const member = await this.prisma.member.findFirst({
+      where: {
+        cooperativeId,
+        userId,
+        status: 'active',
+      },
+      include: { user: true },
+    });
+
+    if (!member) {
+      throw new ForbiddenException('You are not a member of this cooperative');
+    }
+
+    const permissions = parsePermissions(member.permissions);
+    if (!hasPermission(member.role, permissions, PERMISSIONS.MEMBERS_INVITE)) {
+      throw new ForbiddenException('You do not have permission to invite members');
+    }
+
+    const inviterName = member.user ? `${member.user.firstName} ${member.user.lastName}` : 'A cooperative admin';
+    const appUrl = process.env.FRONTEND_URL || 'https://coopmanager.app';
+    const deepLink = `coopmanager://join?code=${cooperative.code}`;
+    const webLink = `${appUrl}/join?code=${cooperative.code}`;
+
+    const customMessage = dto.message || 
+      `Hello! ${inviterName} has invited you to join *${cooperative.name}* on CoopManager.`;
+
+    const whatsappMessage = `${customMessage}
+
+*Cooperative Code:* ${cooperative.code}
+
+Open the CoopManager app and use this code to join, or click the link below:
+${deepLink}
+
+Don't have the app? Join via web:
+${webLink}`;
+
+    const whatsappLinks = dto.phoneNumbers.map((phone) => {
+      // Remove all non-numeric characters from phone
+      const cleanPhone = phone.replace(/\D/g, '');
+      const encodedMessage = encodeURIComponent(whatsappMessage);
+      
+      return {
+        phone: cleanPhone,
+        originalPhone: phone,
+        whatsappUrl: `https://wa.me/${cleanPhone}?text=${encodedMessage}`,
+      };
+    });
+
+    // Log activity
+    await this.activitiesService.log(
+      userId,
+      'members.whatsapp_invite_generated',
+      `Generated ${dto.phoneNumbers.length} WhatsApp invitation link(s) for "${cooperative.name}"`,
+      cooperativeId,
+      { phoneCount: dto.phoneNumbers.length, cooperativeName: cooperative.name },
+    );
+
+    return {
+      cooperativeCode: cooperative.code,
+      cooperativeName: cooperative.name,
+      deepLink,
+      webLink,
+      whatsappMessage,
+      whatsappLinks,
+    };
+  }
+
+  async getInvitations(cooperativeId: string, userId: string) {
+    // Verify cooperative exists
+    const cooperative = await this.findOne(cooperativeId);
+    if (!cooperative) {
+      throw new NotFoundException('Cooperative not found');
+    }
+
+    // Check if user is admin or moderator
+    const member = await this.prisma.member.findFirst({
+      where: {
+        cooperativeId,
+        userId,
+        status: 'active',
+      },
+    });
+
+    if (!member) {
+      throw new ForbiddenException('You are not a member of this cooperative');
+    }
+
+    const permissions = parsePermissions(member.permissions);
+    if (!hasPermission(member.role, permissions, PERMISSIONS.MEMBERS_INVITE)) {
+      throw new ForbiddenException('You do not have permission to view invitations');
+    }
+
+    // Fetch invitations for this cooperative
+    const invitations = await this.prisma.invitation.findMany({
+      where: { cooperativeId },
+      include: {
+        inviter: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return invitations;
+  }
+
+  async revokeInvitation(invitationId: string, userId: string) {
+    // Find the invitation
+    const invitation = await this.prisma.invitation.findUnique({
+      where: { id: invitationId },
+      include: { cooperative: true },
+    });
+
+    if (!invitation) {
+      throw new NotFoundException('Invitation not found');
+    }
+
+    // Check if user has permission to revoke
+    const member = await this.prisma.member.findFirst({
+      where: {
+        cooperativeId: invitation.cooperativeId,
+        userId,
+        status: 'active',
+      },
+    });
+
+    if (!member) {
+      throw new ForbiddenException('You are not a member of this cooperative');
+    }
+
+    const permissions = parsePermissions(member.permissions);
+    if (!hasPermission(member.role, permissions, PERMISSIONS.MEMBERS_INVITE)) {
+      throw new ForbiddenException('You do not have permission to revoke invitations');
+    }
+
+    // Update invitation status to revoked
+    const updated = await this.prisma.invitation.update({
+      where: { id: invitationId },
+      data: { status: 'revoked' },
+    });
+
+    // Log activity
+    await this.activitiesService.log(
+      userId,
+      'invitation.revoked',
+      `Revoked invitation for ${invitation.email || invitation.phone}`,
+      invitation.cooperativeId,
+      { invitationId, email: invitation.email, phone: invitation.phone },
+    );
+
+    return updated;
   }
 
   async getPendingMembers(cooperativeId: string, adminUserId: string) {
@@ -1523,8 +1797,21 @@ export class CooperativesService {
     // Also build virtual ledger entries from contribution payments, loans, etc.
     const virtualEntries = await this.buildVirtualLedgerEntries(cooperativeId, memberId);
 
+    // Deduplicate: Remove virtual entries that already exist as real ledger entries
+    // We identify duplicates by matching referenceType and referenceId
+    const existingRefs = new Set(
+      entries
+        .filter(e => e.referenceId && e.referenceType)
+        .map(e => `${e.referenceType}:${e.referenceId}`)
+    );
+
+    const deduplicatedVirtualEntries = virtualEntries.filter(ve => {
+      const key = `${ve.referenceType}:${ve.referenceId}`;
+      return !existingRefs.has(key);
+    });
+
     // Combine and sort by date
-    const allEntries = [...entries, ...virtualEntries].sort(
+    const allEntries = [...entries, ...deduplicatedVirtualEntries].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
 

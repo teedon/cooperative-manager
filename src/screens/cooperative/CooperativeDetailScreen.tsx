@@ -10,6 +10,7 @@ import {
   Image,
   Alert,
   TextInput,
+  Clipboard,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -44,6 +45,14 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const { loans } = useAppSelector((state) => state.loan);
   const { user } = useAppSelector((state) => state.auth);
   const { currentSubscription } = useAppSelector((state) => state.subscription);
+
+  // Handle copying cooperative code
+  const handleCopyCode = useCallback(() => {
+    if (currentCooperative?.code) {
+      Clipboard.setString(currentCooperative.code);
+      Alert.alert('Copied!', `Cooperative code "${currentCooperative.code}" copied to clipboard`);
+    }
+  }, [currentCooperative?.code]);
 
   // Use permission hook
   const {
@@ -398,6 +407,24 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               <View style={styles.actionContent}>
                 <Text style={styles.actionTitle}>Offline Members</Text>
                 <Text style={styles.actionSubtitle}>Manage members without mobile devices</Text>
+              </View>
+              <Icon name="ChevronRight" size={20} color={colors.text.disabled} style={styles.actionArrow} />
+            </TouchableOpacity>
+          )}
+
+          {/* Invite Members - requires canApproveMembers */}
+          {canApproveMembers && (
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => navigation.navigate('InviteMembers', { 
+                cooperativeId, 
+                cooperativeName: currentCooperative?.name || 'Cooperative'
+              })}
+            >
+              <Icon name="Mail" size={24} color={colors.accent?.main || '#26A69A'} style={styles.actionIcon} />
+              <View style={styles.actionContent}>
+                <Text style={styles.actionTitle}>Invite Members</Text>
+                <Text style={styles.actionSubtitle}>Send invitations via email or WhatsApp</Text>
               </View>
               <Icon name="ChevronRight" size={20} color={colors.text.disabled} style={styles.actionArrow} />
             </TouchableOpacity>
@@ -918,10 +945,15 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           <View style={styles.headerTitleRow}>
             <Text style={styles.headerTitle}>{currentCooperative.name}</Text>
             {currentCooperative.code && (
-              <View style={styles.codeBadge}>
+              <TouchableOpacity 
+                style={styles.codeBadge}
+                onPress={handleCopyCode}
+                activeOpacity={0.7}
+              >
                 <Icon name="Key" size={12} color={colors.text.inverse} />
                 <Text style={styles.codeText}>{currentCooperative.code}</Text>
-              </View>
+                <Icon name="Copy" size={11} color={colors.text.inverse} style={styles.copyIcon} />
+              </TouchableOpacity>
             )}
           </View>
           <View style={styles.headerBadgesRow}>
@@ -1072,6 +1104,10 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     letterSpacing: 1,
+  },
+  copyIcon: {
+    marginLeft: 4,
+    opacity: 0.9,
   },
   headerBadgesRow: {
     flexDirection: 'row',

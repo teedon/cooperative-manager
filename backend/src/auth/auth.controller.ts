@@ -1,4 +1,4 @@
-import { Body, Controller, Post, Request, UseGuards, Get, HttpException, HttpStatus } from '@nestjs/common';
+import { Body, Controller, Post, Request, UseGuards, Get, HttpException, HttpStatus, Param } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { CreateUserDto } from '../users/dto/create-user.dto';
 import { ForgotPasswordDto, ResetPasswordDto, VerifyResetTokenDto } from './dto/forgot-password.dto';
@@ -80,6 +80,51 @@ export class AuthController {
     } catch (error: any) {
       throw new HttpException(
         { success: false, message: error.message || 'Failed to get user', data: null },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get('pending-invitations')
+  async pendingInvitations(@Request() req: any) {
+    try {
+      const user = req.user;
+      const data = await this.auth.getPendingInvitationsByEmail(user.email);
+      return { success: true, message: 'Pending invitations retrieved', data };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to fetch pending invitations', data: null },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('invitations/:id/accept')
+  async acceptInvitation(@Param('id') id: string, @Request() req: any) {
+    try {
+      const user = req.user;
+      const data = await this.auth.acceptInvitation(user.id, id);
+      return { success: true, message: 'Invitation accepted', data };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to accept invitation', data: null },
+        error.status || HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get('pending-invitations')
+  async pendingInvitations(@Request() req: any) {
+    try {
+      const user = req.user;
+      const data = await this.auth.getPendingInvitationsByEmail(user.email);
+      return { success: true, message: 'Pending invitations retrieved', data };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to fetch pending invitations', data: null },
         HttpStatus.BAD_REQUEST,
       );
     }

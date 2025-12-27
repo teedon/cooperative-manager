@@ -198,6 +198,18 @@ export const fetchPendingLoans = createAsyncThunk(
   }
 );
 
+export const fetchMyLoans = createAsyncThunk(
+  'loan/fetchMyLoans',
+  async (cooperativeId: string, { rejectWithValue }) => {
+    try {
+      const response = await loanApi.getMyLoans(cooperativeId);
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || error.message);
+    }
+  }
+);
+
 export const fetchRepaymentSchedule = createAsyncThunk(
   'loan/fetchRepaymentSchedule',
   async (loanId: string, { rejectWithValue }) => {
@@ -360,6 +372,19 @@ const loanSlice = createSlice({
       // Fetch pending loans
       .addCase(fetchPendingLoans.fulfilled, (state, action) => {
         state.pendingLoans = action.payload;
+      })
+      // Fetch my loans
+      .addCase(fetchMyLoans.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(fetchMyLoans.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.loans = action.payload;
+      })
+      .addCase(fetchMyLoans.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
       })
       // Fetch repayment schedule
       .addCase(fetchRepaymentSchedule.fulfilled, (state, action) => {

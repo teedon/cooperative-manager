@@ -299,4 +299,42 @@ export const cooperativeApi = {
     );
     return response.data;
   },
+
+  // Invitation endpoints
+  sendEmailInvites: async (
+    cooperativeId: string,
+    emails: string[],
+    message?: string
+  ): Promise<ApiResponse<{
+    cooperativeCode: string;
+    cooperativeName: string;
+    deepLink: string;
+    webLink: string;
+    results: Array<{ email: string; sent: boolean; message: string }>;
+  }>> => {
+    const response = await apiClient.post<ApiResponse<any>>(
+      `/cooperatives/${cooperativeId}/invite/email`,
+      { emails, message }
+    );
+    return response.data;
+  },
+
+  sendWhatsAppInvites: async (
+    cooperativeId: string,
+    phoneNumbers: string[],
+    message?: string
+  ): Promise<ApiResponse<{
+    cooperativeCode: string;
+    cooperativeName: string;
+    deepLink: string;
+    webLink: string;
+    whatsappMessage: string;
+    whatsappLinks: Array<{ phone: string; originalPhone: string; whatsappUrl: string }>;
+  }>> => {
+    const response = await apiClient.post<ApiResponse<any>>(
+      `/cooperatives/${cooperativeId}/invite/whatsapp`,
+      { phoneNumbers, message }
+    );
+    return response.data;
+  },
 };

@@ -34,6 +34,7 @@ import LedgerScreen from '../screens/ledger/LedgerScreen';
 import MemberDashboardScreen from '../screens/cooperative/MemberDashboardScreen';
 import AdminManagementScreen from '../screens/cooperative/AdminManagementScreen';
 import OfflineMembersScreen from '../screens/cooperative/OfflineMembersScreen';
+import InviteMembersScreen from '../screens/cooperative/InviteMembersScreen';
 import ProfileScreen from '../screens/home/ProfileScreen';
 import NotificationsScreen from '../screens/notifications/NotificationsScreen';
 import NotificationSettingsScreen from '../screens/notifications/NotificationSettingsScreen';
@@ -115,6 +116,7 @@ export type HomeStackParamList = {
   MemberDashboard: { cooperativeId: string; memberId: string };
   AdminManagement: { cooperativeId: string };
   OfflineMembers: { cooperativeId: string; cooperativeName: string };
+  InviteMembers: { cooperativeId: string; cooperativeName: string };
   Notifications: undefined;
   NotificationSettings: undefined;
   SubscriptionPlans: { cooperativeId: string; currentPlanId?: string };
@@ -271,6 +273,11 @@ const HomeStackNavigator: React.FC = () => {
         name="OfflineMembers"
         component={OfflineMembersScreen}
         options={{ title: 'Offline Members', headerShown: false }}
+      />
+      <HomeStack.Screen
+        name="InviteMembers"
+        component={InviteMembersScreen}
+        options={{ title: 'Invite Members', headerShown: false }}
       />
       <HomeStack.Screen
         name="Notifications"
@@ -507,6 +514,11 @@ const CoopsStackNavigator: React.FC = () => {
         name="OfflineMembers"
         component={OfflineMembersScreen}
         options={{ title: 'Offline Members', headerShown: false }}
+      />
+      <CoopsStack.Screen
+        name="InviteMembers"
+        component={InviteMembersScreen}
+        options={{ title: 'Invite Members', headerShown: false }}
       />
       <CoopsStack.Screen
         name="Notifications"

@@ -26,9 +26,11 @@ import {
   UserCog,
   CheckCheck,
   ChevronRight,
+  Mail,
 } from 'lucide-react'
 import { cooperativeApi } from '../api/cooperativeApi'
 import { loanApi, type Loan } from '../api/loanApi'
+import { InviteMembersModal } from './InviteMembersModal'
 import type { Cooperative, CooperativeMember } from '../types'
 
 type TabType = 'overview' | 'members' | 'contributions' | 'loans'
@@ -61,6 +63,7 @@ export const CooperativeDetailsPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('')
   const [memberFilter, setMemberFilter] = useState<'all' | 'online' | 'offline'>('all')
   const [copiedCode, setCopiedCode] = useState(false)
+  const [showInviteModal, setShowInviteModal] = useState(false)
 
   // Get current user's membership and role
   const currentMember = useMemo(() => {
@@ -563,6 +566,23 @@ export const CooperativeDetailsPage: React.FC = () => {
                     </button>
                   )}
 
+                  {/* Invite Members */}
+                  {isAdminOrModerator && (
+                    <button 
+                      onClick={() => setShowInviteModal(true)}
+                      className="w-full p-4 bg-white border-2 border-gray-200 rounded-xl hover:border-teal-500 hover:bg-teal-50 transition-all duration-300 flex items-center gap-4 group"
+                    >
+                      <div className="p-3 bg-teal-100 rounded-lg group-hover:bg-teal-200 transition-colors">
+                        <Mail className="w-6 h-6 text-teal-600" />
+                      </div>
+                      <div className="flex-1 text-left">
+                        <h4 className="font-semibold text-gray-900">Invite Members</h4>
+                        <p className="text-sm text-gray-600">Send invitations via email or WhatsApp</p>
+                      </div>
+                      <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-teal-600 transition-colors" />
+                    </button>
+                  )}
+
                   {/* Offline Members */}
                   <button className="w-full p-4 bg-white border-2 border-gray-200 rounded-xl hover:border-cyan-500 hover:bg-cyan-50 transition-all duration-300 flex items-center gap-4 group">
                     <div className="p-3 bg-cyan-100 rounded-lg group-hover:bg-cyan-200 transition-colors">
@@ -696,9 +716,19 @@ export const CooperativeDetailsPage: React.FC = () => {
                   Members ({filteredMembers.length})
                 </h3>
                 {isAdminOrModerator && (
-                  <Button variant="primary" size="sm" leftIcon={<UserPlus className="w-4 h-4" />}>
-                    Add Member
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      leftIcon={<Mail className="w-4 h-4" />}
+                      onClick={() => setShowInviteModal(true)}
+                    >
+                      Invite Members
+                    </Button>
+                    <Button variant="primary" size="sm" leftIcon={<UserPlus className="w-4 h-4" />}>
+                      Add Member
+                    </Button>
+                  </div>
                 )}
               </div>
 
@@ -909,6 +939,15 @@ export const CooperativeDetailsPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Invite Members Modal */}
+      {showInviteModal && cooperative && (
+        <InviteMembersModal
+          cooperativeId={id!}
+          cooperativeName={cooperative.name}
+          onClose={() => setShowInviteModal(false)}
+        />
+      )}
     </div>
   )
 }

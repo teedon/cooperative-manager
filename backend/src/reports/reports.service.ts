@@ -202,6 +202,7 @@ export class ReportsService {
       .slice(0, 10);
 
     const uniqueContributors = new Set(approvedPayments.map(p => p.memberId)).size;
+    const uniquePlans = new Set(approvedPayments.map(p => p.subscription.planId)).size;
 
     return {
       metadata: this.createMetadata(
@@ -219,6 +220,8 @@ export class ReportsService {
         approvedPayments: approvedPayments.length,
         rejectedPayments: payments.filter(p => p.status === 'rejected').length,
         uniqueContributors,
+        memberCount: uniqueContributors,
+        periodCount: uniquePlans,
       },
       byPlan: Array.from(byPlanMap.entries()).map(([planId, data]) => ({
         planId,
@@ -292,6 +295,8 @@ export class ReportsService {
     const totalBalance = memberData.reduce((sum, m) => sum + m.currentBalance, 0);
     const totalContributions = memberData.reduce((sum, m) => sum + m.totalContributions, 0);
     const totalLoans = memberData.reduce((sum, m) => sum + m.totalLoansTaken, 0);
+    const totalRepayments = memberData.reduce((sum, m) => sum + m.totalLoanRepayments, 0);
+    const totalOutstandingLoans = totalLoans - totalRepayments;
 
     return {
       metadata: this.createMetadata(
@@ -308,6 +313,7 @@ export class ReportsService {
         averageBalance: members.length > 0 ? totalBalance / members.length : 0,
         totalContributions,
         totalLoans,
+        totalOutstandingLoans,
       },
       members: memberData.sort((a, b) => b.currentBalance - a.currentBalance),
     };
@@ -426,6 +432,8 @@ export class ReportsService {
         totalAmountDisbursed,
         totalInterestEarned,
         totalApplicationFees,
+        totalRepaid,
+        totalOutstanding: totalExpected - totalRepaid,
         activeLoans: loans.filter(l => ['disbursed', 'repaying'].includes(l.status)).length,
         completedLoans: loans.filter(l => l.status === 'completed').length,
         pendingLoans: loans.filter(l => l.status === 'pending').length,
@@ -860,6 +868,15 @@ export class ReportsService {
         date: e.createdAt.toISOString(),
         createdBy: e.createdBy,
       })),
+      data: expenses.map(e => ({
+        expenseId: e.id,
+        title: e.title,
+        category: e.category?.name || 'Uncategorized',
+        amount: e.amount,
+        status: e.status,
+        date: e.createdAt.toISOString(),
+        createdBy: e.createdBy,
+      })),
     };
   }
 
@@ -975,6 +992,11 @@ export class ReportsService {
         options.startDate,
         options.endDate,
       ),
+      summary: {
+        totalIncome,
+        totalExpenses,
+        netBalance: netIncome,
+      },
       incomeStatement: {
         totalIncome,
         incomeBreakdown: {
@@ -1116,6 +1138,9 @@ export class ReportsService {
       memberDetails: memberDetails.sort((a, b) => 
         new Date(b.lastActivityDate).getTime() - new Date(a.lastActivityDate).getTime()
       ),
+      data: memberDetails.sort((a, b) => 
+        new Date(b.lastActivityDate).getTime() - new Date(a.lastActivityDate).getTime()
+      ),
       activityByMonth: Array.from(activityByMonthMap.entries())
         .map(([month, data]) => ({
           month,
@@ -1236,5 +1261,222 @@ export class ReportsService {
         icon: 'Activity',
       },
     ];
+  }
+
+  /**
+   * Generate PDF report
+   */
+  async generatePDF(report: any, reportType: ReportType): Promise<Buffer> {
+    const PDFDocument = require('pdfkit');
+    const doc = new PDFDocument({ margin: 50, size: 'A4' });
+    const buffers: Buffer[] = [];
+
+    doc.on('data', buffers.push.bind(buffers));
+
+    // Helper function to add header
+    const addHeader = () => {
+      doc.fontSize(20).font('Helvetica-Bold').text(this.getReportTitle(reportType), { align: 'center' });
+      doc.moveDown(0.5);
+      doc.fontSize(12).font('Helvetica').text(`Cooperative: ${report.metadata.cooperativeName}`, { align: 'center' });
+      doc.fontSize(10).text(`Generated: ${new Date(report.metadata.generatedAt).toLocaleString()}`, { align: 'center' });
+      if (report.metadata.dateRange?.startDate || report.metadata.dateRange?.endDate) {
+        doc.text(`Period: ${report.metadata.dateRange.startDate || 'Start'} to ${report.metadata.dateRange.endDate || 'End'}`, { align: 'center' });
+      }
+      doc.moveDown(1);
+      doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke();
+      doc.moveDown(1);
+    };
+
+    // Helper function to add section header
+    const addSectionHeader = (title: string) => {
+      doc.fontSize(14).font('Helvetica-Bold').text(title);
+      doc.moveDown(0.5);
+    };
+
+    // Helper function to format currency
+    const formatCurrency = (amount: number) => `₦${amount.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+    // Add header
+    addHeader();
+
+    // Generate content based on report type
+    switch (reportType) {
+      case 'contribution_summary':
+        this.generateContributionSummaryPDF(doc, report, addSectionHeader, formatCurrency);
+        break;
+      case 'member_balances':
+        this.generateMemberBalancesPDF(doc, report, addSectionHeader, formatCurrency);
+        break;
+      case 'loan_summary':
+        this.generateLoanSummaryPDF(doc, report, addSectionHeader, formatCurrency);
+        break;
+      case 'loan_interest':
+        this.generateLoanInterestPDF(doc, report, addSectionHeader, formatCurrency);
+        break;
+      case 'expense_summary':
+        this.generateExpenseSummaryPDF(doc, report, addSectionHeader, formatCurrency);
+        break;
+      case 'financial_statement':
+        this.generateFinancialStatementPDF(doc, report, addSectionHeader, formatCurrency);
+        break;
+      case 'member_activity':
+        this.generateMemberActivityPDF(doc, report, addSectionHeader, formatCurrency);
+        break;
+      default:
+        doc.text('Report type not supported for PDF export');
+    }
+
+    doc.end();
+
+    return new Promise((resolve) => {
+      doc.on('end', () => resolve(Buffer.concat(buffers)));
+    });
+  }
+
+  private getReportTitle(reportType: ReportType): string {
+    const titles = {
+      contribution_summary: 'Contribution Summary Report',
+      member_balances: 'Member Balances Report',
+      loan_summary: 'Loan Summary Report',
+      loan_repayment: 'Loan Repayment Report',
+      loan_interest: 'Loan Interest Report',
+      expense_summary: 'Expense Summary Report',
+      financial_statement: 'Financial Statement Report',
+      member_activity: 'Member Activity Report',
+    };
+    return titles[reportType] || 'Report';
+  }
+
+  private generateContributionSummaryPDF(doc: any, report: any, addSectionHeader: Function, formatCurrency: Function) {
+    addSectionHeader('Summary');
+    doc.fontSize(10).font('Helvetica');
+    doc.text(`Total Contributions: ${formatCurrency(report.summary.totalContributions)}`);
+    doc.text(`Total Payments: ${report.summary.totalPayments}`);
+    doc.text(`Approved Payments: ${report.summary.approvedPayments}`);
+    doc.text(`Pending Payments: ${report.summary.pendingPayments}`);
+    doc.text(`Unique Contributors: ${report.summary.uniqueContributors}`);
+    doc.moveDown(1);
+
+    if (report.byPlan && report.byPlan.length > 0) {
+      addSectionHeader('By Plan');
+      doc.fontSize(9).font('Helvetica');
+      report.byPlan.slice(0, 10).forEach((plan: any) => {
+        doc.text(`${plan.planName} (${plan.category}): ${formatCurrency(plan.totalAmount)} - ${plan.paymentCount} payments`);
+      });
+      doc.moveDown(1);
+    }
+
+    if (report.topContributors && report.topContributors.length > 0) {
+      addSectionHeader('Top Contributors');
+      doc.fontSize(9).font('Helvetica');
+      report.topContributors.slice(0, 10).forEach((contributor: any, index: number) => {
+        doc.text(`${index + 1}. ${contributor.memberName}: ${formatCurrency(contributor.totalAmount)}`);
+      });
+    }
+  }
+
+  private generateMemberBalancesPDF(doc: any, report: any, addSectionHeader: Function, formatCurrency: Function) {
+    addSectionHeader('Summary');
+    doc.fontSize(10).font('Helvetica');
+    doc.text(`Total Members: ${report.summary.totalMembers}`);
+    doc.text(`Total Balance: ${formatCurrency(report.summary.totalBalance)}`);
+    doc.text(`Average Balance: ${formatCurrency(report.summary.averageBalance)}`);
+    doc.text(`Total Contributions: ${formatCurrency(report.summary.totalContributions)}`);
+    doc.text(`Total Loans: ${formatCurrency(report.summary.totalLoans)}`);
+    doc.moveDown(1);
+
+    if (report.members && report.members.length > 0) {
+      addSectionHeader('Member Details (Top 20)');
+      doc.fontSize(8).font('Helvetica');
+      report.members.slice(0, 20).forEach((member: any) => {
+        doc.text(`${member.memberName}: Balance ${formatCurrency(member.currentBalance)}`);
+      });
+    }
+  }
+
+  private generateLoanSummaryPDF(doc: any, report: any, addSectionHeader: Function, formatCurrency: Function) {
+    addSectionHeader('Summary');
+    doc.fontSize(10).font('Helvetica');
+    doc.text(`Total Loans Issued: ${report.summary.totalLoansIssued}`);
+    doc.text(`Total Disbursed: ${formatCurrency(report.summary.totalAmountDisbursed)}`);
+    doc.text(`Total Repaid: ${formatCurrency(report.summary.totalRepaid || 0)}`);
+    doc.text(`Outstanding: ${formatCurrency(report.summary.totalOutstanding || 0)}`);
+    doc.text(`Interest Earned: ${formatCurrency(report.summary.totalInterestEarned)}`);
+    doc.text(`Active Loans: ${report.summary.activeLoans}`);
+    doc.text(`Completed Loans: ${report.summary.completedLoans || 0}`);
+  }
+
+  private generateLoanInterestPDF(doc: any, report: any, addSectionHeader: Function, formatCurrency: Function) {
+    addSectionHeader('Summary');
+    doc.fontSize(10).font('Helvetica');
+    doc.text(`Total Interest Earned: ${formatCurrency(report.summary.totalInterestEarned)}`);
+    doc.text(`Interest Pending: ${formatCurrency(report.summary.totalInterestPending)}`);
+    doc.text(`Average Interest Rate: ${report.summary.averageInterestRate}%`);
+    doc.text(`Loans with Interest: ${report.summary.totalLoansWithInterest}`);
+    doc.moveDown(1);
+
+    if (report.byLoanType && report.byLoanType.length > 0) {
+      addSectionHeader('By Loan Type');
+      doc.fontSize(9).font('Helvetica');
+      report.byLoanType.forEach((type: any) => {
+        doc.text(`${type.loanTypeName}: ${formatCurrency(type.totalInterestEarned)} earned`);
+      });
+    }
+  }
+
+  private generateExpenseSummaryPDF(doc: any, report: any, addSectionHeader: Function, formatCurrency: Function) {
+    addSectionHeader('Summary');
+    doc.fontSize(10).font('Helvetica');
+    doc.text(`Total Expenses: ${formatCurrency(report.summary.totalExpenses)}`);
+    doc.text(`Approved: ${report.summary.approvedExpenses}`);
+    doc.text(`Pending: ${report.summary.pendingExpenses}`);
+    doc.text(`Rejected: ${report.summary.rejectedExpenses}`);
+    doc.moveDown(1);
+
+    if (report.byCategory && report.byCategory.length > 0) {
+      addSectionHeader('By Category');
+      doc.fontSize(9).font('Helvetica');
+      report.byCategory.forEach((category: any) => {
+        doc.text(`${category.categoryName}: ${formatCurrency(category.totalAmount)} (${category.expenseCount} expenses)`);
+      });
+    }
+  }
+
+  private generateFinancialStatementPDF(doc: any, report: any, addSectionHeader: Function, formatCurrency: Function) {
+    addSectionHeader('Summary');
+    doc.fontSize(10).font('Helvetica');
+    doc.text(`Total Income: ${formatCurrency(report.summary.totalIncome)}`);
+    doc.text(`Total Expenses: ${formatCurrency(report.summary.totalExpenses)}`);
+    doc.text(`Net Balance: ${formatCurrency(report.summary.netBalance)}`);
+    doc.moveDown(1);
+
+    if (report.incomeStatement) {
+      addSectionHeader('Income Statement');
+      doc.fontSize(9).font('Helvetica');
+      doc.text(`Contributions: ${formatCurrency(report.incomeStatement.incomeBreakdown.contributions)}`);
+      doc.text(`Loan Interest: ${formatCurrency(report.incomeStatement.incomeBreakdown.loanInterest)}`);
+      doc.text(`Application Fees: ${formatCurrency(report.incomeStatement.incomeBreakdown.applicationFees)}`);
+      doc.text(`Net Income: ${formatCurrency(report.incomeStatement.netIncome)}`);
+    }
+  }
+
+  private generateMemberActivityPDF(doc: any, report: any, addSectionHeader: Function, formatCurrency: Function) {
+    if (report.summary) {
+      addSectionHeader('Summary');
+      doc.fontSize(10).font('Helvetica');
+      doc.text(`Total Members: ${report.summary.totalMembers}`);
+      doc.text(`Active Members: ${report.summary.activeMembers}`);
+      doc.text(`Inactive Members: ${report.summary.inactiveMembers}`);
+      doc.text(`New Members: ${report.summary.newMembers}`);
+      doc.moveDown(1);
+    }
+
+    if (report.memberDetails && report.memberDetails.length > 0) {
+      addSectionHeader('Recent Activity (Top 15)');
+      doc.fontSize(8).font('Helvetica');
+      report.memberDetails.slice(0, 15).forEach((member: any) => {
+        doc.text(`${member.memberName}: ${member.contributionCount} contributions, ${member.loanCount} loans`);
+      });
+    }
   }
 }

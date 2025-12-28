@@ -5,11 +5,22 @@ import { store } from './store'
 import { useAppSelector } from './hooks/useAuth'
 import { LoginPage, SignupPage } from './pages/auth'
 import { DashboardPage } from './pages/DashboardPage'
+import { PendingApprovalsPage } from './pages/PendingApprovalsPage'
 import { CooperativeDetailsPage } from './pages/CooperativeDetailsPage'
 import { LoanRequestPage } from './pages/LoanRequestPage'
 import { LoansListPage } from './pages/LoansListPage'
 import { LoanDetailPage } from './pages/LoanDetailPage'
 import { LoanTypesPage } from './pages/LoanTypesPage'
+import ExpensesListPage from './pages/ExpensesListPage'
+import ExpenseDetailPage from './pages/ExpenseDetailPage'
+import CreateExpensePage from './pages/CreateExpensePage'
+import { ContributionPlansPage } from './pages/ContributionPlansPage'
+import { CreateContributionPlanPage } from './pages/CreateContributionPlanPage'
+import { ContributionPlanDetailPage } from './pages/ContributionPlanDetailPage'
+import { AdminManagementPage } from './pages/AdminManagementPage'
+import { CooperativeSettingsPage } from './pages/CooperativeSettingsPage'
+import { BulkApproveSchedulesPage } from './pages/BulkApproveSchedulesPage'
+import { ReportsPage } from './pages/ReportsPage'
 import { ToastProvider } from './components/ui'
 import './index.css'
 
@@ -67,6 +78,14 @@ const AppRoutes: React.FC = () => {
         } 
       />
       <Route 
+        path="/pending-approvals" 
+        element={
+          <ProtectedRoute>
+            <PendingApprovalsPage />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
         path="/cooperatives/:id" 
         element={
           <ProtectedRoute>
@@ -103,6 +122,86 @@ const AppRoutes: React.FC = () => {
         element={
           <ProtectedRoute>
             <LoanDetailPage />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/cooperatives/:id/expenses" 
+        element={
+          <ProtectedRoute>
+            <ExpensesListPage />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/cooperatives/:id/expenses/create" 
+        element={
+          <ProtectedRoute>
+            <CreateExpensePage />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/cooperatives/:id/expenses/:expenseId" 
+        element={
+          <ProtectedRoute>
+            <ExpenseDetailPage />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/cooperatives/:id/contributions" 
+        element={
+          <ProtectedRoute>
+            <ContributionPlansPage />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/cooperatives/:id/contributions/create" 
+        element={
+          <ProtectedRoute>
+            <CreateContributionPlanPage />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/cooperatives/:id/contributions/:planId" 
+        element={
+          <ProtectedRoute>
+            <ContributionPlanDetailPage />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/cooperatives/:id/settings" 
+        element={
+          <ProtectedRoute>
+            <CooperativeSettingsPage />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/cooperatives/:id/bulk-approve-schedules" 
+        element={
+          <ProtectedRoute>
+            <BulkApproveSchedulesPage />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/cooperatives/:id/admin-management" 
+        element={
+          <ProtectedRoute>
+            <AdminManagementPage />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/cooperatives/:id/reports" 
+        element={
+          <ProtectedRoute>
+            <ReportsPage />
           </ProtectedRoute>
         } 
       />

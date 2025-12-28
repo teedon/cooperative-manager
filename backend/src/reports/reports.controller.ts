@@ -55,6 +55,41 @@ export class ReportsController {
   }
 
   @UseGuards(AuthGuard('jwt'))
+  @Get('cooperatives/:cooperativeId/export/pdf')
+  async exportReportPDF(
+    @Param('cooperativeId') cooperativeId: string,
+    @Query('reportType') reportType: ReportType,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('memberId') memberId?: string,
+    @Query('planId') planId?: string,
+    @Request() req?: any,
+    @Res() res?: Response,
+  ) {
+    try {
+      const user = req.user;
+      const report = await this.reportsService.generateReport(
+        cooperativeId,
+        user.id,
+        reportType,
+        { startDate, endDate, memberId, planId },
+      );
+
+      const filename = `${reportType}_report_${new Date().toISOString().slice(0, 10)}.pdf`;
+      const pdfBuffer = await this.reportsService.generatePDF(report, reportType);
+
+      res!.setHeader('Content-Type', 'application/pdf');
+      res!.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      res!.send(pdfBuffer);
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to export report', data: null },
+        error.status || HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @UseGuards(AuthGuard('jwt'))
   @Get('cooperatives/:cooperativeId/export/csv')
   async exportReportCSV(
     @Param('cooperativeId') cooperativeId: string,

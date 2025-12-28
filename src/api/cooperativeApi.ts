@@ -72,6 +72,16 @@ export const cooperativeApi = {
     return response.data;
   },
 
+  getMyPendingMemberships: async (): Promise<ApiResponse<Array<CooperativeMember & { cooperative: Cooperative }>>> => {
+    const response = await apiClient.get<ApiResponse<Array<CooperativeMember & { cooperative: Cooperative }>>>('/cooperatives/my-pending');
+    return response.data;
+  },
+
+  cancelPendingRequest: async (cooperativeId: string): Promise<ApiResponse<null>> => {
+    const response = await apiClient.delete<ApiResponse<null>>(`/cooperatives/pending/${cooperativeId}/cancel`);
+    return response.data;
+  },
+
   getMembers: async (cooperativeId: string): Promise<ApiResponse<CooperativeMember[]>> => {
     const response = await apiClient.get<ApiResponse<CooperativeMember[]>>(
       `/cooperatives/${cooperativeId}/members`

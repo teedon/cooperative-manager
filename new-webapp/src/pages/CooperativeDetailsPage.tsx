@@ -31,6 +31,7 @@ import {
 import { cooperativeApi } from '../api/cooperativeApi'
 import { loanApi, type Loan } from '../api/loanApi'
 import { InviteMembersModal } from './InviteMembersModal'
+import { BulkOfflineMembersModal } from './BulkOfflineMembersModal'
 import type { Cooperative, CooperativeMember } from '../types'
 
 type TabType = 'overview' | 'members' | 'contributions' | 'loans'
@@ -64,6 +65,7 @@ export const CooperativeDetailsPage: React.FC = () => {
   const [memberFilter, setMemberFilter] = useState<'all' | 'online' | 'offline'>('all')
   const [copiedCode, setCopiedCode] = useState(false)
   const [showInviteModal, setShowInviteModal] = useState(false)
+  const [showBulkUploadModal, setShowBulkUploadModal] = useState(false)
 
   // Get current user's membership and role
   const currentMember = useMemo(() => {
@@ -481,7 +483,10 @@ export const CooperativeDetailsPage: React.FC = () => {
 
                 <div className="space-y-3">
                   {/* Create Contribution Plan */}
-                  <button className="w-full p-4 bg-white border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all duration-300 flex items-center gap-4 group">
+                  <button 
+                    onClick={() => navigate(`/cooperatives/${id}/contributions/create`)}
+                    className="w-full p-4 bg-white border-2 border-gray-200 rounded-xl hover:border-blue-500 hover:bg-blue-50 transition-all duration-300 flex items-center gap-4 group"
+                  >
                     <div className="p-3 bg-blue-100 rounded-lg group-hover:bg-blue-200 transition-colors">
                       <Plus className="w-6 h-6 text-blue-600" />
                     </div>
@@ -504,18 +509,6 @@ export const CooperativeDetailsPage: React.FC = () => {
                     <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-green-600 transition-colors" />
                   </button>
 
-                  {/* Bulk Approve Schedules */}
-                  <button className="w-full p-4 bg-white border-2 border-gray-200 rounded-xl hover:border-emerald-500 hover:bg-emerald-50 transition-all duration-300 flex items-center gap-4 group">
-                    <div className="p-3 bg-emerald-100 rounded-lg group-hover:bg-emerald-200 transition-colors">
-                      <CheckCheck className="w-6 h-6 text-emerald-600" />
-                    </div>
-                    <div className="flex-1 text-left">
-                      <h4 className="font-semibold text-gray-900">Bulk Approve Schedules</h4>
-                      <p className="text-sm text-gray-600">Approve all payments for a month</p>
-                    </div>
-                    <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-emerald-600 transition-colors" />
-                  </button>
-
                   {/* View Ledger */}
                   <button className="w-full p-4 bg-white border-2 border-gray-200 rounded-xl hover:border-indigo-500 hover:bg-indigo-50 transition-all duration-300 flex items-center gap-4 group">
                     <div className="p-3 bg-indigo-100 rounded-lg group-hover:bg-indigo-200 transition-colors">
@@ -528,20 +521,26 @@ export const CooperativeDetailsPage: React.FC = () => {
                     <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-indigo-600 transition-colors" />
                   </button>
 
-                  {/* Manage Expenses */}
-                  <button className="w-full p-4 bg-white border-2 border-gray-200 rounded-xl hover:border-red-500 hover:bg-red-50 transition-all duration-300 flex items-center gap-4 group">
-                    <div className="p-3 bg-red-100 rounded-lg group-hover:bg-red-200 transition-colors">
-                      <Receipt className="w-6 h-6 text-red-600" />
+                  {/* Expenses */}
+                  <button 
+                    onClick={() => navigate(`/cooperatives/${id}/expenses`)}
+                    className="w-full p-4 bg-white border-2 border-gray-200 rounded-xl hover:border-rose-500 hover:bg-rose-50 transition-all duration-300 flex items-center gap-4 group"
+                  >
+                    <div className="p-3 bg-rose-100 rounded-lg group-hover:bg-rose-200 transition-colors">
+                      <Receipt className="w-6 h-6 text-rose-600" />
                     </div>
                     <div className="flex-1 text-left">
-                      <h4 className="font-semibold text-gray-900">Manage Expenses</h4>
-                      <p className="text-sm text-gray-600">Track and record cooperative expenses</p>
+                      <h4 className="font-semibold text-gray-900">Expenses</h4>
+                      <p className="text-sm text-gray-600">Track and approve cooperative expenses</p>
                     </div>
-                    <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-red-600 transition-colors" />
+                    <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-rose-600 transition-colors" />
                   </button>
 
                   {/* Reports */}
-                  <button className="w-full p-4 bg-white border-2 border-gray-200 rounded-xl hover:border-purple-500 hover:bg-purple-50 transition-all duration-300 flex items-center gap-4 group">
+                  <button 
+                    onClick={() => navigate(`/cooperatives/${id}/reports`)}
+                    className="w-full p-4 bg-white border-2 border-gray-200 rounded-xl hover:border-purple-500 hover:bg-purple-50 transition-all duration-300 flex items-center gap-4 group"
+                  >
                     <div className="p-3 bg-purple-100 rounded-lg group-hover:bg-purple-200 transition-colors">
                       <FileText className="w-6 h-6 text-purple-600" />
                     </div>
@@ -554,7 +553,10 @@ export const CooperativeDetailsPage: React.FC = () => {
 
                   {/* Manage Admins (Admin only) */}
                   {isAdmin && (
-                    <button className="w-full p-4 bg-white border-2 border-gray-200 rounded-xl hover:border-orange-500 hover:bg-orange-50 transition-all duration-300 flex items-center gap-4 group">
+                    <button 
+                      onClick={() => navigate(`/cooperatives/${id}/admin-management`)}
+                      className="w-full p-4 bg-white border-2 border-gray-200 rounded-xl hover:border-orange-500 hover:bg-orange-50 transition-all duration-300 flex items-center gap-4 group"
+                    >
                       <div className="p-3 bg-orange-100 rounded-lg group-hover:bg-orange-200 transition-colors">
                         <UserCog className="w-6 h-6 text-orange-600" />
                       </div>
@@ -563,6 +565,23 @@ export const CooperativeDetailsPage: React.FC = () => {
                         <p className="text-sm text-gray-600">Add and configure admin permissions</p>
                       </div>
                       <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-orange-600 transition-colors" />
+                    </button>
+                  )}
+
+                  {/* Bulk Approve Schedules (Admin only) */}
+                  {isAdmin && (
+                    <button 
+                      onClick={() => navigate(`/cooperatives/${id}/bulk-approve-schedules`)}
+                      className="w-full p-4 bg-white border-2 border-gray-200 rounded-xl hover:border-green-500 hover:bg-green-50 transition-all duration-300 flex items-center gap-4 group"
+                    >
+                      <div className="p-3 bg-green-100 rounded-lg group-hover:bg-green-200 transition-colors">
+                        <CheckCheck className="w-6 h-6 text-green-600" />
+                      </div>
+                      <div className="flex-1 text-left">
+                        <h4 className="font-semibold text-gray-900">Bulk Approve Schedules</h4>
+                        <p className="text-sm text-gray-600">Approve multiple contribution payments at once</p>
+                      </div>
+                      <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-green-600 transition-colors" />
                     </button>
                   )}
 
@@ -584,7 +603,10 @@ export const CooperativeDetailsPage: React.FC = () => {
                   )}
 
                   {/* Offline Members */}
-                  <button className="w-full p-4 bg-white border-2 border-gray-200 rounded-xl hover:border-cyan-500 hover:bg-cyan-50 transition-all duration-300 flex items-center gap-4 group">
+                  <button 
+                    onClick={() => setShowBulkUploadModal(true)}
+                    className="w-full p-4 bg-white border-2 border-gray-200 rounded-xl hover:border-cyan-500 hover:bg-cyan-50 transition-all duration-300 flex items-center gap-4 group"
+                  >
                     <div className="p-3 bg-cyan-100 rounded-lg group-hover:bg-cyan-200 transition-colors">
                       <Users className="w-6 h-6 text-cyan-600" />
                     </div>
@@ -611,7 +633,10 @@ export const CooperativeDetailsPage: React.FC = () => {
 
                   {/* Cooperative Settings (Admin only) */}
                   {isAdmin && (
-                    <button className="w-full p-4 bg-white border-2 border-gray-200 rounded-xl hover:border-gray-500 hover:bg-gray-50 transition-all duration-300 flex items-center gap-4 group">
+                    <button 
+                      onClick={() => navigate(`/cooperatives/${id}/settings`)}
+                      className="w-full p-4 bg-white border-2 border-gray-200 rounded-xl hover:border-gray-500 hover:bg-gray-50 transition-all duration-300 flex items-center gap-4 group"
+                    >
                       <div className="p-3 bg-gray-100 rounded-lg group-hover:bg-gray-200 transition-colors">
                         <Settings className="w-6 h-6 text-gray-600" />
                       </div>
@@ -789,13 +814,51 @@ export const CooperativeDetailsPage: React.FC = () => {
         )}
 
         {activeTab === 'contributions' && (
-          <Card className="p-6">
-            <div className="text-center py-12">
-              <DollarSign className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Contributions</h3>
-              <p className="text-gray-600">Contribution plans will be displayed here</p>
-            </div>
-          </Card>
+          <div className="space-y-6">
+            {/* View All Plans Button */}
+            <Card className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-xl font-semibold text-gray-900">Contribution Plans</h3>
+                  <p className="text-gray-600">Manage and subscribe to contribution plans</p>
+                </div>
+                <Button
+                  variant="primary"
+                  leftIcon={<Plus className="w-4 h-4" />}
+                  onClick={() => navigate(`/cooperatives/${id}/contributions`)}
+                >
+                  View All Plans
+                </Button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Quick Actions */}
+                <button
+                  onClick={() => navigate(`/cooperatives/${id}/contributions`)}
+                  className="p-4 bg-linear-to-r from-indigo-50 to-purple-50 border-2 border-indigo-200 rounded-xl hover:border-indigo-400 transition-all text-left group"
+                >
+                  <div className="flex items-center gap-3 mb-2">
+                    <DollarSign className="w-6 h-6 text-indigo-600" />
+                    <h4 className="font-semibold text-gray-900">Browse Plans</h4>
+                  </div>
+                  <p className="text-sm text-gray-600">View available contribution plans and subscribe</p>
+                </button>
+
+                {isAdminOrModerator && (
+                  <button
+                    onClick={() => navigate(`/cooperatives/${id}/contributions/create`)}
+                    className="p-4 bg-linear-to-r from-blue-50 to-cyan-50 border-2 border-blue-200 rounded-xl hover:border-blue-400 transition-all text-left group"
+                  >
+                    <div className="flex items-center gap-3 mb-2">
+                      <Plus className="w-6 h-6 text-blue-600" />
+                      <h4 className="font-semibold text-gray-900">Create Plan</h4>
+                    </div>
+                    <p className="text-sm text-gray-600">Set up a new contribution plan</p>
+                  </button>
+                )}
+              </div>
+            </Card>
+          </div>
         )}
 
         {activeTab === 'loans' && (
@@ -946,6 +1009,19 @@ export const CooperativeDetailsPage: React.FC = () => {
           cooperativeId={id!}
           cooperativeName={cooperative.name}
           onClose={() => setShowInviteModal(false)}
+        />
+      )}
+
+      {/* Bulk Upload Offline Members Modal */}
+      {showBulkUploadModal && cooperative && (
+        <BulkOfflineMembersModal
+          isOpen={showBulkUploadModal}
+          onClose={() => setShowBulkUploadModal(false)}
+          cooperativeId={id!}
+          onSuccess={() => {
+            loadCooperativeData()
+            toast.success('Offline members uploaded successfully!')
+          }}
         />
       )}
     </div>

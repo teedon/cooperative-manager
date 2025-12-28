@@ -21,6 +21,7 @@ export const DashboardPage: React.FC = () => {
   
   const [cooperatives, setCooperatives] = useState<Cooperative[]>([])
   const [recentActivities, setRecentActivities] = useState<ActivityType[]>([])
+  const [pendingMembershipsCount, setPendingMembershipsCount] = useState(0)
   const [isLoading, setIsLoading] = useState(true)
   const [showJoinModal, setShowJoinModal] = useState(false)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -29,6 +30,7 @@ export const DashboardPage: React.FC = () => {
 
   useEffect(() => {
     loadDashboardData()
+    loadPendingMemberships()
   }, [])
 
   const loadDashboardData = async () => {
@@ -54,6 +56,17 @@ export const DashboardPage: React.FC = () => {
     }
   }
 
+  const loadPendingMemberships = async () => {
+    try {
+      const response = await cooperativeApi.getMyPendingMemberships()
+      if (response.success) {
+        setPendingMembershipsCount(response.data.length)
+      }
+    } catch (error) {
+      console.error('Failed to load pending memberships:', error)
+    }
+  }
+
   const handleLogout = () => {
     dispatch(logoutUser())
     toast.info('You have been logged out')
@@ -74,6 +87,7 @@ export const DashboardPage: React.FC = () => {
         setShowJoinModal(false)
         setJoinCode('')
         loadDashboardData()
+        loadPendingMemberships() // Refresh pending count
       }
     } catch (error: any) {
       console.error('Failed to join cooperative:', error)
@@ -206,6 +220,37 @@ export const DashboardPage: React.FC = () => {
             </Card>
           ))}
         </div>
+
+        {/* Pending Approvals Banner */}
+        {pendingMembershipsCount > 0 && (
+          <div 
+            onClick={() => navigate('/pending-approvals')}
+            className="bg-yellow-50 border-2 border-yellow-200 rounded-xl p-4 mb-6 hover:shadow-lg transition-all cursor-pointer group"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-4 flex-1">
+                <div className="w-12 h-12 bg-yellow-200 rounded-full flex items-center justify-center flex-shrink-0">
+                  <Clock size={24} className="text-yellow-700" />
+                </div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="flex items-center gap-1.5 bg-yellow-200 px-2.5 py-1 rounded-full">
+                      <div className="w-1.5 h-1.5 bg-yellow-600 rounded-full animate-pulse"></div>
+                      <span className="text-xs font-semibold text-yellow-800">Pending Approval</span>
+                    </div>
+                  </div>
+                  <h3 className="font-semibold text-yellow-900 mb-1">
+                    {pendingMembershipsCount} {pendingMembershipsCount === 1 ? 'Request' : 'Requests'} Awaiting Approval
+                  </h3>
+                  <p className="text-sm text-yellow-700">
+                    Your membership {pendingMembershipsCount === 1 ? 'request is' : 'requests are'} being reviewed by cooperative administrators
+                  </p>
+                </div>
+              </div>
+              <ArrowRight size={20} className="text-yellow-600 group-hover:translate-x-1 transition-transform flex-shrink-0 mt-1" />
+            </div>
+          </div>
+        )}
 
         {/* Main Content */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

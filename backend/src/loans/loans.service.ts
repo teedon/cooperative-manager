@@ -817,7 +817,7 @@ export class LoansService {
       ? { cooperativeId }
       : { cooperativeId, memberId: member.id };
 
-    return this.prisma.loan.findMany({
+    const loans = await this.prisma.loan.findMany({
       where: whereClause,
       include: {
         member: { include: { user: true } },
@@ -825,6 +825,17 @@ export class LoansService {
       },
       orderBy: { requestedAt: 'desc' },
     });
+
+    // Map to include calculated fields for frontend compatibility
+    return loans.map(loan => ({
+      ...loan,
+      totalRepayable: loan.totalRepayment,
+      amountPaid: loan.amountRepaid,
+      amountRemaining: loan.outstandingBalance,
+      monthlyPayment: loan.monthlyRepayment,
+      nextPaymentDate: loan.deductionStartDate?.toISOString(),
+      disbursedAmount: loan.amountDisbursed,
+    }));
   }
 
   async getLoan(loanId: string, requestingUserId: string) {
@@ -843,13 +854,22 @@ export class LoansService {
 
     await this.validateMembership(loan.cooperativeId, requestingUserId);
 
-    return loan;
+    // Return with mapped fields for frontend compatibility
+    return {
+      ...loan,
+      totalRepayable: loan.totalRepayment,
+      amountPaid: loan.amountRepaid,
+      amountRemaining: loan.outstandingBalance,
+      monthlyPayment: loan.monthlyRepayment,
+      nextPaymentDate: loan.deductionStartDate?.toISOString(),
+      disbursedAmount: loan.amountDisbursed,
+    };
   }
 
   async getPendingLoans(cooperativeId: string, requestingUserId: string) {
     await this.validatePermission(cooperativeId, requestingUserId, PERMISSIONS.LOANS_VIEW);
 
-    return this.prisma.loan.findMany({
+    const loans = await this.prisma.loan.findMany({
       where: { cooperativeId, status: 'pending' },
       include: {
         member: { include: { user: true } },
@@ -857,12 +877,23 @@ export class LoansService {
       },
       orderBy: { requestedAt: 'asc' },
     });
+
+    // Map to include calculated fields for frontend compatibility
+    return loans.map(loan => ({
+      ...loan,
+      totalRepayable: loan.totalRepayment,
+      amountPaid: loan.amountRepaid,
+      amountRemaining: loan.outstandingBalance,
+      monthlyPayment: loan.monthlyRepayment,
+      nextPaymentDate: loan.deductionStartDate?.toISOString(),
+      disbursedAmount: loan.amountDisbursed,
+    }));
   }
 
   async getMyLoans(cooperativeId: string, requestingUserId: string) {
     const member = await this.validateMembership(cooperativeId, requestingUserId);
 
-    return this.prisma.loan.findMany({
+    const loans = await this.prisma.loan.findMany({
       where: { memberId: member.id },
       include: {
         loanType: true,
@@ -870,6 +901,17 @@ export class LoansService {
       },
       orderBy: { requestedAt: 'desc' },
     });
+
+    // Map to include calculated fields for frontend compatibility
+    return loans.map(loan => ({
+      ...loan,
+      totalRepayable: loan.totalRepayment,
+      amountPaid: loan.amountRepaid,
+      amountRemaining: loan.outstandingBalance,
+      monthlyPayment: loan.monthlyRepayment,
+      nextPaymentDate: loan.deductionStartDate?.toISOString(),
+      disbursedAmount: loan.amountDisbursed,
+    }));
   }
 
   async getRepaymentSchedules(loanId: string, requestingUserId: string) {

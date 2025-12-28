@@ -21,11 +21,12 @@ import {
   joinCooperativeByCode,
   createCooperative,
 } from '../../store/slices/cooperativeSlice';
-import { Cooperative, GradientPreset } from '../../models';
+import { Cooperative, GradientPreset, CooperativeMember } from '../../models';
 import { colors, spacing, borderRadius, shadows } from '../../theme';
 import Modal from '../../components/common/Modal';
 import Button from '../../components/common/Button';
 import logger from '../../utils/logger';
+import { cooperativeApi } from '../../api/cooperativeApi';
 import { getGradientConfig } from '../../utils/gradients';
 
 type HomeScreenNavigationProp = NativeStackNavigationProp<HomeStackParamList, 'Home'>;
@@ -140,6 +141,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
   const [cooperativeCode, setCooperativeCode] = useState('');
   const [isJoining, setIsJoining] = useState(false);
   const [newCoopData, setNewCoopData] = useState({ name: '', description: '' });
+  const [pendingMembershipsCount, setPendingMembershipsCount] = useState(0);
 
   const route: any = useRoute();
 
@@ -158,9 +160,21 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     dispatch(fetchCooperatives());
   }, [dispatch]);
 
+  const loadPendingMemberships = useCallback(async () => {
+    try {
+      const response = await cooperativeApi.getMyPendingMemberships();
+      if (response.success) {
+        setPendingMembershipsCount(response.data.length);
+      }
+    } catch (error) {
+      console.error('Failed to load pending memberships:', error);
+    }
+  }, []);
+
   useEffect(() => {
     loadCooperatives();
-  }, [loadCooperatives, user?.id]);
+    loadPendingMemberships();
+  }, [loadCooperatives, loadPendingMemberships, user?.id]);
 
   const handleJoinCooperative = async () => {
     if (!cooperativeCode.trim()) {
@@ -173,6 +187,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       await dispatch(joinCooperativeByCode(cooperativeCode.trim())).unwrap();
       setShowJoinModal(false);
       setCooperativeCode('');
+      loadPendingMemberships(); // Refresh pending count
       Alert.alert(
         'Request Submitted! 🎉',
         'Your membership request has been submitted successfully. Please wait for an admin to approve your request.',
@@ -222,6 +237,36 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         <Text style={styles.greetingText}>Welcome back,</Text>
         <Text style={styles.userName}>{user?.firstName || 'User'} 👋</Text>
       </View>
+
+      {/* Pending Approvals Card */}
+      {pendingMembershipsCount > 0 && (
+        <TouchableOpacity
+          style={styles.pendingCard}
+          onPress={() => navigation.navigate('PendingApproval')}
+          activeOpacity={0.8}
+        >
+          <View style={styles.pendingCardHeader}>
+            <View style={styles.pendingBadge}>
+              <View style={styles.pendingDot} />
+              <Text style={styles.pendingBadgeText}>Pending Approval</Text>
+            </View>
+            <Icon name="ChevronRight" size={20} color={colors.warning.dark} />
+          </View>
+          <View style={styles.pendingCardContent}>
+            <View style={styles.pendingIcon}>
+              <Icon name="Clock" size={24} color={colors.warning.main} />
+            </View>
+            <View style={styles.pendingInfo}>
+              <Text style={styles.pendingTitle}>
+                {pendingMembershipsCount} {pendingMembershipsCount === 1 ? 'Request' : 'Requests'} Awaiting Approval
+              </Text>
+              <Text style={styles.pendingSubtitle}>
+                Your membership {pendingMembershipsCount === 1 ? 'request is' : 'requests are'} being reviewed by cooperative administrators
+              </Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+      )}
 
       {/* Join Cooperative Section */}
       <View style={styles.actionCards}>
@@ -887,6 +932,67 @@ const styles = StyleSheet.create({
   },
   modalButton: {
     flex: 1,
+  },
+  // Pending approvals card
+  pendingCard: {
+    backgroundColor: colors.warning.main + '15',
+    borderRadius: 12,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.warning.main + '30',
+  },
+  pendingCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  pendingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.warning.main + '25',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 6,
+  },
+  pendingDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.warning.main,
+  },
+  pendingBadgeText: {
+    fontSize: 12,
+    color: colors.warning.dark,
+    fontWeight: '600',
+  },
+  pendingCardContent: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  pendingIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.warning.main + '25',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pendingInfo: {
+    flex: 1,
+  },
+  pendingTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.warning.dark,
+    marginBottom: 4,
+  },
+  pendingSubtitle: {
+    fontSize: 13,
+    color: colors.text.secondary,
+    lineHeight: 18,
   },
 });
 

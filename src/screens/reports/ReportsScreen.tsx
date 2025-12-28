@@ -129,13 +129,23 @@ export default function ReportsScreen({ route }: Props) {
     setIsExporting(true);
 
     try {
-      const exportFn = format === 'csv' ? reportsApi.exportReportCSV : reportsApi.exportReportExcel;
+      const exportFn = 
+        format === 'csv' ? reportsApi.exportReportCSV : 
+        format === 'excel' ? reportsApi.exportReportExcel :
+        reportsApi.exportReportPDF;
+        
       const blob = await exportFn(cooperativeId, selectedReport, {
         startDate: dateRange.startDate,
         endDate: dateRange.endDate,
       });
 
-      const fileName = `${selectedReport}_${dateRange.startDate}_${dateRange.endDate}.${format === 'csv' ? 'csv' : 'xlsx'}`;
+      const extension = format === 'csv' ? 'csv' : format === 'excel' ? 'xlsx' : 'pdf';
+      const mimeType = 
+        format === 'csv' ? 'text/csv' : 
+        format === 'excel' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' :
+        'application/pdf';
+        
+      const fileName = `${selectedReport}_${dateRange.startDate}_${dateRange.endDate}.${extension}`;
       const dirs = ReactNativeBlobUtil.fs.dirs;
       const filePath = `${dirs.DocumentDir}/${fileName}`;
 
@@ -148,10 +158,7 @@ export default function ReportsScreen({ route }: Props) {
         if (Platform.OS === 'ios') {
           ReactNativeBlobUtil.ios.openDocument(filePath);
         } else {
-          ReactNativeBlobUtil.android.actionViewIntent(
-            filePath,
-            format === 'csv' ? 'text/csv' : 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-          );
+          ReactNativeBlobUtil.android.actionViewIntent(filePath, mimeType);
         }
 
         Alert.alert('Success', `Report exported as ${fileName}`);
@@ -320,7 +327,7 @@ export default function ReportsScreen({ route }: Props) {
             ) : (
               <>
                 <Icon name="Download" size={16} color="#FFFFFF" />
-                <Text style={styles.exportButtonText}>Export CSV</Text>
+                <Text style={styles.exportButtonText}>CSV</Text>
               </>
             )}
           </TouchableOpacity>
@@ -335,7 +342,22 @@ export default function ReportsScreen({ route }: Props) {
             ) : (
               <>
                 <Icon name="FileSpreadsheet" size={16} color="#FFFFFF" />
-                <Text style={styles.exportButtonText}>Export Excel</Text>
+                <Text style={styles.exportButtonText}>Excel</Text>
+              </>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.exportButton, styles.pdfButton]}
+            onPress={() => handleExport('pdf')}
+            disabled={isExporting}
+          >
+            {isExporting ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <>
+                <Icon name="FileText" size={16} color="#FFFFFF" />
+                <Text style={styles.exportButtonText}>PDF</Text>
               </>
             )}
           </TouchableOpacity>
@@ -592,6 +614,9 @@ const styles = StyleSheet.create({
   },
   excelButton: {
     backgroundColor: '#10B981',
+  },
+  pdfButton: {
+    backgroundColor: '#EF4444',
   },
   exportButtonText: {
     fontSize: 14,

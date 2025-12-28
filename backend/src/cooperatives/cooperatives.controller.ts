@@ -93,6 +93,36 @@ export class CooperativesController {
   }
 
   @UseGuards(AuthGuard('jwt'))
+  @Get('my-pending')
+  async getMyPendingMemberships(@Request() req: any) {
+    try {
+      const user = req.user;
+      const data = await this.service.getMyPendingMemberships(user.id);
+      return { success: true, message: 'Pending memberships retrieved successfully', data };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to fetch pending memberships', data: null },
+        error.status || HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Delete('pending/:cooperativeId/cancel')
+  async cancelPendingRequest(@Param('cooperativeId') cooperativeId: string, @Request() req: any) {
+    try {
+      const user = req.user;
+      await this.service.cancelPendingRequest(cooperativeId, user.id);
+      return { success: true, message: 'Membership request cancelled successfully', data: null };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to cancel request', data: null },
+        error.status || HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @UseGuards(AuthGuard('jwt'))
   @Get(':id/pending-members')
   async getPendingMembers(@Param('id') id: string, @Request() req: any) {
     try {

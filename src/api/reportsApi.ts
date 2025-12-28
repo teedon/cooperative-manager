@@ -12,7 +12,7 @@ export type ReportType =
   | 'financial_statement'
   | 'member_activity';
 
-export type ExportFormat = 'csv' | 'excel';
+export type ExportFormat = 'csv' | 'excel' | 'pdf';
 
 export interface ReportTypeInfo {
   type: ReportType;
@@ -418,10 +418,33 @@ export const exportReportExcel = async (
   return response.data;
 };
 
+/**
+ * Export report to PDF
+ */
+export const exportReportPDF = async (
+  cooperativeId: string,
+  reportType: ReportType,
+  options?: ReportOptions
+): Promise<Blob> => {
+  const params = new URLSearchParams();
+  params.append('reportType', reportType);
+  if (options?.startDate) params.append('startDate', options.startDate);
+  if (options?.endDate) params.append('endDate', options.endDate);
+  if (options?.memberId) params.append('memberId', options.memberId);
+  if (options?.planId) params.append('planId', options.planId);
+
+  const response = await client.get(
+    `/reports/cooperatives/${cooperativeId}/export/pdf?${params.toString()}`,
+    { responseType: 'blob' }
+  );
+  return response.data;
+};
+
 export default {
   getReportTypes,
   generateReport,
   getExportUrl,
   exportReportCSV,
   exportReportExcel,
+  exportReportPDF,
 };

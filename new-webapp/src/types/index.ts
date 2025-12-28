@@ -14,6 +14,23 @@ export interface User {
 export type MemberRole = 'admin' | 'moderator' | 'member'
 export type CooperativeStatus = 'active' | 'inactive' | 'suspended'
 
+export type PredefinedRoleType =
+  | 'president'
+  | 'vice_president'
+  | 'secretary'
+  | 'financial_secretary'
+  | 'treasurer'
+  | 'pro'
+  | 'auditor'
+  | 'welfare_officer'
+
+export interface PredefinedRole {
+  role: PredefinedRoleType
+  label: string
+  description: string
+  permissions: string[]
+}
+
 export interface Cooperative {
   id: string
   name: string
@@ -38,12 +55,16 @@ export interface CooperativeMember {
   userId?: string
   user?: User
   role: MemberRole
+  roleTitle?: PredefinedRoleType
+  permissions?: string[]
   joinedAt: string
   virtualBalance: number | null
   status: 'active' | 'pending' | 'suspended' | 'removed'
   isOfflineMember?: boolean
   firstName?: string
   lastName?: string
+  email?: string
+  phone?: string
 }
 
 // Contribution Types

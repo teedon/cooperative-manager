@@ -698,6 +698,66 @@ ${webLink}`;
     });
   }
 
+  async getMyPendingMemberships(userId: string) {
+    const pendingMemberships = await this.prisma.member.findMany({
+      where: {
+        userId,
+        status: 'pending',
+      },
+      include: {
+        cooperative: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            code: true,
+            memberCount: true,
+            totalContributions: true,
+            createdAt: true,
+            logoUrl: true,
+            status: true,
+          },
+        },
+      },
+      orderBy: { joinedAt: 'desc' },
+    });
+
+    return pendingMemberships.map(membership => ({
+      ...membership,
+      cooperative: membership.cooperative,
+    }));
+  }
+
+  async cancelPendingRequest(cooperativeId: string, userId: string) {
+    const pendingMember = await this.prisma.member.findFirst({
+      where: {
+        cooperativeId,
+        userId,
+        status: 'pending',
+      },
+    });
+
+    if (!pendingMember) {
+      throw new NotFoundException('No pending membership request found for this cooperative');
+    }
+
+    // Delete the pending membership
+    await this.prisma.member.delete({
+      where: { id: pendingMember.id },
+    });
+
+    // Log activity
+    await this.activitiesService.log(
+      userId,
+      'cooperative.cancel_request',
+      `Cancelled membership request to join cooperative`,
+      cooperativeId,
+      { cooperativeId },
+    );
+
+    return { message: 'Membership request cancelled successfully' };
+  }
+
   //implement getMembers
   async getMembers(cooperativeId: string, requestingUserId: string) {
     // Check if the requesting user is a member of this cooperative

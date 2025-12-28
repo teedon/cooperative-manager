@@ -10,6 +10,7 @@ import NotificationBell from '../components/common/NotificationBell';
 import HomeScreen from '../screens/home/HomeScreen';
 import LandingScreen from '../screens/home/LandingScreen';
 import CooperativeDetailScreen from '../screens/cooperative/CooperativeDetailScreen';
+import PendingApprovalScreen from '../screens/cooperative/PendingApprovalScreen';
 import CooperativeSettingsScreen from '../screens/cooperative/CooperativeSettingsScreen';
 import ContributionPlanScreen from '../screens/contributions/ContributionPlanScreen';
 import ContributionPeriodScreen from '../screens/contributions/ContributionPeriodScreen';
@@ -79,6 +80,7 @@ export type HomeStackParamList = {
   Landing: undefined;
   Home: { openModal?: 'create' | 'join' } | undefined;
   CooperativeDetail: { cooperativeId: string };
+  PendingApproval: { cooperativeId?: string } | undefined;
   CreateContribution: { cooperativeId: string };
   ContributionPlan: { planId: string };
   ContributionPeriod: { periodId: string };
@@ -162,6 +164,11 @@ const HomeStackNavigator: React.FC = () => {
         name="CooperativeDetail"
         component={CooperativeDetailScreen}
         options={{ title: 'Cooperative' }}
+      />
+      <HomeStack.Screen
+        name="PendingApproval"
+        component={PendingApprovalScreen}
+        options={{ title: 'Pending Approvals' }}
       />
       <HomeStack.Screen
         name="CreateContribution"

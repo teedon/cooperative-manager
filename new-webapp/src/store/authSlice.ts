@@ -151,6 +151,43 @@ export const signupUser = createAsyncThunk(
   }
 )
 
+export const refreshAccessToken = createAsyncThunk(
+  'auth/refresh',
+  async (_, { getState, rejectWithValue }) => {
+    try {
+      const state = getState() as { auth: AuthState }
+      const refreshToken = state.auth.refreshToken
+      
+      if (!refreshToken) {
+        throw new Error('No refresh token available')
+      }
+      
+      const response = await authAxios.post('/auth/refresh', { refreshToken })
+      const { token, refreshToken: newRefreshToken } = response.data.data
+      
+      // Update tokens in localStorage
+      localStorage.setItem('token', token)
+      localStorage.setItem('auth_token', token)
+      if (newRefreshToken) {
+        localStorage.setItem('auth_refresh_token', newRefreshToken)
+      }
+      
+      return {
+        accessToken: token,
+        refreshToken: newRefreshToken
+      }
+    } catch (error: any) {
+      console.error('Token refresh failed:', error)
+      // Clear all auth data on refresh failure
+      localStorage.removeItem('auth_token')
+      localStorage.removeItem('auth_user')
+      localStorage.removeItem('auth_refresh_token')
+      localStorage.removeItem('token')
+      return rejectWithValue(error.message || 'Token refresh failed')
+    }
+  }
+)
+
 export const logoutUser = createAsyncThunk(
   'auth/logout',
   async (_, { rejectWithValue }) => {
@@ -161,6 +198,7 @@ export const logoutUser = createAsyncThunk(
       localStorage.removeItem('auth_token')
       localStorage.removeItem('auth_user')
       localStorage.removeItem('auth_refresh_token')
+      localStorage.removeItem('token')
       
       return true
     } catch (error: any) {
@@ -168,6 +206,7 @@ export const logoutUser = createAsyncThunk(
       localStorage.removeItem('auth_token')
       localStorage.removeItem('auth_user')
       localStorage.removeItem('auth_refresh_token')
+      localStorage.removeItem('token')
       
       return rejectWithValue(error.message || 'Logout failed')
     }
@@ -190,6 +229,7 @@ const authSlice = createSlice({
       localStorage.removeItem('auth_token')
       localStorage.removeItem('auth_user')
       localStorage.removeItem('auth_refresh_token')
+      localStorage.removeItem('token')
     }
   },
   extraReducers: (builder) => {
@@ -242,6 +282,27 @@ const authSlice = createSlice({
         state.isAuthenticated = false
         state.error = null
         state.isLoading = false
+      })
+    
+    // Refresh Token
+    builder
+      .addCase(refreshAccessToken.pending, (state) => {
+        state.isLoading = true
+      })
+      .addCase(refreshAccessToken.fulfilled, (state, action) => {
+        state.isLoading = false
+        state.token = action.payload.accessToken
+        state.refreshToken = action.payload.refreshToken || state.refreshToken
+        state.isAuthenticated = true
+        state.error = null
+      })
+      .addCase(refreshAccessToken.rejected, (state) => {
+        state.isLoading = false
+        state.user = null
+        state.token = null
+        state.refreshToken = null
+        state.isAuthenticated = false
+        state.error = 'Session expired. Please login again.'
       })
   }
 })

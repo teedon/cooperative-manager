@@ -248,7 +248,7 @@ export const LoanTypesPage: React.FC = () => {
                     <div className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-amber-500" />
                       <span className="text-sm text-amber-700">
-                        Requires {loanType.minGuarantors} guarantor(s)
+                        Requires guarantor(s)
                       </span>
                     </div>
                   )}

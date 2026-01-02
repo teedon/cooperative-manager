@@ -52,7 +52,6 @@ export const LoanRequestPage: React.FC = () => {
     if (!selectedLoanType || !formData.amount || !formData.duration) return null
 
     const principal = formData.amount
-    const monthlyRate = selectedLoanType.interestRate / 100 / 12
     const months = formData.duration
 
     // Calculate total interest

@@ -5,8 +5,8 @@ import { logoutUser } from '../store/authSlice'
 import { Button, Card, useToast } from '../components/ui'
 import { 
   Users, TrendingUp, DollarSign, Activity, Plus, 
-  LogOut, Building2, ArrowRight, Clock, CheckCircle,
-  AlertCircle, Wallet, FileText, ShoppingCart, User
+  LogOut, Building2, ArrowRight, Clock,
+  Wallet, FileText, ShoppingCart, User
 } from 'lucide-react'
 import { cooperativeApi } from '../api/cooperativeApi'
 import { activityApi } from '../api/activityApi'

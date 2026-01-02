@@ -1,20 +1,16 @@
 import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useAppSelector } from '../hooks/useAuth'
 import { Button, Card, Input, useToast } from '../components/ui'
 import {
   ArrowLeft,
   HandCoins,
   User,
-  Calendar,
   DollarSign,
   TrendingUp,
   CheckCircle2,
   XCircle,
-  Clock,
   CreditCard,
   FileText,
-  AlertCircle,
 } from 'lucide-react'
 import { loanApi, type Loan, type RepaymentSchedule } from '../api/loanApi'
 
@@ -22,7 +18,6 @@ export const LoanDetailPage: React.FC = () => {
   const { cooperativeId, loanId } = useParams<{ cooperativeId: string; loanId: string }>()
   const navigate = useNavigate()
   const toast = useToast()
-  const { user } = useAppSelector((state) => state.auth)
 
   const [loan, setLoan] = useState<Loan | null>(null)
   const [repaymentSchedule, setRepaymentSchedule] = useState<RepaymentSchedule[]>([])
@@ -203,7 +198,6 @@ export const LoanDetailPage: React.FC = () => {
     )
   }
 
-  const isLoanOwner = loan.member?.userId === user?.id
   const canRecordRepayment = ['disbursed', 'repaying'].includes(loan.status)
   const canApprove = loan.status === 'pending'
   const canDisburse = loan.status === 'approved'

@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useAppSelector } from '../hooks/useAuth'
 import { Button, Card, useToast } from '../components/ui'
 import {
   ArrowLeft,
@@ -23,7 +22,6 @@ export const LoansListPage: React.FC = () => {
   const { cooperativeId } = useParams<{ cooperativeId: string }>()
   const navigate = useNavigate()
   const toast = useToast()
-  const { user } = useAppSelector((state) => state.auth)
 
   const [loans, setLoans] = useState<Loan[]>([])
   const [isLoading, setIsLoading] = useState(true)

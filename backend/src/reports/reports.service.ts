@@ -220,8 +220,6 @@ export class ReportsService {
         approvedPayments: approvedPayments.length,
         rejectedPayments: payments.filter(p => p.status === 'rejected').length,
         uniqueContributors,
-        memberCount: uniqueContributors,
-        periodCount: uniquePlans,
       },
       byPlan: Array.from(byPlanMap.entries()).map(([planId, data]) => ({
         planId,
@@ -313,7 +311,6 @@ export class ReportsService {
         averageBalance: members.length > 0 ? totalBalance / members.length : 0,
         totalContributions,
         totalLoans,
-        totalOutstandingLoans,
       },
       members: memberData.sort((a, b) => b.currentBalance - a.currentBalance),
     };
@@ -432,8 +429,6 @@ export class ReportsService {
         totalAmountDisbursed,
         totalInterestEarned,
         totalApplicationFees,
-        totalRepaid,
-        totalOutstanding: totalExpected - totalRepaid,
         activeLoans: loans.filter(l => ['disbursed', 'repaying'].includes(l.status)).length,
         completedLoans: loans.filter(l => l.status === 'completed').length,
         pendingLoans: loans.filter(l => l.status === 'pending').length,
@@ -868,15 +863,6 @@ export class ReportsService {
         date: e.createdAt.toISOString(),
         createdBy: e.createdBy,
       })),
-      data: expenses.map(e => ({
-        expenseId: e.id,
-        title: e.title,
-        category: e.category?.name || 'Uncategorized',
-        amount: e.amount,
-        status: e.status,
-        date: e.createdAt.toISOString(),
-        createdBy: e.createdBy,
-      })),
     };
   }
 
@@ -992,11 +978,6 @@ export class ReportsService {
         options.startDate,
         options.endDate,
       ),
-      summary: {
-        totalIncome,
-        totalExpenses,
-        netBalance: netIncome,
-      },
       incomeStatement: {
         totalIncome,
         incomeBreakdown: {
@@ -1136,9 +1117,6 @@ export class ReportsService {
         newMembers: newMembersThisMonth,
       },
       memberDetails: memberDetails.sort((a, b) => 
-        new Date(b.lastActivityDate).getTime() - new Date(a.lastActivityDate).getTime()
-      ),
-      data: memberDetails.sort((a, b) => 
         new Date(b.lastActivityDate).getTime() - new Date(a.lastActivityDate).getTime()
       ),
       activityByMonth: Array.from(activityByMonthMap.entries())

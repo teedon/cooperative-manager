@@ -39,6 +39,7 @@
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.2",
+    "@types/multer": "^2.0.0",
     "@types/node": "^20.0.0",
     "@types/passport-jwt": "^3.0.7",
     "prisma": "^5.11.0",

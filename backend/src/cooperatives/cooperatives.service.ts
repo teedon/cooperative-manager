@@ -714,7 +714,7 @@ ${webLink}`;
             memberCount: true,
             totalContributions: true,
             createdAt: true,
-            logoUrl: true,
+            imageUrl: true,
             status: true,
           },
         },
@@ -722,10 +722,7 @@ ${webLink}`;
       orderBy: { joinedAt: 'desc' },
     });
 
-    return pendingMemberships.map(membership => ({
-      ...membership,
-      cooperative: membership.cooperative,
-    }));
+    return pendingMemberships;
   }
 
   async cancelPendingRequest(cooperativeId: string, userId: string) {

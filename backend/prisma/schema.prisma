@@ -923,3 +923,16 @@ model PollVote {
   @@index([optionId])
   @@index([userId])
 }
+
+// App downloads tracking
+model AppDownload {
+  id           String   @id @default(cuid())
+  platform     String   // 'android', 'ios', 'web'
+  version      String?  // App version
+  ipAddress    String?  // IP for analytics
+  userAgent    String?  // Device/browser info
+  downloadedAt DateTime @default(now())
+
+  @@index([platform])
+  @@index([downloadedAt])
+}

@@ -4,6 +4,7 @@ import { Provider } from 'react-redux'
 import { store } from './store'
 import { useAppSelector } from './hooks/useAuth'
 import { LoginPage, SignupPage } from './pages/auth'
+import { LandingPage } from './pages/LandingPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { PendingApprovalsPage } from './pages/PendingApprovalsPage'
 import { CooperativeDetailsPage } from './pages/CooperativeDetailsPage'
@@ -206,11 +207,11 @@ const AppRoutes: React.FC = () => {
         } 
       />
       
-      {/* Default Route */}
-      <Route path="/" element={<Navigate to="/login" replace />} />
+      {/* Public Landing Page */}
+      <Route path="/" element={<LandingPage />} />
       
       {/* Catch all route */}
-      <Route path="*" element={<Navigate to="/login" replace />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
 }

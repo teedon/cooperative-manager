@@ -5,10 +5,17 @@ import {
   CheckCircle, ArrowRight, DollarSign, BarChart3,
   Clock, Lock, Globe, Zap, Heart, Award, Menu, X
 } from 'lucide-react'
+import { downloadsApi } from '../api/downloadsApi'
 
 export const LandingPage: React.FC = () => {
   const navigate = useNavigate()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+
+  const handleDownload = (platform: 'android' | 'ios' | 'web') => {
+    // Get the download URL and trigger download
+    const downloadUrl = downloadsApi.downloadApp(platform)
+    window.location.href = downloadUrl
+  }
 
   const features = [
     {
@@ -439,11 +446,17 @@ export const LandingPage: React.FC = () => {
             Get started in minutes. Available for web, iOS, and Android.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-8">
-            <button className="px-8 py-4 bg-white text-blue-600 rounded-lg hover:bg-gray-100 transition-all flex items-center justify-center gap-2 text-lg font-semibold">
+            <button 
+              onClick={() => handleDownload('android')}
+              className="px-8 py-4 bg-white text-blue-600 rounded-lg hover:bg-gray-100 transition-all flex items-center justify-center gap-2 text-lg font-semibold"
+            >
               <Smartphone className="w-5 h-5" />
               Download for Android
             </button>
-            <button className="px-8 py-4 bg-white text-blue-600 rounded-lg hover:bg-gray-100 transition-all flex items-center justify-center gap-2 text-lg font-semibold">
+            <button 
+              onClick={() => handleDownload('ios')}
+              className="px-8 py-4 bg-white text-blue-600 rounded-lg hover:bg-gray-100 transition-all flex items-center justify-center gap-2 text-lg font-semibold"
+            >
               <Smartphone className="w-5 h-5" />
               Download for iOS
             </button>

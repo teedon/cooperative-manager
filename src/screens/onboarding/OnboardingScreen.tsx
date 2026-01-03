@@ -6,7 +6,9 @@ import {
   Dimensions,
   StatusBar,
   TouchableOpacity,
+  Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AppIntroSlider from 'react-native-app-intro-slider';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import colors, { colors as colorTheme } from '../../theme/colors';
@@ -72,6 +74,8 @@ interface OnboardingScreenProps {
 }
 
 const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
+  const insets = useSafeAreaInsets();
+  
   const handleDone = async () => {
     try {
       await AsyncStorage.setItem('hasSeenOnboarding', 'true');
@@ -103,7 +107,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
   };
 
   const renderNextButton = () => (
-    <View style={styles.buttonContainer}>
+    <View style={[styles.buttonContainer, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
       <View style={styles.nextButton}>
         <Text style={styles.nextButtonText}>Next</Text>
       </View>
@@ -111,7 +115,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
   );
 
   const renderDoneButton = () => (
-    <View style={styles.buttonContainer}>
+    <View style={[styles.buttonContainer, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
       <View style={styles.doneButton}>
         <Text style={styles.doneButtonText}>Get Started</Text>
       </View>
@@ -119,7 +123,10 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
   );
 
   const renderSkipButton = () => (
-    <TouchableOpacity style={styles.skipButton} onPress={handleDone}>
+    <TouchableOpacity 
+      style={[styles.skipButton, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]} 
+      onPress={handleDone}
+    >
       <Text style={styles.skipButtonText}>Skip</Text>
     </TouchableOpacity>
   );

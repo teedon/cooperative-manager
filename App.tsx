@@ -8,11 +8,17 @@ import { AppThemeProvider } from './src/theme/ThemeProvider';
 import ErrorBoundary from './src/components/common/ErrorBoundary';
 import logger from './src/utils/logger';
 import { initializeNotifications } from './src/services/notificationService';
+import { UpdateChecker } from './src/utils/updateChecker';
 
 export default function App() {
   useEffect(() => {
     // Initialize notification service
     initializeNotifications(store);
+
+    // Check for app updates on launch
+    UpdateChecker.checkAndPromptForUpdates().catch((error) => {
+      logger.error('Failed to check for updates', error);
+    });
 
     // capture unhandled promise rejections
     const rejectionHandler = (e: any) => {

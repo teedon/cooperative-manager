@@ -12,6 +12,7 @@ import {
   UseGuards,
   HttpCode,
   HttpStatus,
+  BadRequestException,
 } from '@nestjs/common';
 import { Response, Request } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -91,5 +92,40 @@ export class DownloadsController {
   @UseGuards(AuthGuard('jwt'))
   async listFiles() {
     return this.downloadsService.listAvailableFiles();
+  }
+
+  @Get('check-update/:platform')
+  async checkForUpdates(
+    @Param('platform') platform: 'android' | 'ios',
+    @Query('currentVersion') currentVersion: string,
+  ) {
+    if (!currentVersion) {
+      throw new BadRequestException('currentVersion query parameter is required');
+    }
+    
+    if (!['android', 'ios'].includes(platform)) {
+      throw new BadRequestException('Platform must be android or ios');
+    }
+
+    return this.downloadsService.checkForUpdates(platform, currentVersion);
+  }
+
+  @Post('notify-update/:platform')
+  @UseGuards(AuthGuard('jwt'))
+  async notifyUpdate(
+    @Param('platform') platform: 'android' | 'ios' | 'all',
+    @Query('version') version: string,
+    @Query('forceUpdate') forceUpdate?: string,
+  ) {
+    if (!version) {
+      throw new BadRequestException('version query parameter is required');
+    }
+    
+    if (!['android', 'ios', 'all'].includes(platform)) {
+      throw new BadRequestException('Platform must be android, ios, or all');
+    }
+
+    const isForceUpdate = forceUpdate === 'true';
+    return this.downloadsService.notifyUpdate(platform, version, isForceUpdate);
   }
 }

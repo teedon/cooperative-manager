@@ -21,6 +21,8 @@
     "mock-server": "npx tsc mock-server/server.ts --outDir mock-server/dist --esModuleInterop --resolveJsonModule --skipLibCheck && node mock-server/dist/server.js",
     "mock-server:dev": "npx tsx mock-server/server.ts",
     "build-storybook": "echo 'Storybook build placeholder'",
+    "bump-version": "node scripts/bump-version.js",
+    "notify-update": "node scripts/notify-update.js",
     "prepare": "husky install",
     "postinstall": "patch-package"
   },
@@ -48,6 +50,7 @@
     "react-native": "0.82.1",
     "react-native-app-intro-slider": "^4.0.4",
     "react-native-blob-util": "^0.24.5",
+    "react-native-device-info": "^13.2.0",
     "react-native-document-picker": "^9.3.1",
     "react-native-image-picker": "^7.2.0",
     "react-native-linear-gradient": "^2.8.3",

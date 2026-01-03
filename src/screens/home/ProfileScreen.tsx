@@ -10,6 +10,8 @@ import { colors, spacing, borderRadius, shadows } from '../../theme';
 import Icon from '../../components/common/Icon';
 import { formatCurrency } from '../../utils/formatters';
 import { HomeStackParamList } from '../../navigation/MainNavigator';
+import { UpdateChecker } from '../../utils/updateChecker';
+import DeviceInfo from 'react-native-device-info';
 
 type NavigationProp = NativeStackNavigationProp<HomeStackParamList>;
 
@@ -57,10 +59,20 @@ const ProfileScreen: React.FC = () => {
     ]);
   };
 
+  const handleCheckForUpdates = async () => {
+    try {
+      await UpdateChecker.manualUpdateCheck();
+    } catch (error) {
+      console.error('Failed to check for updates', error);
+      Alert.alert('Error', 'Failed to check for updates. Please try again later.');
+    }
+  };
+
   const menuItems = [
     { icon: 'User', label: 'Edit Profile', onPress: () => navigation.navigate('EditProfile') },
     { icon: 'Bell', label: 'Notifications', onPress: () => navigation.navigate('NotificationSettings') },
     { icon: 'Lock', label: 'Privacy & Security', onPress: () => navigation.navigate('PrivacySecurity') },
+    { icon: 'Download', label: 'Check for Updates', onPress: handleCheckForUpdates },
     { icon: 'HelpCircle', label: 'Help & Support', onPress: () => navigation.navigate('HelpSupport') },
     { icon: 'Info', label: 'About', onPress: () => navigation.navigate('About') },
   ];
@@ -122,7 +134,7 @@ const ProfileScreen: React.FC = () => {
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
 
-        <Text style={styles.version}>Version 1.0.0</Text>
+        <Text style={styles.version}>Version {DeviceInfo.getVersion()}</Text>
       </ScrollView>
     </SafeAreaView>
   );

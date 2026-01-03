@@ -4,8 +4,10 @@ import {
   InternalServerErrorException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { PushNotificationService } from './push-notification.service';
 import * as fs from 'fs';
 import * as path from 'path';
+import { APP_VERSIONS, compareVersions, AppVersionInfo } from './app-versions.config';
 
 @Injectable()
 export class DownloadsService {
@@ -15,11 +17,62 @@ export class DownloadsService {
     'app-files',
   );
 
-  constructor(private prisma: PrismaService) {
+  constructor(
+    private prisma: PrismaService,
+    private pushNotificationService: PushNotificationService,
+  ) {
     // Ensure storage directory exists
     if (!fs.existsSync(this.storageDir)) {
       fs.mkdirSync(this.storageDir, { recursive: true });
     }
+  }
+
+  /**
+   * Check for app updates
+   * Returns version info and whether an update is available
+   */
+  async checkForUpdates(
+    platform: 'android' | 'ios',
+    currentVersion: string,
+  ): Promise<{
+    updateAvailable: boolean;
+    latestVersion: AppVersionInfo;
+    forceUpdate: boolean;
+    isSupported: boolean;
+  }> {
+    const latestVersion = APP_VERSIONS[platform];
+    
+    if (!latestVersion) {
+      throw new NotFoundException('Platform not supported');
+    }
+
+    const versionComparison = compareVersions(latestVersion.version, currentVersion);
+    const updateAvailable = versionComparison > 0;
+
+    const minVersionComparison = compareVersions(currentVersion, latestVersion.minSupportedVersion);
+    const isSupported = minVersionComparison >= 0;
+
+    // Check if file exists
+    const fileName = platform === 'android' ? 'cooperative-manager.apk' : 'cooperative-manager.ipa';
+    const filePath = path.join(this.storageDir, fileName);
+    const fileExists = fs.existsSync(filePath);
+
+    // Add file size if file exists
+    let fileSize: number | undefined;
+    if (fileExists) {
+      const stats = fs.statSync(filePath);
+      fileSize = stats.size;
+    }
+
+    return {
+      updateAvailable,
+      latestVersion: {
+        ...latestVersion,
+        fileSize,
+      },
+      forceUpdate: latestVersion.forceUpdate || !isSupported,
+      isSupported,
+    };
   }
 
   async getAppFile(
@@ -27,26 +80,13 @@ export class DownloadsService {
     ipAddress?: string,
     userAgent?: string,
   ): Promise<{ filePath: string; fileName: string; version: string }> {
-    // Define file names and versions
-    const appFiles = {
-      android: {
-        fileName: 'cooperative-manager.apk',
-        version: '1.0.0',
-      },
-      ios: {
-        fileName: 'cooperative-manager.ipa',
-        version: '1.0.0',
-      },
-      web: {
-        fileName: 'cooperative-manager-web.zip',
-        version: '1.0.0',
-      },
-    };
-
-    const appInfo = appFiles[platform];
-    if (!appInfo) {
-      throw new NotFoundException('Platform not supported');
-    }
+    // Get version from config
+    const appInfo = platform === 'web' 
+      ? { fileName: 'cooperative-manager-web.zip', version: '1.0.0' }
+      : { 
+          fileName: platform === 'android' ? 'cooperative-manager.apk' : 'cooperative-manager.ipa',
+          version: APP_VERSIONS[platform].version 
+        };
 
     const filePath = path.join(this.storageDir, appInfo.fileName);
 
@@ -249,5 +289,36 @@ export class DownloadsService {
     });
 
     return { files };
+  }
+
+  /**
+   * Send push notification for app update
+   */
+  async notifyUpdate(
+    platform: 'android' | 'ios' | 'all',
+    version: string,
+    forceUpdate: boolean,
+  ): Promise<{ success: boolean; message: string; details?: any }> {
+    try {
+      const result = await this.pushNotificationService.sendUpdateNotification(
+        platform,
+        version,
+        forceUpdate,
+      );
+
+      return {
+        success: result.success,
+        message: result.success
+          ? `Push notification sent successfully for ${platform} version ${version}`
+          : 'Failed to send push notification',
+        details: result,
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        message: 'Error sending push notification',
+        details: { error: error.message },
+      };
+    }
   }
 }

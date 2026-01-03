@@ -14,15 +14,13 @@ export interface AppVersionInfo {
 
 export const APP_VERSIONS = {
   android: {
-    version: '1.0.0',
-    buildNumber: 1,
-    releaseDate: '2026-01-02',
+    version: '1.0.1',
+    buildNumber: 3,
+    releaseDate: '2026-01-03',
     downloadUrl: '/api/downloads/app/android',
     changeLog: [
-      'Initial release',
-      'Member management',
-      'Contribution tracking',
-      'Loan processing',
+      'fix viewport area for splashscreen buttons',
+      'super admin features',
     ],
     minSupportedVersion: '1.0.0',
     forceUpdate: false,

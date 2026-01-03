@@ -8,7 +8,7 @@ import {
   TouchableOpacity,
   Platform,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import AppIntroSlider from 'react-native-app-intro-slider';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import colors, { colors as colorTheme } from '../../theme/colors';
@@ -107,28 +107,34 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
   };
 
   const renderNextButton = () => (
-    <View style={[styles.buttonContainer, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
-      <View style={styles.nextButton}>
-        <Text style={styles.nextButtonText}>Next</Text>
+    <SafeAreaView edges={['bottom']} style={styles.buttonWrapper}>
+      <View style={[styles.buttonContainer, { paddingBottom: spacing.xl }]}>
+        <View style={styles.nextButton}>
+          <Text style={styles.nextButtonText}>Next</Text>
+        </View>
       </View>
-    </View>
+    </SafeAreaView>
   );
 
   const renderDoneButton = () => (
-    <View style={[styles.buttonContainer, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]}>
-      <View style={styles.doneButton}>
-        <Text style={styles.doneButtonText}>Get Started</Text>
+    <SafeAreaView edges={['bottom']} style={styles.buttonWrapper}>
+      <View style={[styles.buttonContainer, { paddingBottom: spacing.xl }]}>
+        <View style={styles.doneButton}>
+          <Text style={styles.doneButtonText}>Get Started</Text>
+        </View>
       </View>
-    </View>
+    </SafeAreaView>
   );
 
   const renderSkipButton = () => (
-    <TouchableOpacity 
-      style={[styles.skipButton, { paddingBottom: Math.max(insets.bottom, spacing.lg) }]} 
-      onPress={handleDone}
-    >
-      <Text style={styles.skipButtonText}>Skip</Text>
-    </TouchableOpacity>
+    <SafeAreaView edges={['bottom']} style={styles.skipButtonWrapper}>
+      <TouchableOpacity 
+        style={[styles.skipButton, { paddingBottom: spacing.xl }]} 
+        onPress={handleDone}
+      >
+        <Text style={styles.skipButtonText}>Skip</Text>
+      </TouchableOpacity>
+    </SafeAreaView>
   );
 
   return (
@@ -154,7 +160,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: spacing.xl,
     paddingTop: 80,
-    paddingBottom: 140,
+    paddingBottom: 180, // Increased from 140 to provide more space for buttons on Android 15
   },
   illustrationContainer: {
     flex: 1,
@@ -178,6 +184,12 @@ const styles = StyleSheet.create({
     color: colorTheme.text.secondary,
     textAlign: 'center',
     lineHeight: 24,
+  },
+  buttonWrapper: {
+    backgroundColor: 'transparent',
+  },
+  skipButtonWrapper: {
+    backgroundColor: 'transparent',
   },
   buttonContainer: {
     paddingHorizontal: spacing.xl,

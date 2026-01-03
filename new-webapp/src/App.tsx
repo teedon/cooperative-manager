@@ -6,6 +6,7 @@ import { useAppSelector } from './hooks/useAuth'
 import { LoginPage, SignupPage } from './pages/auth'
 import { LandingPage } from './pages/LandingPage'
 import { DownloadStatsPage } from './pages/DownloadStatsPage'
+import AppVersionManagementPage from './pages/AppVersionManagementPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { PendingApprovalsPage } from './pages/PendingApprovalsPage'
 import { CooperativeDetailsPage } from './pages/CooperativeDetailsPage'
@@ -72,6 +73,16 @@ const AppRoutes: React.FC = () => {
       
       {/* Public Download Stats - accessible to all */}
       <Route path="/download-stats" element={<DownloadStatsPage />} />
+      
+      {/* Admin Version Management - protected */}
+      <Route 
+        path="/admin/app-versions" 
+        element={
+          <ProtectedRoute>
+            <AppVersionManagementPage />
+          </ProtectedRoute>
+        } 
+      />
       
       {/* Protected Routes */}
       <Route 

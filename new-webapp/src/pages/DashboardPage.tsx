@@ -6,7 +6,7 @@ import { Button, Card, useToast } from '../components/ui'
 import { 
   Users, TrendingUp, DollarSign, Activity, Plus, 
   LogOut, Building2, ArrowRight, Clock,
-  Wallet, FileText, ShoppingCart, User
+  Wallet, FileText, ShoppingCart, User, Settings
 } from 'lucide-react'
 import { cooperativeApi } from '../api/cooperativeApi'
 import { activityApi } from '../api/activityApi'
@@ -191,6 +191,13 @@ export const DashboardPage: React.FC = () => {
             </p>
           </div>
           <div className="flex gap-3">
+            <Button
+              variant="outline"
+              onClick={() => navigate('/admin/app-versions')}
+              leftIcon={<Settings className="w-4 h-4" />}
+            >
+              Admin
+            </Button>
             <Button
               variant="outline"
               onClick={handleLogout}

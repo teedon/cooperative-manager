@@ -7,6 +7,9 @@ import { LoginPage, SignupPage } from './pages/auth'
 import { LandingPage } from './pages/LandingPage'
 import { DownloadStatsPage } from './pages/DownloadStatsPage'
 import AppVersionManagementPage from './pages/AppVersionManagementPage'
+import PrivacyPolicyPage from './pages/legal/PrivacyPolicyPage'
+import TermsOfServicePage from './pages/legal/TermsOfServicePage'
+import CookiePolicyPage from './pages/legal/CookiePolicyPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { PendingApprovalsPage } from './pages/PendingApprovalsPage'
 import { CooperativeDetailsPage } from './pages/CooperativeDetailsPage'
@@ -25,6 +28,7 @@ import { CooperativeSettingsPage } from './pages/CooperativeSettingsPage'
 import { BulkApproveSchedulesPage } from './pages/BulkApproveSchedulesPage'
 import { ReportsPage } from './pages/ReportsPage'
 import { ToastProvider } from './components/ui'
+import CookieConsent from './components/CookieConsent'
 import './index.css'
 
 // Protected Route Component
@@ -73,6 +77,11 @@ const AppRoutes: React.FC = () => {
       
       {/* Public Download Stats - accessible to all */}
       <Route path="/download-stats" element={<DownloadStatsPage />} />
+      
+      {/* Legal Pages - accessible to all */}
+      <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
+      <Route path="/terms-of-service" element={<TermsOfServicePage />} />
+      <Route path="/cookie-policy" element={<CookiePolicyPage />} />
       
       {/* Admin Version Management - protected */}
       <Route 
@@ -238,6 +247,7 @@ function App() {
         <Router>
           <div className="App">
             <AppRoutes />
+            <CookieConsent />
           </div>
         </Router>
       </ToastProvider>

@@ -716,9 +716,11 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                     {plan.category}
                   </Text>
                 </View>
-                <View style={[styles.badge, plan.isActive && styles.activeBadge]}>
-                  <Text style={styles.badgeText}>{plan.isActive ? 'Active' : 'Inactive'}</Text>
-                </View>
+                {canEditSettings && (
+                  <View style={[styles.badge, plan.isActive && styles.activeBadge]}>
+                    <Text style={styles.badgeText}>{plan.isActive ? 'Active' : 'Inactive'}</Text>
+                  </View>
+                )}
               </View>
             </View>
             <Text style={styles.planDescription} numberOfLines={2}>

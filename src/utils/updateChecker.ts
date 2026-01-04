@@ -148,8 +148,14 @@ export class UpdateChecker {
       const dirs = ReactNativeBlobUtil.fs.dirs;
       const downloadPath = `${dirs.DownloadDir}/${fileName}`;
 
-      // Show initial progress alert
-      let progressAlert: any = null;
+      // Show dismissible progress alert
+      Alert.alert(
+        'Downloading Update',
+        `Downloading version ${versionInfo.version}...\n\nProgress will be shown in your notification bar.`,
+        [{ text: 'OK', onPress: () => {} }],
+        { cancelable: true } // Can dismiss this alert
+      );
+
       let lastProgress = 0;
 
       // Download the file with progress tracking
@@ -169,23 +175,10 @@ export class UpdateChecker {
         .progress((received: number, total: number) => {
           const progress = Math.floor((received / total) * 100);
           
-          // Update progress every 10% to avoid too many alerts
+          // Log progress for debugging
           if (progress - lastProgress >= 10 || progress === 100) {
             lastProgress = progress;
-            
-            // Close previous alert and show new one with updated progress
-            if (progressAlert) {
-              // Note: Can't actually update Alert content, but progress is shown in notification
-              console.log(`Download progress: ${progress}%`);
-            } else {
-              Alert.alert(
-                'Downloading Update',
-                `Downloading version ${versionInfo.version}...\n\nProgress will be shown in your notification bar.`,
-                [],
-                { cancelable: false }
-              );
-              progressAlert = true;
-            }
+            console.log(`Download progress: ${progress}%`);
           }
         });
 
@@ -198,6 +191,7 @@ export class UpdateChecker {
       Alert.alert(
         'Update Error',
         'An error occurred while updating the app. Please try again later.',
+        [{ text: 'OK' }]
       );
     }
   }
@@ -213,15 +207,19 @@ export class UpdateChecker {
         'application/vnd.android.package-archive',
       );
       
+      // Dismissible alert for installation
       Alert.alert(
         'Install Update',
         'The update has been downloaded. Please follow the prompts to install it.',
+        [{ text: 'OK' }],
+        { cancelable: true } // Can dismiss
       );
     } catch (error) {
       console.error('Error installing APK:', error);
       Alert.alert(
         'Installation Error',
         'Could not install the update automatically. Please download it from the website.',
+        [{ text: 'OK' }]
       );
     }
   }

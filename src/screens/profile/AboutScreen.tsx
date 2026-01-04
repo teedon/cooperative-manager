@@ -115,7 +115,7 @@ const AboutScreen: React.FC<Props> = () => {
           <View style={styles.legalCard}>
             <TouchableOpacity
               style={styles.legalItem}
-              onPress={() => handleOpenLink('https://cooperativemanager.com/terms')}
+              onPress={() => handleOpenLink('https://cooperative-manager-production.up.railway.app/terms-of-service')}
             >
               <Icon name="FileText" size={20} color={colors.text.secondary} />
               <Text style={styles.legalText}>Terms of Service</Text>
@@ -123,7 +123,7 @@ const AboutScreen: React.FC<Props> = () => {
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.legalItem}
-              onPress={() => handleOpenLink('https://cooperativemanager.com/privacy')}
+              onPress={() => handleOpenLink('https://cooperative-manager-production.up.railway.app/privacy-policy')}
             >
               <Icon name="Shield" size={20} color={colors.text.secondary} />
               <Text style={styles.legalText}>Privacy Policy</Text>
@@ -131,10 +131,10 @@ const AboutScreen: React.FC<Props> = () => {
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.legalItem, styles.noBorder]}
-              onPress={() => handleOpenLink('https://cooperativemanager.com/licenses')}
+              onPress={() => handleOpenLink('https://cooperative-manager-production.up.railway.app/cookie-policy')}
             >
-              <Icon name="Award" size={20} color={colors.text.secondary} />
-              <Text style={styles.legalText}>Open Source Licenses</Text>
+              <Icon name="Cookie" size={20} color={colors.text.secondary} />
+              <Text style={styles.legalText}>Cookie Policy</Text>
               <Icon name="ExternalLink" size={16} color={colors.text.disabled} />
             </TouchableOpacity>
           </View>

@@ -1,18 +1,37 @@
 import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { 
   Users, TrendingUp, Shield, Smartphone, Download, 
   CheckCircle, ArrowRight, DollarSign, BarChart3,
-  Clock, Lock, Globe, Zap, Heart, Award, Menu, X
+  Clock, Lock, Globe, Zap, Heart, Award, Menu, X, Check
 } from 'lucide-react'
 import { downloadsApi } from '../api/downloadsApi'
 
 export const LandingPage: React.FC = () => {
   const navigate = useNavigate()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [showIOSModal, setShowIOSModal] = useState(false)
+  const [showAndroidErrorModal, setShowAndroidErrorModal] = useState(false)
 
-  const handleDownload = (platform: 'android' | 'ios' | 'web') => {
-    // Get the download URL and trigger download
+  const handleDownload = async (platform: 'android' | 'ios' | 'web') => {
+    // Show coming soon message for iOS
+    if (platform === 'ios') {
+      setShowIOSModal(true)
+      return
+    }
+
+    // Handle Android download with error handling
+    if (platform === 'android') {
+      try {
+        const downloadUrl = downloadsApi.downloadApp(platform)
+        window.location.href = downloadUrl
+      } catch (error) {
+        setShowAndroidErrorModal(true)
+      }
+      return
+    }
+
+    // Get the download URL and trigger download for other platforms
     const downloadUrl = downloadsApi.downloadApp(platform)
     window.location.href = downloadUrl
   }
@@ -435,6 +454,199 @@ export const LandingPage: React.FC = () => {
         </div>
       </section>
 
+      {/* Pricing Section */}
+      <section id="pricing" className="py-20 px-6 bg-gray-50">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">
+              Simple, Transparent Pricing
+            </h2>
+            <p className="text-xl text-gray-600">
+              Choose the plan that's right for your cooperative
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {/* Free Plan */}
+            <div className="bg-white rounded-2xl shadow-lg p-8 border-2 border-gray-200 hover:border-blue-400 transition-all">
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">Free</h3>
+              <p className="text-gray-600 mb-6">Perfect for small cooperatives</p>
+              <div className="mb-6">
+                <span className="text-4xl font-bold text-gray-900">₦0</span>
+                <span className="text-gray-600">/month</span>
+              </div>
+              <ul className="space-y-3 mb-8">
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+                  <span className="text-gray-700">Up to 20 members</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+                  <span className="text-gray-700">1 contribution plan</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+                  <span className="text-gray-700">Basic ledger tracking</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+                  <span className="text-gray-700">Email notifications</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+                  <span className="text-gray-700">Mobile app access</span>
+                </li>
+              </ul>
+              <button
+                onClick={() => navigate('/signup')}
+                className="w-full py-3 bg-gray-100 text-gray-900 rounded-lg hover:bg-gray-200 transition-colors font-semibold"
+              >
+                Get Started
+              </button>
+            </div>
+
+            {/* Starter Plan - Popular */}
+            <div className="bg-white rounded-2xl shadow-xl p-8 border-2 border-blue-600 relative hover:shadow-2xl transition-all">
+              <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-blue-600 text-white px-4 py-1 rounded-full text-sm font-semibold">
+                Most Popular
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">Starter</h3>
+              <p className="text-gray-600 mb-6">Great for growing cooperatives</p>
+              <div className="mb-6">
+                <span className="text-4xl font-bold text-gray-900">₦5,000</span>
+                <span className="text-gray-600">/month</span>
+                <p className="text-sm text-green-600 mt-1">Save 20% yearly</p>
+              </div>
+              <ul className="space-y-3 mb-8">
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                  <span className="text-gray-700">Up to 100 members</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                  <span className="text-gray-700">5 contribution plans</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                  <span className="text-gray-700">Loan management (10/month)</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                  <span className="text-gray-700">3 active group buys</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                  <span className="text-gray-700">Advanced reports</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-blue-600 shrink-0 mt-0.5" />
+                  <span className="text-gray-700">Priority email support</span>
+                </li>
+              </ul>
+              <button
+                onClick={() => navigate('/signup')}
+                className="w-full py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold"
+              >
+                Start Free Trial
+              </button>
+            </div>
+
+            {/* Business Plan */}
+            <div className="bg-white rounded-2xl shadow-lg p-8 border-2 border-gray-200 hover:border-blue-400 transition-all">
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">Business</h3>
+              <p className="text-gray-600 mb-6">For established cooperatives</p>
+              <div className="mb-6">
+                <span className="text-4xl font-bold text-gray-900">₦15,000</span>
+                <span className="text-gray-600">/month</span>
+                <p className="text-sm text-green-600 mt-1">Save 20% yearly</p>
+              </div>
+              <ul className="space-y-3 mb-8">
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+                  <span className="text-gray-700">Up to 500 members</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+                  <span className="text-gray-700">20 contribution plans</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+                  <span className="text-gray-700">Loan management (50/month)</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+                  <span className="text-gray-700">10 active group buys</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+                  <span className="text-gray-700">Export data (CSV, PDF)</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+                  <span className="text-gray-700">Priority phone support</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+                  <span className="text-gray-700">Dedicated account manager</span>
+                </li>
+              </ul>
+              <button
+                onClick={() => navigate('/signup')}
+                className="w-full py-3 bg-gray-100 text-gray-900 rounded-lg hover:bg-gray-200 transition-colors font-semibold"
+              >
+                Start Free Trial
+              </button>
+            </div>
+
+            {/* Enterprise Plan */}
+            <div className="bg-white rounded-2xl shadow-lg p-8 border-2 border-gray-200 hover:border-blue-400 transition-all">
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">Enterprise</h3>
+              <p className="text-gray-600 mb-6">Custom solution for large orgs</p>
+              <div className="mb-6">
+                <span className="text-4xl font-bold text-gray-900">Custom</span>
+                <p className="text-sm text-gray-600 mt-1">Contact us for pricing</p>
+              </div>
+              <ul className="space-y-3 mb-8">
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+                  <span className="text-gray-700">Unlimited members</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+                  <span className="text-gray-700">Unlimited everything</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+                  <span className="text-gray-700">White-label branding</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+                  <span className="text-gray-700">API access</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+                  <span className="text-gray-700">Custom integrations</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+                  <span className="text-gray-700">24/7 premium support</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+                  <span className="text-gray-700">On-site training</span>
+                </li>
+              </ul>
+              <button
+                onClick={() => window.location.href = 'https://greenbii.com/contact'}
+                className="w-full py-3 bg-gray-100 text-gray-900 rounded-lg hover:bg-gray-200 transition-colors font-semibold"
+              >
+                Contact Sales
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Download Section */}
       <section id="download" className="py-20 px-6 bg-gradient-to-br from-blue-600 to-purple-600 text-white">
         <div className="max-w-4xl mx-auto text-center">
@@ -544,25 +756,25 @@ export const LandingPage: React.FC = () => {
               <ul className="space-y-2 text-sm">
                 <li><a href="#features" className="hover:text-white transition-colors">Features</a></li>
                 <li><a href="#benefits" className="hover:text-white transition-colors">Benefits</a></li>
+                <li><a href="#pricing" className="hover:text-white transition-colors">Pricing</a></li>
                 <li><a href="#download" className="hover:text-white transition-colors">Download</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Pricing</a></li>
               </ul>
             </div>
             <div>
               <h3 className="text-white font-semibold mb-4">Company</h3>
               <ul className="space-y-2 text-sm">
-                <li><a href="#" className="hover:text-white transition-colors">About Us</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Contact</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Blog</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Careers</a></li>
+                <li><a href="https://greenbii.com/about" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">About Us</a></li>
+                <li><a href="https://greenbii.com/contact" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Contact</a></li>
+                <li><a href="https://greenbii.com/blog" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Blog</a></li>
+                <li><a href="https://greenbii.com/careers" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors">Careers</a></li>
               </ul>
             </div>
             <div>
               <h3 className="text-white font-semibold mb-4">Legal</h3>
               <ul className="space-y-2 text-sm">
-                <li><a href="#" className="hover:text-white transition-colors">Privacy Policy</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Terms of Service</a></li>
-                <li><a href="#" className="hover:text-white transition-colors">Cookie Policy</a></li>
+                <li><Link to="/privacy-policy" className="hover:text-white transition-colors">Privacy Policy</Link></li>
+                <li><Link to="/terms-of-service" className="hover:text-white transition-colors">Terms of Service</Link></li>
+                <li><Link to="/cookie-policy" className="hover:text-white transition-colors">Cookie Policy</Link></li>
               </ul>
             </div>
           </div>
@@ -571,6 +783,79 @@ export const LandingPage: React.FC = () => {
           </div>
         </div>
       </footer>
+
+      {/* iOS Coming Soon Modal */}
+      {showIOSModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Smartphone className="w-8 h-8 text-blue-600" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">iOS App Coming Soon!</h3>
+              <p className="text-gray-600 mb-6">
+                We're currently working on our iOS application. The app will be available on the App Store soon. 
+                In the meantime, you can use our web application or download the Android version.
+              </p>
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={() => navigate('/signup')}
+                  className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+                >
+                  Try Web Version
+                </button>
+                <button
+                  onClick={() => setShowIOSModal(false)}
+                  className="w-full bg-gray-100 text-gray-700 px-6 py-3 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Android Error Modal */}
+      {showAndroidErrorModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Clock className="w-8 h-8 text-yellow-600" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">Temporarily Unavailable</h3>
+              <p className="text-gray-600 mb-6">
+                The Android app is currently unavailable for download due to a temporary issue. 
+                Please try again later or use our web application in the meantime.
+              </p>
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={() => navigate('/signup')}
+                  className="w-full bg-blue-600 text-white px-6 py-3 rounded-lg font-semibold hover:bg-blue-700 transition-colors"
+                >
+                  Use Web Version
+                </button>
+                <button
+                  onClick={() => {
+                    setShowAndroidErrorModal(false)
+                    handleDownload('android')
+                  }}
+                  className="w-full bg-gray-100 text-gray-700 px-6 py-3 rounded-lg font-semibold hover:bg-gray-200 transition-colors"
+                >
+                  Try Again
+                </button>
+                <button
+                  onClick={() => setShowAndroidErrorModal(false)}
+                  className="w-full text-gray-600 px-6 py-2 rounded-lg font-semibold hover:text-gray-900 transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

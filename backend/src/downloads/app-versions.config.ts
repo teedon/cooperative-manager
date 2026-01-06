@@ -14,14 +14,12 @@ export interface AppVersionInfo {
 
 export const APP_VERSIONS = {
   android: {
-    version: '1.1.2',
-    buildNumber: 6,
-    releaseDate: '2026-01-04',
+    version: '1.1.3',
+    buildNumber: 7,
+    releaseDate: '2026-01-06',
     downloadUrl: '/api/downloads/app/android',
     changeLog: [
-      'Added Privacy page',
-      'improve splash screen button experience',
-      'fix: unauthorized access to subscription plan page',
+      'Fix Splash screen onboarding',
     ],
     minSupportedVersion: '1.0.0',
     forceUpdate: false,

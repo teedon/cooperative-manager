@@ -94,47 +94,49 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
           backgroundColor={item.backgroundColor} 
         />
         
-        <View style={styles.illustrationContainer}>
-          {item.illustration}
-        </View>
-        
-        <View style={styles.textContainer}>
-          <Text style={styles.title}>{item.title}</Text>
-          <Text style={styles.description}>{item.description}</Text>
+        <View style={styles.contentContainer}>
+          <View style={styles.illustrationContainer}>
+            {item.illustration}
+          </View>
+          
+          <View style={styles.textContainer}>
+            <Text style={styles.title}>{item.title}</Text>
+            <Text style={styles.description}>{item.description}</Text>
+          </View>
         </View>
       </View>
     );
   };
 
   const renderNextButton = () => (
-    <SafeAreaView edges={['bottom']} style={styles.buttonWrapper}>
-      <View style={[styles.buttonContainer, { paddingBottom: spacing.xl }]}>
+    <View style={styles.buttonWrapper}>
+      <View style={styles.buttonContainer}>
         <View style={styles.nextButton}>
           <Text style={styles.nextButtonText}>Next</Text>
         </View>
       </View>
-    </SafeAreaView>
+    </View>
   );
 
   const renderDoneButton = () => (
-    <SafeAreaView edges={['bottom']} style={styles.buttonWrapper}>
-      <View style={[styles.buttonContainer, { paddingBottom: spacing.xl }]}>
+    <View style={styles.buttonWrapper}>
+      <View style={styles.buttonContainer}>
         <View style={styles.doneButton}>
           <Text style={styles.doneButtonText}>Get Started</Text>
         </View>
       </View>
-    </SafeAreaView>
+    </View>
   );
 
   const renderSkipButton = () => (
-    <SafeAreaView edges={['bottom']} style={styles.skipButtonWrapper}>
+    <View style={styles.skipButtonWrapper}>
       <TouchableOpacity 
-        style={[styles.skipButton, { paddingBottom: spacing.xl }]} 
+        style={styles.skipButton} 
         onPress={handleDone}
       >
         <Text style={styles.skipButtonText}>Skip</Text>
       </TouchableOpacity>
-    </SafeAreaView>
+    </View>
   );
 
   return (
@@ -159,11 +161,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: spacing.xl,
+  },
+  contentContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
     paddingTop: 80,
-    paddingBottom: 180, // Increased from 140 to provide more space for buttons on Android 15
   },
   illustrationContainer: {
-    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: spacing.xl,
@@ -186,9 +191,17 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   buttonWrapper: {
+    position: 'absolute',
+    bottom: height * 0.4, // Position buttons at 40% from bottom (middle area)
+    left: 0,
+    right: 0,
     backgroundColor: 'transparent',
+    alignItems: 'center',
   },
   skipButtonWrapper: {
+    position: 'absolute',
+    bottom: height * 0.4, // Position skip button at same level
+    left: spacing.md,
     backgroundColor: 'transparent',
   },
   buttonContainer: {
@@ -224,7 +237,6 @@ const styles = StyleSheet.create({
   skipButton: {
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.lg,
-    marginLeft: spacing.md,
   },
   skipButtonText: {
     color: colorTheme.text.secondary,

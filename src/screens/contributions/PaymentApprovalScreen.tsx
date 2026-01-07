@@ -19,6 +19,7 @@ import { fetchPendingPayments, approvePayment } from '../../store/slices/contrib
 import { colors, spacing, borderRadius, shadows } from '../../theme';
 import Icon from '../../components/common/Icon';
 import { ContributionPayment } from '../../models';
+import { getErrorMessage } from '../../utils/errorHandler';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'PaymentApproval'>;
 
@@ -61,7 +62,7 @@ const PaymentApprovalScreen: React.FC<Props> = ({ route }) => {
               await dispatch(approvePayment({ paymentId: payment.id, data: { status: 'approved' } })).unwrap();
               Alert.alert('Success', 'Payment approved successfully');
             } catch (error: any) {
-              Alert.alert('Error', error || 'Failed to approve payment');
+              Alert.alert('Error', getErrorMessage(error, 'Failed to approve payment'));
             }
             setProcessingId(null);
           },
@@ -96,7 +97,7 @@ const PaymentApprovalScreen: React.FC<Props> = ({ route }) => {
       ).unwrap();
       Alert.alert('Done', 'Payment has been rejected');
     } catch (error: any) {
-      Alert.alert('Error', error || 'Failed to reject payment');
+      Alert.alert('Error', getErrorMessage(error, 'Failed to reject payment'));
     }
 
     setProcessingId(null);

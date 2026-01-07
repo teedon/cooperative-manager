@@ -265,6 +265,58 @@ export class LoansService {
       description: `Requested loan of ₦${dto.amount.toLocaleString()} for ${dto.purpose}`,
     });
 
+    // Create guarantor records if provided
+    if (dto.guarantorIds && dto.guarantorIds.length > 0) {
+      await this.prisma.loanGuarantor.createMany({
+        data: dto.guarantorIds.map(guarantorMemberId => ({
+          loanId: loan.id,
+          guarantorMemberId,
+          status: 'pending',
+        })),
+      });
+
+      // Notify each guarantor
+      for (const guarantorMemberId of dto.guarantorIds) {
+        const guarantorMember = await this.prisma.member.findUnique({
+          where: { id: guarantorMemberId },
+          include: { user: true },
+        });
+
+        if (guarantorMember?.userId && loan.member.user) {
+          await this.notificationsService.createNotification({
+            userId: guarantorMember.userId,
+            cooperativeId,
+            type: 'loan_guarantor_request',
+            title: 'Guarantor Request',
+            body: `${loan.member.user.firstName} ${loan.member.user.lastName} has requested you to guarantee their loan of ${dto.amount.toLocaleString()}`,
+            data: {
+              loanId: loan.id,
+              amount: dto.amount,
+              requesterName: `${loan.member.user.firstName} ${loan.member.user.lastName}`,
+            },
+            actionType: 'view',
+            actionRoute: `/loans/${loan.id}/guarantor-response`,
+          });
+        }
+      }
+    }
+
+    // Create KYC document records if provided
+    if (dto.kycDocuments && dto.kycDocuments.length > 0) {
+      await this.prisma.loanKycDocument.createMany({
+        data: dto.kycDocuments.map(doc => ({
+          loanId: loan.id,
+          documentType: doc.type,
+          documentUrl: doc.documentUrl,
+          fileName: doc.fileName,
+          fileSize: 0,
+          mimeType: doc.mimeType || 'application/pdf',
+          status: 'pending',
+          uploadedAt: new Date(),
+        })),
+      });
+    }
+
     // Notify cooperative admins about new loan request
     const memberName = loan.member.user 
       ? `${loan.member.user.firstName} ${loan.member.user.lastName}`
@@ -405,7 +457,11 @@ export class LoansService {
   async approveLoan(loanId: string, dto: ApproveLoanDto, requestingUserId: string) {
     const loan = await this.prisma.loan.findUnique({
       where: { id: loanId },
-      include: { member: { include: { user: true } } },
+      include: { 
+        member: { include: { user: true } },
+        loanType: true,
+        approvals: true,
+      },
     });
 
     if (!loan) {
@@ -418,44 +474,100 @@ export class LoansService {
       throw new BadRequestException(`Cannot approve loan with status: ${loan.status}`);
     }
 
+    // Check if this user has already approved
+    const existingApproval = loan.approvals.find(a => a.approverUserId === requestingUserId);
+    if (existingApproval) {
+      throw new BadRequestException('You have already approved this loan');
+    }
+
+    // Create approval record
+    await this.prisma.loanApproval.create({
+      data: {
+        loanId,
+        approverUserId: requestingUserId,
+        decision: 'approved',
+        comments: dto.notes,
+      },
+    });
+
+    // Check if loan type requires multiple approvals
+    let shouldApproveLoan = true;
+    if (loan.loanType?.requiresMultipleApprovals) {
+      const minApprovers = loan.loanType.minApprovers || 2;
+      const currentApprovals = loan.approvals.length + 1; // Including the new approval
+      
+      shouldApproveLoan = currentApprovals >= minApprovers;
+    }
+
+    // Update loan status if all approvals are met
+    const updateData: any = {
+      reviewedBy: requestingUserId,
+      reviewedAt: new Date(),
+    };
+
+    if (shouldApproveLoan) {
+      updateData.status = 'approved';
+      updateData.deductionStartDate = dto.deductionStartDate ? new Date(dto.deductionStartDate) : null;
+    }
+
     const updated = await this.prisma.loan.update({
       where: { id: loanId },
-      data: {
-        status: 'approved',
-        reviewedBy: requestingUserId,
-        reviewedAt: new Date(),
-        deductionStartDate: dto.deductionStartDate ? new Date(dto.deductionStartDate) : null,
-      },
+      data: updateData,
       include: {
         member: { include: { user: true } },
         loanType: true,
+        approvals: {
+          include: {
+            approver: true,
+          },
+        },
       },
     });
 
     await this.activitiesService.create({
       userId: requestingUserId,
       cooperativeId: loan.cooperativeId,
-      action: 'loan_approved',
-      description: `Approved loan of ₦${loan.amount.toLocaleString()}`,
+      action: shouldApproveLoan ? 'loan_approved' : 'loan_approval_added',
+      description: shouldApproveLoan 
+        ? `Approved loan of ₦${loan.amount.toLocaleString()}`
+        : `Added approval for loan of ₦${loan.amount.toLocaleString()}`,
     });
 
-    // Notify the member that their loan was approved
+    // Notify the member
     if (loan.member.userId) {
-      await this.notificationsService.createNotification({
-        userId: loan.member.userId,
-        cooperativeId: loan.cooperativeId,
-        type: 'loan_approved',
-        title: 'Loan Approved! 🎉',
-        body: `Your loan request of ₦${loan.amount.toLocaleString()} has been approved.`,
-        data: { loanId: loan.id },
-        actionType: 'navigate',
-        actionRoute: 'LoanDetail',
-        actionParams: { loanId: loan.id },
-      });
+      if (shouldApproveLoan) {
+        // Full approval notification
+        await this.notificationsService.createNotification({
+          userId: loan.member.userId,
+          cooperativeId: loan.cooperativeId,
+          type: 'loan_approved',
+          title: 'Loan Approved! 🎉',
+          body: `Your loan request of ₦${loan.amount.toLocaleString()} has been approved.`,
+          data: { loanId: loan.id },
+          actionType: 'navigate',
+          actionRoute: 'LoanDetail',
+          actionParams: { loanId: loan.id },
+        });
+      } else {
+        // Partial approval notification
+        const approver = await this.prisma.user.findUnique({ where: { id: requestingUserId } });
+        const remainingApprovals = (loan.loanType?.minApprovers || 2) - (loan.approvals.length + 1);
+        await this.notificationsService.createNotification({
+          userId: loan.member.userId,
+          cooperativeId: loan.cooperativeId,
+          type: 'loan_approval_progress',
+          title: 'Loan Approval Progress',
+          body: `${approver?.firstName} ${approver?.lastName} approved your loan. ${remainingApprovals} more approval(s) needed.`,
+          data: { loanId: loan.id },
+          actionType: 'navigate',
+          actionRoute: 'LoanDetail',
+          actionParams: { loanId: loan.id },
+        });
+      }
     }
 
-    // Send approval email to the member
-    if (updated.member.user?.email) {
+    // Send approval email only if fully approved
+    if (shouldApproveLoan && updated.member.user?.email) {
       const cooperative = await this.prisma.cooperative.findUnique({
         where: { id: loan.cooperativeId },
         select: { name: true },
@@ -681,6 +793,17 @@ export class LoansService {
         member: { include: { user: true } },
         loanType: true,
         repaymentSchedules: { orderBy: { installmentNumber: 'asc' } },
+        guarantors: {
+          include: {
+            guarantor: { include: { user: true } },
+          },
+        },
+        kycDocuments: true,
+        approvals: {
+          include: {
+            approver: true,
+          },
+        },
       },
     });
   }
@@ -688,14 +811,36 @@ export class LoansService {
   async recordRepayment(loanId: string, dto: RecordRepaymentDto, requestingUserId: string) {
     const loan = await this.prisma.loan.findUnique({
       where: { id: loanId },
-      include: { repaymentSchedules: { orderBy: { installmentNumber: 'asc' } } },
+      include: { 
+        repaymentSchedules: { orderBy: { installmentNumber: 'asc' } },
+        member: { include: { user: true } },
+      },
     });
 
     if (!loan) {
       throw new NotFoundException('Loan not found');
     }
 
-    await this.validatePermission(loan.cooperativeId, requestingUserId, PERMISSIONS.LOANS_APPROVE);
+    // Check if user is the loan owner (member) or has approval permission
+    const member = await this.prisma.member.findFirst({
+      where: {
+        cooperativeId: loan.cooperativeId,
+        userId: requestingUserId,
+        status: 'active',
+      },
+    });
+
+    if (!member) {
+      throw new ForbiddenException('You are not a member of this cooperative');
+    }
+
+    const isLoanOwner = loan.memberId === member.id;
+    const permissions = parsePermissions(member.permissions);
+    const hasApprovalPermission = hasPermission(member.role, permissions, PERMISSIONS.LOANS_APPROVE);
+
+    if (!isLoanOwner && !hasApprovalPermission) {
+      throw new ForbiddenException('You do not have permission to record repayments for this loan');
+    }
 
     if (!['disbursed', 'repaying'].includes(loan.status)) {
       throw new BadRequestException('Loan is not in a repayable state');
@@ -717,6 +862,36 @@ export class LoansService {
       throw new BadRequestException('A similar repayment was recorded recently. Please wait before recording another repayment.');
     }
 
+    // If member is recording their own payment (not admin), create a pending repayment notification
+    // that requires approval instead of directly updating the ledger
+    if (isLoanOwner && !hasApprovalPermission) {
+      // Member is notifying payment - create notification for admins
+      await this.notificationsService.notifyCooperativeAdmins(
+        loan.cooperativeId,
+        'loan_repayment_notification',
+        'Loan Repayment Notification',
+        `${loan.member.user?.firstName || 'A member'} ${loan.member.user?.lastName || ''} has notified a loan repayment of ₦${dto.amount.toLocaleString()} for approval.`,
+        { loanId: loan.id, amount: dto.amount, memberId: loan.memberId },
+        [requestingUserId], // Exclude the requester
+      );
+
+      // Notify the member that their payment notification has been submitted
+      await this.notificationsService.createNotification({
+        userId: requestingUserId,
+        cooperativeId: loan.cooperativeId,
+        type: 'loan_repayment_notification',
+        title: 'Payment Notification Submitted',
+        body: `Your loan repayment notification of ₦${dto.amount.toLocaleString()} has been submitted and is awaiting admin approval.`,
+        data: { loanId: loan.id, amount: dto.amount },
+      });
+
+      return {
+        ...loan,
+        message: 'Payment notification submitted successfully. Awaiting admin approval.',
+      };
+    }
+
+    // Admin is recording repayment - update ledger directly
     // Find pending schedules and apply payment
     let remainingAmount = dto.amount;
     const schedulesToUpdate: string[] = [];
@@ -845,6 +1020,17 @@ export class LoansService {
         member: { include: { user: true } },
         loanType: true,
         repaymentSchedules: { orderBy: { installmentNumber: 'asc' } },
+        guarantors: {
+          include: {
+            guarantor: { include: { user: true } },
+          },
+        },
+        kycDocuments: true,
+        approvals: {
+          include: {
+            approver: true,
+          },
+        },
       },
     });
 
@@ -866,6 +1052,207 @@ export class LoansService {
     };
   }
 
+  async getKycDocument(documentId: string, requestingUserId: string) {
+    const document = await this.prisma.loanKycDocument.findUnique({
+      where: { id: documentId },
+      include: {
+        loan: {
+          include: {
+            member: { include: { user: true } },
+          },
+        },
+      },
+    });
+
+    if (!document) {
+      throw new NotFoundException('Document not found');
+    }
+
+    // Check if user has access to this document
+    await this.validateMembership(document.loan.cooperativeId, requestingUserId);
+
+    return document;
+  }
+
+  async getLoansAsGuarantor(cooperativeId: string, requestingUserId: string) {
+    // Get user's member record
+    const member = await this.prisma.member.findFirst({
+      where: {
+        cooperativeId,
+        userId: requestingUserId,
+        status: 'active',
+      },
+    });
+
+    if (!member) {
+      throw new ForbiddenException('You are not a member of this cooperative');
+    }
+
+    // Get all loans where user is a guarantor
+    const guarantorRecords = await this.prisma.loanGuarantor.findMany({
+      where: {
+        guarantorMemberId: member.id,
+      },
+      include: {
+        loan: {
+          include: {
+            member: { include: { user: true } },
+            loanType: true,
+            guarantors: {
+              include: {
+                guarantor: { include: { user: true } },
+              },
+            },
+            kycDocuments: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    return guarantorRecords.map(gr => ({
+      ...gr.loan,
+      guarantorStatus: gr.status,
+      guarantorRespondedAt: gr.respondedAt,
+      guarantorRejectionReason: gr.rejectionReason,
+    }));
+  }
+
+  async respondToGuarantorRequest(
+    loanId: string,
+    approved: boolean,
+    reason: string | undefined,
+    requestingUserId: string,
+  ) {
+    const loan = await this.prisma.loan.findUnique({
+      where: { id: loanId },
+      include: {
+        member: { include: { user: true } },
+        loanType: true,
+      },
+    });
+
+    if (!loan) {
+      throw new NotFoundException('Loan not found');
+    }
+
+    // Get guarantor's member record
+    const guarantorMember = await this.prisma.member.findFirst({
+      where: {
+        cooperativeId: loan.cooperativeId,
+        userId: requestingUserId,
+        status: 'active',
+      },
+      include: { user: true },
+    });
+
+    if (!guarantorMember) {
+      throw new ForbiddenException('You are not a member of this cooperative');
+    }
+
+    // Find guarantor record
+    const guarantorRecord = await this.prisma.loanGuarantor.findUnique({
+      where: {
+        loanId_guarantorMemberId: {
+          loanId,
+          guarantorMemberId: guarantorMember.id,
+        },
+      },
+    });
+
+    if (!guarantorRecord) {
+      throw new NotFoundException('You are not a guarantor for this loan');
+    }
+
+    if (guarantorRecord.status !== 'pending') {
+      throw new BadRequestException('You have already responded to this request');
+    }
+
+    // Update guarantor status
+    await this.prisma.loanGuarantor.update({
+      where: { id: guarantorRecord.id },
+      data: {
+        status: approved ? 'approved' : 'rejected',
+        respondedAt: new Date(),
+        rejectionReason: approved ? null : reason,
+      },
+    });
+
+    // Log activity
+    await this.activitiesService.log(
+      requestingUserId,
+      approved ? 'guarantor_approved' : 'guarantor_rejected',
+      approved
+        ? `Approved to guarantee loan of ₦${loan.amount.toLocaleString()}`
+        : `Rejected to guarantee loan of ₦${loan.amount.toLocaleString()}`,
+      loan.cooperativeId,
+      { loanId: loan.id }
+    );
+
+    // Notify loan requester
+    if (loan.member.userId && guarantorMember.user) {
+      await this.notificationsService.createNotification({
+        userId: loan.member.userId,
+        cooperativeId: loan.cooperativeId,
+        type: approved ? 'guarantor_approved' : 'guarantor_rejected',
+        title: approved ? 'Guarantor Approved' : 'Guarantor Rejected',
+        body: approved
+          ? `${guarantorMember.user.firstName} ${guarantorMember.user.lastName} has approved to guarantee your loan`
+          : `${guarantorMember.user.firstName} ${guarantorMember.user.lastName} has declined to guarantee your loan${reason ? `: ${reason}` : ''}`,
+        data: {
+          loanId: loan.id,
+          guarantorName: `${guarantorMember.user.firstName} ${guarantorMember.user.lastName}`,
+        },
+        actionType: 'view',
+        actionRoute: `/loans/${loan.id}`,
+      });
+    }
+
+    // If all required guarantors have approved and loan is still pending, notify admins
+    if (approved && loan.status === 'pending' && loan.loanType?.requiresGuarantor) {
+      const allGuarantors = await this.prisma.loanGuarantor.findMany({
+        where: { loanId },
+      });
+
+      const approvedCount = allGuarantors.filter(g => g.status === 'approved').length;
+      const minRequired = loan.loanType.minGuarantors || 1;
+
+      if (approvedCount >= minRequired) {
+        // Notify admins that loan is ready for review
+        const admins = await this.prisma.member.findMany({
+          where: {
+            cooperativeId: loan.cooperativeId,
+            status: 'active',
+          },
+          include: { user: true },
+        });
+
+        for (const admin of admins) {
+          const permissions = parsePermissions(admin.permissions);
+          if (hasPermission(admin.role, permissions, PERMISSIONS.LOANS_APPROVE) && admin.userId && loan.member.user) {
+            await this.notificationsService.createNotification({
+              userId: admin.userId,
+              cooperativeId: loan.cooperativeId,
+              type: 'loan_ready_for_review',
+              title: 'Loan Ready for Review',
+              body: `${loan.member.user.firstName} ${loan.member.user.lastName}'s loan of ₦${loan.amount.toLocaleString()} has all required guarantor approvals`,
+              data: {
+                loanId: loan.id,
+                amount: loan.amount,
+              },
+              actionType: 'view',
+              actionRoute: `/loans/${loan.id}`,
+            });
+          }
+        }
+      }
+    }
+
+    return this.getLoan(loanId, requestingUserId);
+  }
+
   async getPendingLoans(cooperativeId: string, requestingUserId: string) {
     await this.validatePermission(cooperativeId, requestingUserId, PERMISSIONS.LOANS_VIEW);
 
@@ -874,6 +1261,17 @@ export class LoansService {
       include: {
         member: { include: { user: true } },
         loanType: true,
+        guarantors: {
+          include: {
+            guarantor: { include: { user: true } },
+          },
+        },
+        kycDocuments: true,
+        approvals: {
+          include: {
+            approver: true,
+          },
+        },
       },
       orderBy: { requestedAt: 'asc' },
     });
@@ -898,6 +1296,17 @@ export class LoansService {
       include: {
         loanType: true,
         repaymentSchedules: { orderBy: { installmentNumber: 'asc' } },
+        guarantors: {
+          include: {
+            guarantor: { include: { user: true } },
+          },
+        },
+        kycDocuments: true,
+        approvals: {
+          include: {
+            approver: true,
+          },
+        },
       },
       orderBy: { requestedAt: 'desc' },
     });
@@ -986,31 +1395,36 @@ export class LoansService {
     let totalRepayment: number;
 
     if (interestType === 'reducing_balance') {
-      // Reducing balance calculation
+      // Reducing balance calculation (EMI formula)
       const monthlyRate = interestRate / 100 / 12;
       if (monthlyRate === 0) {
+        // No interest case
         interestAmount = 0;
+        monthlyRepayment = Math.ceil(amount / duration);
+        totalRepayment = amount;
       } else {
+        // EMI = P × r × (1 + r)^n / ((1 + r)^n - 1)
         const emi = Math.ceil(
           (amount * monthlyRate * Math.pow(1 + monthlyRate, duration)) /
             (Math.pow(1 + monthlyRate, duration) - 1)
         );
-        interestAmount = emi * duration - amount;
+        monthlyRepayment = emi;
+        totalRepayment = emi * duration;
+        interestAmount = totalRepayment - amount;
       }
     } else {
       // Flat rate calculation: one-time percentage of principal
       interestAmount = Math.ceil(amount * interestRate / 100);
+      totalRepayment = amount + interestAmount;
+      monthlyRepayment = Math.ceil(totalRepayment / duration);
     }
 
     if (deductInterestUpfront) {
       // Upfront interest: member repays only principal
       // Interest is deducted from disbursement amount
+      // Reset total and monthly repayment to principal only
       totalRepayment = amount;
       monthlyRepayment = Math.ceil(amount / duration);
-    } else {
-      // Normal: member repays principal + interest
-      totalRepayment = amount + interestAmount;
-      monthlyRepayment = Math.ceil(totalRepayment / duration);
     }
 
     return { interestAmount, monthlyRepayment, totalRepayment };

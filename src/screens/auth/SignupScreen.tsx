@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { RouteProp, useRoute } from '@react-navigation/native';
 import { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { signup } from '../../store/slices/authSlice';
@@ -25,6 +26,7 @@ import {
 } from '../../utils/validation';
 import { colors, spacing, borderRadius, shadows } from '../../theme';
 import Icon from '../../components/common/Icon';
+import { getErrorMessage } from '../../utils/errorHandler';
 import Logo from '../../components/common/Logo';
 
 type SignupScreenNavigationProp = NativeStackNavigationProp<AuthStackParamList, 'Signup'>;
@@ -53,6 +55,7 @@ interface FormErrors {
 const SignupScreen: React.FC<Props> = ({ navigation }) => {
   const dispatch = useAppDispatch();
   const { isLoading, error } = useAppSelector((state) => state.auth);
+  const route = useRoute<RouteProp<AuthStackParamList, 'Signup'>>();
 
   const [formData, setFormData] = useState<SignupFormData>({
     firstName: '',
@@ -66,6 +69,16 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
   const [errors, setErrors] = useState<FormErrors>({});
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [cooperativeCode, setCooperativeCode] = useState('');
+  const [showCooperativeHint, setShowCooperativeHint] = useState(false);
+
+  // Handle cooperative code from deep link
+  useEffect(() => {
+    if (route.params?.cooperativeCode) {
+      setCooperativeCode(route.params.cooperativeCode);
+      setShowCooperativeHint(true);
+    }
+  }, [route.params?.cooperativeCode]);
 
   const validateForm = (): boolean => {
     const newErrors: FormErrors = {};
@@ -140,8 +153,7 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
         console.warn('Failed to fetch pending invites:', err);
       }
     } catch (err: any) {
-      const errorMessage = err?.response?.data?.message || err?.message || 'Please try again.';
-      Alert.alert('Signup Failed', errorMessage);
+      Alert.alert('Signup Failed', getErrorMessage(err, 'Please try again.'));
     }
   };
 
@@ -172,6 +184,21 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
             <Text style={styles.title}>Create Account</Text>
             <Text style={styles.subtitle}>Join a community cooperative today</Text>
           </View>
+
+          {/* Cooperative Invitation Hint */}
+          {cooperativeCode && (
+            <View style={styles.cooperativeHint}>
+              <Icon name="Info" size={18} color="#0369a1" />
+              <View style={styles.cooperativeHintContent}>
+                <Text style={styles.cooperativeHintText}>
+                  You've been invited to join a cooperative!
+                </Text>
+                <Text style={styles.cooperativeCodeText}>
+                  Code: {cooperativeCode}
+                </Text>
+              </View>
+            </View>
+          )}
 
           {/* Form Section */}
           <View style={styles.formCard}>
@@ -371,6 +398,30 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: colors.text.secondary,
     textAlign: 'center',
+  },
+  cooperativeHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#e0f2fe',
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    marginTop: spacing.lg,
+    gap: spacing.sm,
+    ...shadows.sm,
+  },
+  cooperativeHintContent: {
+    flex: 1,
+  },
+  cooperativeHintText: {
+    fontSize: 14,
+    color: '#0369a1',
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  cooperativeCodeText: {
+    fontSize: 13,
+    color: '#0c4a6e',
+    fontWeight: '700',
   },
   formCard: {
     backgroundColor: colors.background.paper,

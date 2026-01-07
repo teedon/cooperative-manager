@@ -18,6 +18,7 @@ import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { deleteAccount } from '../../store/slices/authSlice';
 import { colors, spacing, borderRadius, shadows } from '../../theme';
 import Icon from '../../components/common/Icon';
+import { getErrorMessage } from '../../utils/errorHandler';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'PrivacySecurity'>;
 
@@ -54,7 +55,7 @@ const PrivacySecurityScreen: React.FC<Props> = ({ navigation }) => {
               ).unwrap();
               // Navigation will happen automatically as the user will be logged out
             } catch (error: any) {
-              Alert.alert('Error', error || 'Failed to delete account');
+              Alert.alert('Error', getErrorMessage(error, 'Failed to delete account'));
               setIsDeleting(false);
             }
           },

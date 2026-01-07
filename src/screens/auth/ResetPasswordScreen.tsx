@@ -18,6 +18,7 @@ import { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { authApi } from '../../api';
 import { colors, spacing, borderRadius, shadows } from '../../theme';
 import Icon from '../../components/common/Icon';
+import { getErrorMessage } from '../../utils/errorHandler';
 
 type ResetPasswordScreenNavigationProp = NativeStackNavigationProp<AuthStackParamList, 'ResetPassword'>;
 type ResetPasswordScreenRouteProp = RouteProp<AuthStackParamList, 'ResetPassword'>;
@@ -58,7 +59,7 @@ const ResetPasswordScreen: React.FC<Props> = ({ navigation, route }) => {
         setError('This reset link is invalid or has expired');
       }
     } catch (err: any) {
-      setError(err?.response?.data?.message || 'This reset link is invalid or has expired');
+      setError(getErrorMessage(err, 'This reset link is invalid or has expired'));
     } finally {
       setIsVerifying(false);
     }
@@ -97,7 +98,7 @@ const ResetPasswordScreen: React.FC<Props> = ({ navigation, route }) => {
         setError(response.message || 'Failed to reset password');
       }
     } catch (err: any) {
-      setError(err?.response?.data?.message || err?.message || 'Failed to reset password');
+      setError(getErrorMessage(err, 'Failed to reset password'));
     } finally {
       setIsLoading(false);
     }

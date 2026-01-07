@@ -1,4 +1,37 @@
 {
   "name": "CooperativeManager",
-  "displayName": "Cooperative Manager"
+  "displayName": "Cooperative Manager",
+  "expo": {
+    "scheme": "coopmanager",
+    "android": {
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "https",
+              "host": "coopmanager.app",
+              "pathPrefix": "/join"
+            },
+            {
+              "scheme": "https",
+              "host": "www.coopmanager.app",
+              "pathPrefix": "/join"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
+      ]
+    },
+    "ios": {
+      "associatedDomains": [
+        "applinks:coopmanager.app",
+        "applinks:www.coopmanager.app"
+      ]
+    }
+  }
 }

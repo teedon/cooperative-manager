@@ -17,6 +17,7 @@ import { colors, spacing, borderRadius, shadows } from '../../theme';
 import Icon from '../../components/common/Icon';
 import { expenseApi, ExpenseCategory, CreateExpenseData } from '../../api/expenseApi';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { getErrorMessage } from '../../utils/errorHandler';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'CreateExpense'>;
 
@@ -100,7 +101,7 @@ const CreateExpenseScreen: React.FC<Props> = ({ route, navigation }) => {
         ]);
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to create expense');
+      Alert.alert('Error', getErrorMessage(error, 'Failed to create expense'));
     }
     setSubmitting(false);
   };

@@ -2,6 +2,7 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User, AuthState, LoginCredentials, SignupData } from '../../models';
 import { authApi, UpdateProfileData, ChangePasswordData } from '../../api/authApi';
+import { getThunkErrorMessage } from '../../utils/errorHandler';
 
 const initialState: AuthState = {
   user: null,
@@ -19,7 +20,7 @@ export const login = createAsyncThunk(
       const response = await authApi.login(credentials);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -31,7 +32,7 @@ export const signup = createAsyncThunk(
       const response = await authApi.signup(data);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -103,7 +104,7 @@ export const refreshTokens = createAsyncThunk(
       }
       throw new Error('Token refresh failed');
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );

@@ -16,6 +16,7 @@ import { Card, Badge, Modal, Button } from '../../components/common';
 import { LoanRequest } from '../../models';
 import { formatCurrency, formatDate } from '../../utils';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { getErrorMessage } from '../../utils/errorHandler';
 
 type Props = NativeStackScreenProps<any, 'LoanApprovalList'>;
 
@@ -80,7 +81,7 @@ const LoanApprovalListScreen: React.FC<Props> = ({ route, navigation }) => {
       setApproveModalVisible(false);
       setSelectedLoan(null);
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to approve loan');
+      Alert.alert('Error', getErrorMessage(error, 'Failed to approve loan'));
     }
   };
 
@@ -104,7 +105,7 @@ const LoanApprovalListScreen: React.FC<Props> = ({ route, navigation }) => {
       setRejectModalVisible(false);
       setSelectedLoan(null);
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to reject loan');
+      Alert.alert('Error', getErrorMessage(error, 'Failed to reject loan'));
     }
   };
 
@@ -118,7 +119,29 @@ const LoanApprovalListScreen: React.FC<Props> = ({ route, navigation }) => {
     return 'Unknown Member';
   };
 
-  const renderLoanCard = ({ item }: { item: LoanRequest }) => (
+  const getGuarantorApprovalStatus = (loan: LoanRequest) => {
+    if (!loan.loanType?.requiresGuarantor) {
+      return { canApprove: true, message: null };
+    }
+
+    const minGuarantors = loan.loanType.minGuarantors || 1;
+    const approvedGuarantors = loan.guarantors?.filter(g => g.status === 'approved').length || 0;
+    const canApprove = approvedGuarantors >= minGuarantors;
+
+    return {
+      canApprove,
+      message: canApprove
+        ? null
+        : `Requires ${minGuarantors - approvedGuarantors} more guarantor approval(s)`,
+      approvedCount: approvedGuarantors,
+      requiredCount: minGuarantors,
+    };
+  };
+
+  const renderLoanCard = ({ item }: { item: LoanRequest }) => {
+    const guarantorStatus = getGuarantorApprovalStatus(item);
+    
+    return (
     <Card style={styles.loanCard}>
       <View style={styles.cardHeader}>
         <View style={styles.memberInfo}>
@@ -136,6 +159,19 @@ const LoanApprovalListScreen: React.FC<Props> = ({ route, navigation }) => {
       {item.loanType && (
         <View style={styles.loanTypeTag}>
           <Text style={styles.loanTypeText}>{item.loanType.name}</Text>
+        </View>
+      )}
+
+      {/* Guarantor Status Section */}
+      {item.loanType?.requiresGuarantor && (
+        <View style={[styles.guarantorSection, !guarantorStatus.canApprove && styles.guarantorSectionWarning]}>
+          <Text style={styles.guarantorLabel}>Guarantor Approvals:</Text>
+          <Text style={[styles.guarantorStatus, !guarantorStatus.canApprove && styles.guarantorStatusWarning]}>
+            {guarantorStatus.approvedCount} / {guarantorStatus.requiredCount} approved
+          </Text>
+          {!guarantorStatus.canApprove && (
+            <Text style={styles.guarantorMessage}>⚠️ {guarantorStatus.message}</Text>
+          )}
         </View>
       )}
 
@@ -177,14 +213,35 @@ const LoanApprovalListScreen: React.FC<Props> = ({ route, navigation }) => {
           <Text style={styles.rejectButtonText}>Reject</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.actionButton, styles.approveButton]}
-          onPress={() => openApproveModal(item)}
+          style={[
+            styles.actionButton,
+            styles.approveButton,
+            !guarantorStatus.canApprove && styles.approveButtonDisabled,
+          ]}
+          onPress={() => {
+            if (guarantorStatus.canApprove) {
+              openApproveModal(item);
+            } else {
+              Alert.alert(
+                'Cannot Approve',
+                `This loan requires at least ${guarantorStatus.requiredCount} guarantor approval(s). Currently ${guarantorStatus.approvedCount} approved.`,
+                [{ text: 'OK' }]
+              );
+            }
+          }}
+          disabled={!guarantorStatus.canApprove}
         >
-          <Text style={styles.approveButtonText}>Approve</Text>
+          <Text style={[
+            styles.approveButtonText,
+            !guarantorStatus.canApprove && styles.approveButtonTextDisabled,
+          ]}>
+            Approve
+          </Text>
         </TouchableOpacity>
       </View>
     </Card>
-  );
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -448,6 +505,46 @@ const styles = StyleSheet.create({
   approveButtonText: {
     color: '#fff',
     fontWeight: '600',
+  },
+  approveButtonDisabled: {
+    backgroundColor: '#cbd5e1',
+    opacity: 0.6,
+  },
+  approveButtonTextDisabled: {
+    color: '#64748b',
+  },
+  // Guarantor section styles
+  guarantorSection: {
+    backgroundColor: '#f0fdf4',
+    borderLeftWidth: 3,
+    borderLeftColor: '#22c55e',
+    padding: 12,
+    marginBottom: 16,
+    borderRadius: 8,
+  },
+  guarantorSectionWarning: {
+    backgroundColor: '#fef3c7',
+    borderLeftColor: '#f59e0b',
+  },
+  guarantorLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#166534',
+    marginBottom: 4,
+  },
+  guarantorStatus: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#16a34a',
+  },
+  guarantorStatusWarning: {
+    color: '#d97706',
+  },
+  guarantorMessage: {
+    fontSize: 12,
+    color: '#92400e',
+    marginTop: 4,
+    fontStyle: 'italic',
   },
   emptyContainer: {
     alignItems: 'center',

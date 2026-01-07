@@ -23,6 +23,7 @@ import {
 } from '../../store/slices/cooperativeSlice';
 import { Cooperative, GradientPreset, CooperativeMember } from '../../models';
 import { colors, spacing, borderRadius, shadows } from '../../theme';
+import { getErrorMessage } from '../../utils/errorHandler';
 import Modal from '../../components/common/Modal';
 import Button from '../../components/common/Button';
 import logger from '../../utils/logger';
@@ -153,6 +154,10 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
     }
     if (params?.openModal === 'join') {
       setShowJoinModal(true);
+      // Pre-fill cooperative code if provided via deep link
+      if (params?.cooperativeCode) {
+        setCooperativeCode(params.cooperativeCode);
+      }
     }
   }, [route?.params]);
 
@@ -194,8 +199,7 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
         [{ text: 'OK' }]
       );
     } catch (err: any) {
-      const errorMessage = err?.response?.data?.message || err?.message || 'Invalid cooperative code or you are already a member';
-      Alert.alert('Error', errorMessage);
+      Alert.alert('Error', getErrorMessage(err, 'Invalid cooperative code or you are already a member'));
     } finally {
       setIsJoining(false);
     }
@@ -223,9 +227,8 @@ const HomeScreen: React.FC<Props> = ({ navigation }) => {
       loadCooperatives();
     } catch (err: any) {
       logger.debug('ui.createCoop.failure', { message: err, response: err?.response?.data });
-      const errorMessage = err?.response?.data?.message || err?.message || 'Failed to create cooperative';
       logger.error('ui.createCoop.failure', { message: err?.message, response: err?.response?.data });
-      Alert.alert('Error', errorMessage);
+      Alert.alert('Error', getErrorMessage(err, 'Failed to create cooperative'));
     } finally {
       setIsJoining(false);
     }

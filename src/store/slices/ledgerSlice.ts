@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { LedgerEntry, VirtualBalance } from '../../models';
 import { ledgerApi } from '../../api/ledgerApi';
+import { getThunkErrorMessage } from '../../utils/errorHandler';
 
 interface LedgerState {
   entries: LedgerEntry[];
@@ -28,7 +29,7 @@ export const fetchLedger = createAsyncThunk(
       const response = await ledgerApi.getEntries(cooperativeId, memberId);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -43,7 +44,7 @@ export const fetchVirtualBalance = createAsyncThunk(
       const response = await ledgerApi.getVirtualBalance(cooperativeId, memberId);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -55,7 +56,7 @@ export const fetchAllMemberBalances = createAsyncThunk(
       const response = await ledgerApi.getAllBalances(cooperativeId);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );

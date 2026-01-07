@@ -13,6 +13,7 @@ import {
   AddReactionData,
   GetPostsQuery,
 } from '../../api/postsApi';
+import { getThunkErrorMessage } from '../../utils/errorHandler';
 
 const initialState: PostsState = {
   posts: [],
@@ -36,7 +37,7 @@ export const fetchPosts = createAsyncThunk(
       const response = await postsApi.getAll(cooperativeId, query);
       return response;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -48,7 +49,7 @@ export const fetchPostById = createAsyncThunk(
       const response = await postsApi.getById(postId);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -60,7 +61,7 @@ export const createPost = createAsyncThunk(
       const response = await postsApi.create(data);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -72,7 +73,7 @@ export const updatePost = createAsyncThunk(
       const response = await postsApi.update(id, data);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -84,7 +85,7 @@ export const deletePost = createAsyncThunk(
       await postsApi.delete(id);
       return id;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -96,7 +97,7 @@ export const pinPost = createAsyncThunk(
       const response = await postsApi.pin(id);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -108,7 +109,7 @@ export const unpinPost = createAsyncThunk(
       const response = await postsApi.unpin(id);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -120,7 +121,7 @@ export const approvePost = createAsyncThunk(
       const response = await postsApi.approve(id);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -132,7 +133,7 @@ export const addReaction = createAsyncThunk(
       const response = await postsApi.addReaction(postId, { reactionType });
       return { postId, reactionType };
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -144,7 +145,7 @@ export const removeReaction = createAsyncThunk(
       await postsApi.removeReaction(postId);
       return postId;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -156,7 +157,7 @@ export const addComment = createAsyncThunk(
       const response = await postsApi.addComment(postId, data);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -168,7 +169,7 @@ export const fetchComments = createAsyncThunk(
       const response = await postsApi.getComments(postId);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -180,7 +181,7 @@ export const deleteComment = createAsyncThunk(
       await postsApi.deleteComment(commentId);
       return commentId;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -192,7 +193,7 @@ export const addCommentReaction = createAsyncThunk(
       await postsApi.addCommentReaction(commentId, { reactionType });
       return { commentId, reactionType };
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -204,7 +205,7 @@ export const removeCommentReaction = createAsyncThunk(
       await postsApi.removeCommentReaction(commentId);
       return commentId;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );

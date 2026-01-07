@@ -17,6 +17,7 @@ import { AuthStackParamList } from '../../navigation/AuthNavigator';
 import { authApi } from '../../api';
 import { colors, spacing, borderRadius, shadows } from '../../theme';
 import Icon from '../../components/common/Icon';
+import { getErrorMessage } from '../../utils/errorHandler';
 
 type ForgotPasswordScreenNavigationProp = NativeStackNavigationProp<AuthStackParamList, 'ForgotPassword'>;
 
@@ -61,7 +62,7 @@ const ForgotPasswordScreen: React.FC<Props> = ({ navigation }) => {
         setError(response.message || 'Failed to process request');
       }
     } catch (err: any) {
-      setError(err?.response?.data?.message || err?.message || 'Failed to process request');
+      setError(getErrorMessage(err, 'Failed to process request'));
     } finally {
       setIsLoading(false);
     }

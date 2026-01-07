@@ -15,6 +15,7 @@ import { Cooperative, CooperativeMember } from '../../models';
 import Icon from '../../components/common/Icon';
 import Button from '../../components/common/Button';
 import { colors, spacing } from '../../theme';
+import { getErrorMessage } from '../../utils/errorHandler';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'PendingApproval'>;
 

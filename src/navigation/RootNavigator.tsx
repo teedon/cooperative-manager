@@ -1,11 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, NavigationContainerRef } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
 import { restoreSession } from '../store/slices/authSlice';
 import { notificationService } from '../services/notificationService';
+import { linking, setupDeepLinking } from '../utils/deepLinking';
 
 import AuthNavigator from './AuthNavigator';
 import MainNavigator from './MainNavigator';
@@ -24,6 +25,7 @@ const RootNavigator: React.FC = () => {
   const { isAuthenticated, user } = useAppSelector((state) => state.auth);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const navigationRef = useRef<NavigationContainerRef<any>>(null);
 
   // Check onboarding state whenever auth changes
   useEffect(() => {
@@ -34,6 +36,14 @@ const RootNavigator: React.FC = () => {
     
     checkOnboardingState();
   }, [isAuthenticated, user?.id]);
+
+  // Setup deep linking
+  useEffect(() => {
+    if (!isCheckingAuth) {
+      const cleanup = setupDeepLinking(navigationRef.current, isAuthenticated);
+      return cleanup;
+    }
+  }, [isAuthenticated, isCheckingAuth]);
 
   // Initialize notifications when user is authenticated
   useEffect(() => {
@@ -87,7 +97,7 @@ const RootNavigator: React.FC = () => {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef} linking={linking}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {!isAuthenticated ? (
           <Stack.Screen name="Auth" component={AuthNavigator} />

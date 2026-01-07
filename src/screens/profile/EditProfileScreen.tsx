@@ -19,6 +19,7 @@ import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { updateProfile } from '../../store/slices/authSlice';
 import { colors, spacing, borderRadius, shadows } from '../../theme';
 import Icon from '../../components/common/Icon';
+import { getErrorMessage } from '../../utils/errorHandler';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'EditProfile'>;
 
@@ -62,7 +63,7 @@ const EditProfileScreen: React.FC<Props> = ({ navigation }) => {
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
     } catch (error: any) {
-      Alert.alert('Error', error || 'Failed to update profile');
+      Alert.alert('Error', getErrorMessage(error, 'Failed to update profile'));
     }
   };
 

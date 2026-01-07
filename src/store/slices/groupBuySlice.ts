@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { GroupBuy, GroupBuyOrder } from '../../models';
 import { groupBuyApi } from '../../api/groupBuyApi';
+import { getThunkErrorMessage } from '../../utils/errorHandler';
 
 interface GroupBuyState {
   groupBuys: GroupBuy[];
@@ -27,7 +28,7 @@ export const fetchGroupBuys = createAsyncThunk(
       const response = await groupBuyApi.getAll(cooperativeId);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -39,7 +40,7 @@ export const fetchGroupBuy = createAsyncThunk(
       const response = await groupBuyApi.getById(id);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -54,7 +55,7 @@ export const createGroupBuy = createAsyncThunk(
       const response = await groupBuyApi.create(cooperativeId, groupBuy);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -69,7 +70,7 @@ export const indicateInterest = createAsyncThunk(
       const response = await groupBuyApi.indicateInterest(groupBuyId, quantity);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -81,7 +82,7 @@ export const finalizeGroupBuy = createAsyncThunk(
       const response = await groupBuyApi.finalize(groupBuyId);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -93,7 +94,7 @@ export const fetchOrders = createAsyncThunk(
       const response = await groupBuyApi.getOrders(groupBuyId);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );

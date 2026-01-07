@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { Notification, NotificationState, NotificationPreferences } from '../../models';
 import notificationApi from '../../api/notificationApi';
+import { getThunkErrorMessage } from '../../utils/errorHandler';
 
 const initialState: NotificationState = {
   notifications: [],
@@ -19,7 +20,7 @@ export const fetchNotifications = createAsyncThunk(
       const response = await notificationApi.getAll(page, limit);
       return response.data;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || error.message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -31,7 +32,7 @@ export const fetchUnreadCount = createAsyncThunk(
       const response = await notificationApi.getUnreadCount();
       return response.data.count;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || error.message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -43,7 +44,7 @@ export const markAsRead = createAsyncThunk(
       const response = await notificationApi.markAsRead(notificationId);
       return response.data;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || error.message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -55,7 +56,7 @@ export const markAllAsRead = createAsyncThunk(
       const response = await notificationApi.markAllAsRead();
       return response.data.count;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || error.message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -67,7 +68,7 @@ export const deleteNotification = createAsyncThunk(
       await notificationApi.delete(notificationId);
       return notificationId;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || error.message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -79,7 +80,7 @@ export const clearAllNotifications = createAsyncThunk(
       await notificationApi.clearAll();
       return true;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || error.message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -91,7 +92,7 @@ export const registerFcmToken = createAsyncThunk(
       await notificationApi.registerFcmToken(token, platform);
       return token;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || error.message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -103,7 +104,7 @@ export const unregisterFcmToken = createAsyncThunk(
       await notificationApi.unregisterFcmToken(token);
       return true;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || error.message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -115,7 +116,7 @@ export const fetchNotificationPreferences = createAsyncThunk(
       const response = await notificationApi.getPreferences();
       return response.data;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || error.message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -127,7 +128,7 @@ export const updateNotificationPreferences = createAsyncThunk(
       const response = await notificationApi.updatePreferences(preferences);
       return response.data;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || error.message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );

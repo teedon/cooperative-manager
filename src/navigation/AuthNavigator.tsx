@@ -8,7 +8,7 @@ import ResetPasswordScreen from '../screens/auth/ResetPasswordScreen';
 
 export type AuthStackParamList = {
   Login: undefined;
-  Signup: undefined;
+  Signup: { cooperativeCode?: string } | undefined;
   ForgotPassword: undefined;
   ResetPassword: { token: string; email: string };
 };

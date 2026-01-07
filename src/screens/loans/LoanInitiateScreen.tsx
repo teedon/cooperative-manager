@@ -16,6 +16,7 @@ import { fetchMembers } from '../../store/slices/cooperativeSlice';
 import { LoanType, CooperativeMember } from '../../models';
 import { formatCurrency } from '../../utils';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { getErrorMessage } from '../../utils/errorHandler';
 
 type Props = NativeStackScreenProps<any, 'LoanInitiate'>;
 
@@ -173,7 +174,7 @@ const LoanInitiateScreen: React.FC<Props> = ({ route, navigation }) => {
         [{ text: 'OK', onPress: () => navigation.goBack() }]
       );
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to initiate loan');
+      Alert.alert('Error', getErrorMessage(error, 'Failed to initiate loan'));
     } finally {
       setIsSubmitting(false);
     }

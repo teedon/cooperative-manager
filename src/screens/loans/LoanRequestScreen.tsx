@@ -11,21 +11,34 @@ import {
   Modal,
   FlatList,
 } from 'react-native';
+import DocumentPicker from 'react-native-document-picker';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { HomeStackParamList } from '../../navigation/MainNavigator';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { requestLoan, fetchLoanTypes } from '../../store/slices/loanSlice';
-import { LoanType } from '../../models';
+import { fetchMembers } from '../../store/slices/cooperativeSlice';
+import { LoanType, CooperativeMember } from '../../models';
 import { formatCurrency } from '../../utils';
 import { validateRequired, validateMinLength } from '../../utils/validation';
+import { getErrorMessage } from '../../utils/errorHandler';
+import { uploadMultipleDocuments, validateDocument } from '../../utils/uploadDocument';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'LoanRequest'>;
+
+interface KycDocument {
+  type: string;
+  uri: string;
+  name: string;
+  mimeType?: string;
+}
 
 interface LoanFormData {
   loanTypeId: string;
   amount: string;
   purpose: string;
   duration: string;
+  guarantorIds: string[];
+  kycDocuments: KycDocument[];
 }
 
 interface FormErrors {
@@ -33,12 +46,16 @@ interface FormErrors {
   amount?: string;
   purpose?: string;
   duration?: string;
+  guarantorIds?: string;
+  kycDocuments?: string;
 }
 
 const LoanRequestScreen: React.FC<Props> = ({ route, navigation }) => {
   const { cooperativeId } = route.params;
   const dispatch = useAppDispatch();
   const { loanTypes, isLoading: loanTypesLoading } = useAppSelector((state) => state.loan);
+  const { members } = useAppSelector((state) => state.cooperative);
+  const { user } = useAppSelector((state) => state.auth);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [formData, setFormData] = useState<LoanFormData>({
@@ -46,12 +63,17 @@ const LoanRequestScreen: React.FC<Props> = ({ route, navigation }) => {
     amount: '',
     purpose: '',
     duration: '6',
+    guarantorIds: [],
+    kycDocuments: [],
   });
   const [errors, setErrors] = useState<FormErrors>({});
   const [showDurationPicker, setShowDurationPicker] = useState(false);
+  const [showGuarantorPicker, setShowGuarantorPicker] = useState(false);
+  const [showKycPicker, setShowKycPicker] = useState(false);
 
   useEffect(() => {
     dispatch(fetchLoanTypes(cooperativeId));
+    dispatch(fetchMembers(cooperativeId));
   }, [cooperativeId]);
 
   // Filter only active loan types that require approval (member-requested)
@@ -97,6 +119,23 @@ const LoanRequestScreen: React.FC<Props> = ({ route, navigation }) => {
       }
     }
 
+    // Validate guarantors
+    if (selectedLoanType?.requiresGuarantor) {
+      if (formData.guarantorIds.length < (selectedLoanType.minGuarantors || 1)) {
+        newErrors.guarantorIds = `Please select at least ${selectedLoanType.minGuarantors || 1} guarantor(s)`;
+      }
+    }
+
+    // Validate KYC documents
+    if (selectedLoanType?.requiresKyc) {
+      const requiredDocs = selectedLoanType.kycDocumentTypes || [];
+      const uploadedTypes = formData.kycDocuments.map(doc => doc.type);
+      const missingDocs = requiredDocs.filter(type => !uploadedTypes.includes(type));
+      if (missingDocs.length > 0) {
+        newErrors.kycDocuments = `Please upload: ${missingDocs.join(', ').replace(/_/g, ' ')}`;
+      }
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -119,42 +158,63 @@ const LoanRequestScreen: React.FC<Props> = ({ route, navigation }) => {
 
     if (interestType === 'flat') {
       // Flat rate: one-time percentage of principal
-      totalInterest = Math.ceil(amount * interestRate / 100);
-    } else {
-      // Reducing balance - calculate total interest
-      const monthlyRate = interestRate / 100 / 12;
-      if (monthlyRate === 0) {
-        totalInterest = 0;
+      totalInterest = Math.round(amount * interestRate / 100);
+      
+      if (deductInterestUpfront) {
+        // Upfront interest: interest is deducted from disbursement
+        // Member repays only the principal amount
+        totalRepayment = amount;
+        monthlyRepayment = Math.round(amount / duration);
+        netDisbursement = amount - totalInterest - applicationFee;
       } else {
-        const emi = Math.ceil(
-          (amount * monthlyRate * Math.pow(1 + monthlyRate, duration)) /
-          (Math.pow(1 + monthlyRate, duration) - 1)
-        );
-        totalInterest = emi * duration - amount;
+        // Normal: member repays principal + interest
+        totalRepayment = amount + totalInterest;
+        monthlyRepayment = Math.round(totalRepayment / duration);
+        netDisbursement = amount - applicationFee;
       }
-    }
-
-    if (deductInterestUpfront) {
-      // Upfront interest: interest is deducted from disbursement
-      // Member repays only the principal amount
-      totalRepayment = amount;
-      monthlyRepayment = Math.ceil(amount / duration);
-      netDisbursement = amount - totalInterest - applicationFee;
     } else {
-      // Normal: member repays principal + interest
-      totalRepayment = amount + totalInterest;
-      monthlyRepayment = Math.ceil(totalRepayment / duration);
-      netDisbursement = amount - applicationFee;
+      // Reducing balance - calculate using EMI formula
+      const monthlyRate = interestRate / 100 / 12;
+      
+      if (monthlyRate === 0) {
+        // No interest case
+        totalInterest = 0;
+        monthlyRepayment = Math.round(amount / duration);
+        totalRepayment = amount;
+        netDisbursement = amount - applicationFee;
+      } else {
+        // Calculate EMI (Equated Monthly Installment)
+        // EMI = P × r × (1 + r)^n / ((1 + r)^n - 1)
+        const numerator = amount * monthlyRate * Math.pow(1 + monthlyRate, duration);
+        const denominator = Math.pow(1 + monthlyRate, duration) - 1;
+        monthlyRepayment = Math.round(numerator / denominator);
+        
+        // Total amount to be repaid
+        totalRepayment = monthlyRepayment * duration;
+        
+        // Total interest is the difference
+        totalInterest = totalRepayment - amount;
+        
+        if (deductInterestUpfront) {
+          // For reducing balance with upfront deduction:
+          // Interest is deducted upfront, but member still pays EMI
+          // This means net disbursement is reduced, but repayment schedule remains same
+          netDisbursement = amount - totalInterest - applicationFee;
+        } else {
+          // Normal reducing balance
+          netDisbursement = amount - applicationFee;
+        }
+      }
     }
 
     return {
       principal: amount,
-      totalInterest,
-      totalRepayment,
+      totalInterest: Math.round(totalInterest),
+      totalRepayment: Math.round(totalRepayment),
       monthlyRepayment,
       applicationFee,
       deductInterestUpfront,
-      netDisbursement,
+      netDisbursement: Math.round(netDisbursement),
     };
   }, [amount, duration, interestRate, interestType, applicationFee, deductInterestUpfront]);
 
@@ -163,16 +223,46 @@ const LoanRequestScreen: React.FC<Props> = ({ route, navigation }) => {
 
     setIsSubmitting(true);
     try {
+      // Prepare form data for submission
+      const submitData: any = {
+        loanTypeId: formData.loanTypeId || undefined,
+        amount: Number(formData.amount),
+        purpose: formData.purpose,
+        duration: Number(formData.duration),
+        interestRate: selectedLoanType?.interestRate,
+      };
+
+      // Add guarantors if required
+      if (selectedLoanType?.requiresGuarantor && formData.guarantorIds.length > 0) {
+        submitData.guarantorIds = formData.guarantorIds;
+      }
+
+      // Upload KYC documents if required
+      if (selectedLoanType?.requiresKyc && formData.kycDocuments.length > 0) {
+        Alert.alert('Uploading', 'Uploading documents, please wait...');
+        
+        const uploadedDocs = await uploadMultipleDocuments(
+          formData.kycDocuments.map(doc => ({
+            uri: doc.uri,
+            type: doc.mimeType,
+            name: doc.name,
+            documentType: doc.type,
+          })),
+          user?.id || '',
+        );
+
+        submitData.kycDocuments = uploadedDocs.map(doc => ({
+          type: doc.type,
+          documentUrl: doc.documentUrl,
+          fileName: doc.fileName,
+          mimeType: doc.type.includes('pdf') ? 'application/pdf' : 'image/jpeg',
+        }));
+      }
+
       await dispatch(
         requestLoan({
           cooperativeId,
-          data: {
-            loanTypeId: formData.loanTypeId || undefined,
-            amount: Number(formData.amount),
-            purpose: formData.purpose,
-            duration: Number(formData.duration),
-            interestRate: selectedLoanType?.interestRate,
-          },
+          data: submitData,
         })
       ).unwrap();
 
@@ -182,7 +272,7 @@ const LoanRequestScreen: React.FC<Props> = ({ route, navigation }) => {
 
       Alert.alert('Success', message, [{ text: 'OK', onPress: () => navigation.goBack() }]);
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to submit loan request. Please try again.');
+      Alert.alert('Error', getErrorMessage(error, 'Failed to submit loan request. Please try again.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -193,8 +283,62 @@ const LoanRequestScreen: React.FC<Props> = ({ route, navigation }) => {
       ...formData,
       loanTypeId: loanType.id,
       duration: String(loanType.minDuration),
+      guarantorIds: [], // Reset guarantors when changing loan type
+      kycDocuments: [], // Reset KYC documents when changing loan type
     });
     setErrors({ ...errors, loanTypeId: undefined });
+  };
+
+  // Get available members for guarantor selection (exclude current user)
+  const availableGuarantors = useMemo(() => {
+    return members.filter(member => member.userId !== user?.id && member.status === 'active');
+  }, [members, user]);
+
+  const toggleGuarantor = (memberId: string) => {
+    const updatedGuarantors = formData.guarantorIds.includes(memberId)
+      ? formData.guarantorIds.filter(id => id !== memberId)
+      : [...formData.guarantorIds, memberId];
+    
+    setFormData({ ...formData, guarantorIds: updatedGuarantors });
+    setErrors({ ...errors, guarantorIds: undefined });
+  };
+
+  const pickDocument = async (docType: string) => {
+    try {
+      const result = await DocumentPicker.pick({
+        type: [DocumentPicker.types.pdf, DocumentPicker.types.images],
+      });
+
+      if (result && result.length > 0) {
+        const doc = result[0];
+        const newDoc: KycDocument = {
+          type: docType,
+          uri: doc.uri,
+          name: doc.name || 'document',
+          mimeType: doc.type,
+        };
+
+        // Replace existing document of same type or add new
+        const updatedDocs = formData.kycDocuments.filter(d => d.type !== docType);
+        updatedDocs.push(newDoc);
+
+        setFormData({ ...formData, kycDocuments: updatedDocs });
+        setErrors({ ...errors, kycDocuments: undefined });
+      }
+    } catch (err) {
+      if (!DocumentPicker.isCancel(err)) {
+        Alert.alert('Error', 'Failed to pick document');
+      }
+    }
+  };
+
+  const removeDocument = (docType: string) => {
+    const updatedDocs = formData.kycDocuments.filter(d => d.type !== docType);
+    setFormData({ ...formData, kycDocuments: updatedDocs });
+  };
+
+  const getDocumentDisplayName = (type: string): string => {
+    return type.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
   };
 
   // Generate duration options - show first 5 as buttons, rest in dropdown
@@ -435,6 +579,75 @@ const LoanRequestScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
         </Modal>
 
+        {/* Guarantors Section */}
+        {selectedLoanType?.requiresGuarantor && (
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>
+              Guarantors * (Select at least {selectedLoanType.minGuarantors})
+            </Text>
+            <Text style={styles.hint}>
+              Select members who will guarantee your loan
+            </Text>
+            <TouchableOpacity
+              style={styles.pickerButton}
+              onPress={() => setShowGuarantorPicker(true)}
+            >
+              <Text style={styles.pickerButtonText}>
+                {formData.guarantorIds.length > 0
+                  ? `${formData.guarantorIds.length} Guarantor(s) Selected`
+                  : 'Select Guarantors'}
+              </Text>
+              <Text style={styles.pickerArrow}>›</Text>
+            </TouchableOpacity>
+            {errors.guarantorIds && <Text style={styles.errorText}>{errors.guarantorIds}</Text>}
+          </View>
+        )}
+
+        {/* KYC Documents Section */}
+        {selectedLoanType?.requiresKyc && selectedLoanType.kycDocumentTypes && selectedLoanType.kycDocumentTypes.length > 0 && (
+          <View style={styles.inputGroup}>
+            <Text style={styles.label}>Required Documents *</Text>
+            <Text style={styles.hint}>
+              Upload the following documents for verification
+            </Text>
+            {selectedLoanType.kycDocumentTypes.map((docType) => {
+              const uploaded = formData.kycDocuments.find(d => d.type === docType);
+              return (
+                <View key={docType} style={styles.kycDocItem}>
+                  <Text style={styles.kycDocLabel}>{getDocumentDisplayName(docType)}</Text>
+                  {uploaded ? (
+                    <View style={styles.kycDocUploaded}>
+                      <Text style={styles.kycDocName} numberOfLines={1}>{uploaded.name}</Text>
+                      <TouchableOpacity onPress={() => removeDocument(docType)}>
+                        <Text style={styles.kycDocRemove}>✕</Text>
+                      </TouchableOpacity>
+                    </View>
+                  ) : (
+                    <TouchableOpacity
+                      style={styles.kycDocButton}
+                      onPress={() => pickDocument(docType)}
+                    >
+                      <Text style={styles.kycDocButtonText}>Upload</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              );
+            })}
+            {errors.kycDocuments && <Text style={styles.errorText}>{errors.kycDocuments}</Text>}
+          </View>
+        )}
+
+        {/* Approval Workflow Info */}
+        {selectedLoanType?.requiresMultipleApprovals && (
+          <View style={styles.infoCard}>
+            <Text style={styles.infoIcon}>ℹ️</Text>
+            <Text style={styles.infoText}>
+              This loan requires approval from at least {selectedLoanType.minApprovers} admin(s).
+              You will be notified once your request is reviewed.
+            </Text>
+          </View>
+        )}
+
         {/* Loan Summary */}
         {loanSummary && (
           <View style={styles.calculationCard}>
@@ -516,6 +729,61 @@ const LoanRequestScreen: React.FC<Props> = ({ route, navigation }) => {
           cooperative policies.
         </Text>
       </View>
+
+      {/* Guarantor Picker Modal */}
+      <Modal
+        visible={showGuarantorPicker}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowGuarantorPicker(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Guarantors</Text>
+              <TouchableOpacity onPress={() => setShowGuarantorPicker(false)}>
+                <Text style={styles.modalClose}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={availableGuarantors}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => {
+                const isSelected = formData.guarantorIds.includes(item.id);
+                const displayName = item.isOfflineMember 
+                  ? `${item.firstName} ${item.lastName}`
+                  : `${item.user?.firstName} ${item.user?.lastName}`;
+                
+                return (
+                  <TouchableOpacity
+                    style={[styles.guarantorItem, isSelected && styles.guarantorItemSelected]}
+                    onPress={() => toggleGuarantor(item.id)}
+                  >
+                    <View style={styles.guarantorInfo}>
+                      <Text style={styles.guarantorName}>{displayName}</Text>
+                      {item.memberCode && (
+                        <Text style={styles.guarantorCode}>{item.memberCode}</Text>
+                      )}
+                    </View>
+                    <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
+                      {isSelected && <Text style={styles.checkmark}>✓</Text>}
+                    </View>
+                  </TouchableOpacity>
+                );
+              }}
+              ListEmptyComponent={
+                <Text style={styles.emptyText}>No members available as guarantors</Text>
+              }
+            />
+            <TouchableOpacity
+              style={styles.modalDoneButton}
+              onPress={() => setShowGuarantorPicker(false)}
+            >
+              <Text style={styles.modalDoneButtonText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 };
@@ -894,6 +1162,154 @@ const styles = StyleSheet.create({
   },
   modalOptionTextActive: {
     color: '#fff',
+  },
+  // Guarantor picker styles
+  pickerButton: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 12,
+    padding: 16,
+  },
+  pickerButtonText: {
+    fontSize: 15,
+    color: '#334155',
+  },
+  pickerArrow: {
+    fontSize: 20,
+    color: '#94a3b8',
+  },
+  guarantorItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  guarantorItemSelected: {
+    backgroundColor: '#f5f3ff',
+  },
+  guarantorInfo: {
+    flex: 1,
+  },
+  guarantorName: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#1e293b',
+    marginBottom: 2,
+  },
+  guarantorCode: {
+    fontSize: 13,
+    color: '#64748b',
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 6,
+    borderWidth: 2,
+    borderColor: '#cbd5e1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxSelected: {
+    backgroundColor: '#8b5cf6',
+    borderColor: '#8b5cf6',
+  },
+  checkmark: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  emptyText: {
+    textAlign: 'center',
+    color: '#94a3b8',
+    padding: 32,
+  },
+  modalDoneButton: {
+    backgroundColor: '#8b5cf6',
+    margin: 16,
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  modalDoneButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  // KYC document styles
+  kycDocItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  kycDocLabel: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#334155',
+    flex: 1,
+  },
+  kycDocButton: {
+    backgroundColor: '#8b5cf6',
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  kycDocButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  kycDocUploaded: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0fdf4',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    maxWidth: '60%',
+  },
+  kycDocName: {
+    fontSize: 13,
+    color: '#166534',
+    marginRight: 8,
+    flex: 1,
+  },
+  kycDocRemove: {
+    fontSize: 16,
+    color: '#dc2626',
+    fontWeight: 'bold',
+    paddingHorizontal: 4,
+  },
+  // Info card styles
+  infoCard: {
+    flexDirection: 'row',
+    backgroundColor: '#dbeafe',
+    borderLeftWidth: 4,
+    borderLeftColor: '#3b82f6',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+  },
+  infoIcon: {
+    fontSize: 20,
+    marginRight: 8,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#1e40af',
+    lineHeight: 20,
   },
 });
 

@@ -200,4 +200,68 @@ export const loanApi = {
     );
     return response.data;
   },
+
+  // ==================== FILE UPLOAD ====================
+
+  generateUploadUrl: async (
+    fileName: string,
+    contentType: string
+  ): Promise<{ uploadUrl: string; filePath: string; publicUrl: string }> => {
+    const response = await apiClient.post<ApiResponse<{ uploadUrl: string; filePath: string; publicUrl: string }>>(
+      '/loans/upload-url',
+      { fileName, contentType }
+    );
+    return response.data.data;
+  },
+
+  uploadDocument: async (
+    file: { uri: string; type: string; name: string }
+  ): Promise<{ documentUrl: string; filePath: string; fileName: string }> => {
+    const formData = new FormData();
+    formData.append('file', {
+      uri: file.uri,
+      type: file.type,
+      name: file.name,
+    } as any);
+    formData.append('fileName', file.name);
+
+    const response = await apiClient.post<ApiResponse<{ documentUrl: string; filePath: string; fileName: string }>>(
+      '/loans/upload-document',
+      formData,
+      {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      }
+    );
+    return response.data.data;
+  },
+
+  getDocumentSignedUrl: async (documentId: string): Promise<string> => {
+    const response = await apiClient.get<ApiResponse<{ signedUrl: string }>>(
+      `/loans/documents/${documentId}/signed-url`
+    );
+    return response.data.data.signedUrl;
+  },
+
+  // ==================== GUARANTOR ENDPOINTS ====================
+
+  getLoansAsGuarantor: async (cooperativeId: string): Promise<ApiResponse<any[]>> => {
+    const response = await apiClient.get<ApiResponse<any[]>>(
+      `/cooperatives/${cooperativeId}/loans/as-guarantor`
+    );
+    return response.data;
+  },
+
+  respondToGuarantorRequest: async (
+    loanId: string,
+    approved: boolean,
+    reason?: string
+  ): Promise<ApiResponse<any>> => {
+    const response = await apiClient.post<ApiResponse<any>>(
+      `/loans/${loanId}/guarantor-response`,
+      { approved, reason }
+    );
+    return response.data;
+  },
 };

@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { LoanRequest, LoanRepayment, LoanType, LoanRepaymentSchedule } from '../../models';
 import { loanApi, RequestLoanData, InitiateLoanData, ApproveLoanData, CreateLoanTypeData } from '../../api/loanApi';
+import { getThunkErrorMessage } from '../../utils/errorHandler';
 
 interface LoanState {
   loans: LoanRequest[];
@@ -35,7 +36,7 @@ export const fetchLoanTypes = createAsyncThunk(
       const response = await loanApi.getLoanTypes(cooperativeId);
       return response.data;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || error.message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -47,7 +48,7 @@ export const createLoanType = createAsyncThunk(
       const response = await loanApi.createLoanType(cooperativeId, data);
       return response.data;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || error.message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -62,7 +63,7 @@ export const updateLoanType = createAsyncThunk(
       const response = await loanApi.updateLoanType(cooperativeId, loanTypeId, data);
       return response.data;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || error.message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -74,7 +75,7 @@ export const deleteLoanType = createAsyncThunk(
       await loanApi.deleteLoanType(cooperativeId, loanTypeId);
       return loanTypeId;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || error.message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -88,7 +89,7 @@ export const fetchLoans = createAsyncThunk(
       const response = await loanApi.getAll(cooperativeId);
       return response.data;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || error.message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -98,9 +99,16 @@ export const fetchLoan = createAsyncThunk(
   async (id: string, { rejectWithValue }) => {
     try {
       const response = await loanApi.getById(id);
+      console.log('=== FETCH LOAN API RESPONSE ===');
+      console.log('Loan ID:', id);
+      console.log('Response Data:', JSON.stringify(response.data, null, 2));
+      console.log('Has guarantors:', !!response.data.guarantors);
+      console.log('Has kycDocuments:', !!response.data.kycDocuments);
+      console.log('Has approvals:', !!response.data.approvals);
+      console.log('==============================');
       return response.data;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || error.message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -115,7 +123,7 @@ export const requestLoan = createAsyncThunk(
       const response = await loanApi.request(cooperativeId, data);
       return response.data;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || error.message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -130,7 +138,7 @@ export const initiateLoan = createAsyncThunk(
       const response = await loanApi.initiate(cooperativeId, data);
       return response.data;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || error.message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -142,7 +150,7 @@ export const approveLoan = createAsyncThunk(
       const response = await loanApi.approve(loanId, data);
       return response.data;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || error.message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -154,7 +162,7 @@ export const rejectLoan = createAsyncThunk(
       const response = await loanApi.reject(loanId, reason);
       return response.data;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || error.message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -169,7 +177,7 @@ export const reviewLoan = createAsyncThunk(
       const response = await loanApi.review(loanId, approved, reason);
       return response.data;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || error.message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -181,7 +189,7 @@ export const disburseLoan = createAsyncThunk(
       const response = await loanApi.disburse(loanId);
       return response.data;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || error.message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -193,7 +201,7 @@ export const fetchPendingLoans = createAsyncThunk(
       const response = await loanApi.getPending(cooperativeId);
       return response.data;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || error.message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -205,7 +213,7 @@ export const fetchMyLoans = createAsyncThunk(
       const response = await loanApi.getMyLoans(cooperativeId);
       return response.data;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || error.message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -217,7 +225,7 @@ export const fetchRepaymentSchedule = createAsyncThunk(
       const response = await loanApi.getRepayments(loanId);
       return response.data;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || error.message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -229,7 +237,7 @@ export const fetchRepayments = createAsyncThunk(
       const response = await loanApi.getRepayments(loanId);
       return response.data;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || error.message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -250,7 +258,7 @@ export const recordRepayment = createAsyncThunk(
       const response = await loanApi.recordRepayment(loanId, amount, paymentMethod, paymentReference, notes);
       return response.data;
     } catch (error: any) {
-      return rejectWithValue(error.response?.data?.message || error.message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );

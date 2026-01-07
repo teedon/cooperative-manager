@@ -21,6 +21,7 @@ import {
   ScheduleDateMembersResponse,
 } from '../../api/contributionApi';
 import { ContributionPlan } from '../../models';
+import { getErrorMessage } from '../../utils/errorHandler';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'BulkApproval'>;
 
@@ -86,7 +87,7 @@ const BulkApprovalScreen: React.FC<Props> = ({ route, navigation }) => {
         setScheduleDates(response.data.scheduleDates);
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to load schedule dates');
+      Alert.alert('Error', getErrorMessage(error, 'Failed to load schedule dates'));
     }
     setLoadingDates(false);
   }, [cooperativeId, selectedPlan]);
@@ -114,7 +115,7 @@ const BulkApprovalScreen: React.FC<Props> = ({ route, navigation }) => {
         setExcludedMemberIds(new Set()); // Reset exclusions
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to load members');
+      Alert.alert('Error', getErrorMessage(error, 'Failed to load members'));
     }
     setLoadingMembers(false);
   }, [cooperativeId, selectedPlan, selectedDate]);
@@ -275,7 +276,7 @@ const BulkApprovalScreen: React.FC<Props> = ({ route, navigation }) => {
                 );
               }
             } catch (error: any) {
-              Alert.alert('Error', error.message || 'Failed to approve payments');
+              Alert.alert('Error', getErrorMessage(error, 'Failed to approve payments'));
             }
             setIsApproving(false);
           },

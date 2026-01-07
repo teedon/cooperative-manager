@@ -18,6 +18,7 @@ import { colors, spacing, borderRadius, shadows } from '../../theme';
 import Icon from '../../components/common/Icon';
 import { launchImageLibrary, ImagePickerResponse } from 'react-native-image-picker';
 import { RecordPaymentData } from '../../api/contributionApi';
+import { getErrorMessage } from '../../utils/errorHandler';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'RecordSchedulePayment'>;
 
@@ -91,7 +92,7 @@ const RecordSchedulePaymentScreen: React.FC<Props> = ({ route, navigation }) => 
         [{ text: 'OK', onPress: () => navigation.goBack() }]
       );
     } catch (error: any) {
-      Alert.alert('Error', error || 'Failed to record payment');
+      Alert.alert('Error', getErrorMessage(error, 'Failed to record payment'));
     }
   };
 

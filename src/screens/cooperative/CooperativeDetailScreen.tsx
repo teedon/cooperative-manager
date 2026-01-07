@@ -11,21 +11,24 @@ import {
   Alert,
   TextInput,
   Clipboard,
+  Modal,
+  FlatList,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { HomeStackParamList } from '../../navigation/MainNavigator';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { fetchCooperative, fetchMembers, fetchPendingMembers, approveMember, rejectMember } from '../../store/slices/cooperativeSlice';
+import { fetchCooperative, fetchMembers, fetchPendingMembers, approveMember, rejectMember, fetchCooperatives, joinCooperativeByCode, createCooperative } from '../../store/slices/cooperativeSlice';
 import { fetchPlans } from '../../store/slices/contributionSlice';
 import { fetchGroupBuys } from '../../store/slices/groupBuySlice';
-import { fetchLoans } from '../../store/slices/loanSlice';
+import { fetchLoans, fetchPendingLoans } from '../../store/slices/loanSlice';
 import { fetchSubscription } from '../../store/slices/subscriptionSlice';
 import { colors, spacing, borderRadius, shadows } from '../../theme';
 import Icon from '../../components/common/Icon';
 import { usePermissions } from '../../hooks/usePermissions';
 import { getGradientConfig } from '../../utils/gradients';
 import { GradientPreset } from '../../models';
+import { getErrorMessage } from '../../utils/errorHandler';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'CooperativeDetail'>;
 
@@ -38,11 +41,17 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [memberSearchQuery, setMemberSearchQuery] = useState('');
   const [memberFilter, setMemberFilter] = useState<'all' | 'online' | 'offline'>('all');
+  const [showCoopSwitcher, setShowCoopSwitcher] = useState(false);
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [cooperativeCode, setCooperativeCode] = useState('');
+  const [isJoining, setIsJoining] = useState(false);
+  const [newCoopData, setNewCoopData] = useState({ name: '', description: '' });
 
-  const { currentCooperative, members, pendingMembers, isLoading } = useAppSelector((state) => state.cooperative);
+  const { currentCooperative, members, pendingMembers, cooperatives, isLoading } = useAppSelector((state) => state.cooperative);
   const { plans } = useAppSelector((state) => state.contribution);
   const { groupBuys } = useAppSelector((state) => state.groupBuy);
-  const { loans } = useAppSelector((state) => state.loan);
+  const { loans, pendingLoans } = useAppSelector((state) => state.loan);
   const { user } = useAppSelector((state) => state.auth);
   const { currentSubscription } = useAppSelector((state) => state.subscription);
 
@@ -53,6 +62,56 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       Alert.alert('Copied!', `Cooperative code "${currentCooperative.code}" copied to clipboard`);
     }
   }, [currentCooperative?.code]);
+
+  const handleJoinCooperative = async () => {
+    if (!cooperativeCode.trim()) {
+      Alert.alert('Error', 'Please enter a cooperative code');
+      return;
+    }
+
+    setIsJoining(true);
+    try {
+      await dispatch(joinCooperativeByCode(cooperativeCode.trim())).unwrap();
+      setShowJoinModal(false);
+      setCooperativeCode('');
+      Alert.alert(
+        'Request Submitted! 🎉',
+        'Your membership request has been submitted successfully. Please wait for an admin to approve your request.',
+        [{ text: 'OK' }]
+      );
+    } catch (err: any) {
+      Alert.alert('Error', getErrorMessage(err, 'Invalid cooperative code or you are already a member'));
+    } finally {
+      setIsJoining(false);
+    }
+  };
+
+  const handleCreateCooperative = async () => {
+    if (!newCoopData.name.trim()) {
+      Alert.alert('Error', 'Please enter a cooperative name');
+      return;
+    }
+
+    setIsJoining(true);
+    try {
+      const createdCooperative = await dispatch(createCooperative(newCoopData)).unwrap();
+      setShowCreateModal(false);
+      setNewCoopData({ name: '', description: '' });
+      Alert.alert(
+        'Success! 🎉',
+        `"${createdCooperative?.name || newCoopData.name}" has been created successfully!\n\nYou can now invite members to join your cooperative.`
+      );
+      loadData();
+      // Navigate to the new cooperative
+      if (createdCooperative?.id) {
+        navigation.replace('CooperativeDetail', { cooperativeId: createdCooperative.id });
+      }
+    } catch (err: any) {
+      Alert.alert('Error', getErrorMessage(err, 'Failed to create cooperative'));
+    } finally {
+      setIsJoining(false);
+    }
+  };
 
   // Use permission hook
   const {
@@ -69,6 +128,7 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     canViewExpenses,
     canApproveExpenses,
     canViewReports,
+    canApproveLoans,
   } = usePermissions(cooperativeId);
 
   const loadData = useCallback(async () => {
@@ -79,9 +139,16 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       dispatch(fetchGroupBuys(cooperativeId)),
       dispatch(fetchLoans(cooperativeId)),
       dispatch(fetchSubscription(cooperativeId)),
+      dispatch(fetchCooperatives()), // Fetch all cooperatives for switcher
     ];
+    
+    // Fetch pending loans if user has loan approval permission
+    if (canApproveLoans) {
+      promises.push(dispatch(fetchPendingLoans(cooperativeId)));
+    }
+    
     await Promise.all(promises);
-  }, [dispatch, cooperativeId]);
+  }, [dispatch, cooperativeId, canApproveLoans]);
 
   // Fetch pending members when user can approve members
   useEffect(() => {
@@ -116,7 +183,7 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               await dispatch(approveMember(memberId)).unwrap();
               Alert.alert('Success', `${memberName} has been approved as a member.`);
             } catch (error: any) {
-              Alert.alert('Error', error || 'Failed to approve member');
+              Alert.alert('Error', getErrorMessage(error, 'Failed to approve member'));
             }
           },
         },
@@ -138,7 +205,7 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               await dispatch(rejectMember(memberId)).unwrap();
               Alert.alert('Success', `${memberName}'s request has been rejected.`);
             } catch (error: any) {
-              Alert.alert('Error', error || 'Failed to reject member');
+              Alert.alert('Error', getErrorMessage(error, 'Failed to reject member'));
             }
           },
         },
@@ -148,7 +215,7 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const tabs: { key: TabType; label: string }[] = [
     { key: 'overview', label: 'Overview' },
     { key: 'members', label: 'Members' },
-    { key: 'contributions', label: 'Contributions' },
+    { key: 'contributions', label: 'Hub' },
     // { key: 'groupbuys', label: 'Group Buys' }, // Hidden for now
     { key: 'loans', label: 'Loans' },
   ];
@@ -812,13 +879,7 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             <Icon name="Settings" size={20} color={colors.primary.main} />
             <Text style={styles.adminLoanActionText}>Configure Loan Types</Text>
           </TouchableOpacity>
-          <TouchableOpacity
-            style={styles.adminLoanAction}
-            onPress={() => navigation.navigate('LoanApprovalList', { cooperativeId })}
-          >
-            <Icon name="CheckCircle" size={20} color={colors.primary.main} />
-            <Text style={styles.adminLoanActionText}>Pending Approvals</Text>
-          </TouchableOpacity>
+          {/* Hide Pending Approvals link as pending loans are shown below */}
           <TouchableOpacity
             style={[styles.adminLoanAction, styles.adminLoanActionPrimary]}
             onPress={() => navigation.navigate('LoanInitiate', { cooperativeId })}
@@ -836,47 +897,87 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         <Text style={styles.requestButtonText}>+ Request New Loan</Text>
       </TouchableOpacity>
 
+      {/* Show pending loans for users with approval permission */}
+      {canApproveLoans && pendingLoans && pendingLoans.length > 0 && (
+        <View style={styles.pendingLoansSection}>
+          <Text style={styles.pendingLoansSectionTitle}>Pending Approvals ({pendingLoans.length})</Text>
+          {pendingLoans.map((loan) => (
+            <TouchableOpacity
+              key={loan.id}
+              style={[styles.loanCard, styles.pendingLoanCard]}
+              onPress={() => navigation.navigate('LoanDetail', { loanId: loan.id })}
+            >       
+              <View style={styles.loanHeader}>
+                <Text style={styles.loanAmount}>₦{loan.amount.toLocaleString()}</Text>
+                <View style={[styles.loanStatus, styles.loanPending]}>
+                  <Text style={styles.loanStatusText}>pending</Text>
+                </View>
+              </View>
+              {loan.loanType && (
+                <View style={styles.loanTypeTag}>
+                  <Text style={styles.loanTypeTagText}>{loan.loanType.name}</Text>
+                </View>
+              )}
+              {loan.member && (
+                <Text style={styles.loanMemberName}>
+                  {loan.member.user?.firstName || ''} {loan.member.user?.lastName || ''}
+                </Text>
+              )}
+              <Text style={styles.loanPurpose}>{loan.purpose}</Text>
+              <Text style={styles.loanDetails}>
+                {loan.duration} months • {loan.interestRate}% interest
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
       {loans.length === 0 ? (
         <View style={styles.emptyState}>
           <Icon name="CreditCard" size={48} style={styles.emptyIcon} />
           <Text style={styles.emptyText}>No loans yet</Text>
         </View>
       ) : (
-        loans.map((loan) => (
-          <TouchableOpacity
-            key={loan.id}
-            style={styles.loanCard}
-            onPress={() => navigation.navigate('LoanDetail', { loanId: loan.id })}
-          >       
-            <View style={styles.loanHeader}>
-              <Text style={styles.loanAmount}>₦{loan.amount.toLocaleString()}</Text>
-              <View
-                style={[
-                  styles.loanStatus,
-                  loan.status === 'approved' && styles.loanApproved,
-                  loan.status === 'pending' && styles.loanPending,
-                  loan.status === 'rejected' && styles.loanRejected,
-                ]}
-              >
-                <Text style={styles.loanStatusText}>{loan.status}</Text>
+        <>
+          {loans.length > 0 && canApproveLoans && pendingLoans && pendingLoans.length > 0 && (
+            <Text style={styles.myLoansSectionTitle}>My Loans</Text>
+          )}
+          {loans.map((loan) => (
+            <TouchableOpacity
+              key={loan.id}
+              style={styles.loanCard}
+              onPress={() => navigation.navigate('LoanDetail', { loanId: loan.id })}
+            >       
+              <View style={styles.loanHeader}>
+                <Text style={styles.loanAmount}>₦{loan.amount.toLocaleString()}</Text>
+                <View
+                  style={[
+                    styles.loanStatus,
+                    loan.status === 'approved' && styles.loanApproved,
+                    loan.status === 'pending' && styles.loanPending,
+                    loan.status === 'rejected' && styles.loanRejected,
+                  ]}
+                >
+                  <Text style={styles.loanStatusText}>{loan.status}</Text>
+                </View>
               </View>
-            </View>
-            {loan.loanType && (
-              <View style={styles.loanTypeTag}>
-                <Text style={styles.loanTypeTagText}>{loan.loanType.name}</Text>
-              </View>
-            )}
-            <Text style={styles.loanPurpose}>{loan.purpose}</Text>
-            <Text style={styles.loanDetails}>
-              {loan.duration} months • {loan.interestRate}% interest
-            </Text>
-            {loan.initiatedBy === 'admin' && (
-              <View style={styles.adminInitiatedBadge}>
-                <Text style={styles.adminInitiatedText}>Admin Initiated</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        ))
+              {loan.loanType && (
+                <View style={styles.loanTypeTag}>
+                  <Text style={styles.loanTypeTagText}>{loan.loanType.name}</Text>
+                </View>
+              )}
+              <Text style={styles.loanPurpose}>{loan.purpose}</Text>
+              <Text style={styles.loanDetails}>
+                {loan.duration} months • {loan.interestRate}% interest
+              </Text>
+              {loan.initiatedBy === 'admin' && (
+                <View style={styles.adminInitiatedBadge}>
+                  <Text style={styles.adminInitiatedText}>Admin Initiated</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+          ))}
+        </>
       )}
     </View>
   );
@@ -945,7 +1046,14 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         {renderHeaderBackground()}
         <View style={styles.headerOverlay}>
           <View style={styles.headerTitleRow}>
-            <Text style={styles.headerTitle}>{currentCooperative.name}</Text>
+            <TouchableOpacity 
+              onPress={() => setShowCoopSwitcher(true)}
+              style={styles.cooperativeNameContainer}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.headerTitle}>{currentCooperative.name}</Text>
+              <Icon name="RefreshCw" size={16} color={colors.text.inverse} style={styles.switchIconBeside} />
+            </TouchableOpacity>
             {currentCooperative.code && (
               <TouchableOpacity 
                 style={styles.codeBadge}
@@ -996,6 +1104,253 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       {activeTab === 'contributions' && renderContributions()}
       {/* {activeTab === 'groupbuys' && renderGroupBuys()} Hidden for now */}
       {activeTab === 'loans' && renderLoans()}
+
+      {/* Cooperative Switcher Modal */}
+      <Modal
+        visible={showCoopSwitcher}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowCoopSwitcher(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.switcherModal}>
+            <View style={styles.switcherHeader}>
+              <Text style={styles.switcherTitle}>Switch Cooperative</Text>
+              <TouchableOpacity onPress={() => setShowCoopSwitcher(false)}>
+                <Icon name="X" size={24} color={colors.text.primary} />
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={cooperatives.filter(c => c.id !== cooperativeId)}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.cooperativeItem}
+                  onPress={() => {
+                    setShowCoopSwitcher(false);
+                    navigation.replace('CooperativeDetail', { cooperativeId: item.id });
+                  }}
+                >
+                  <View style={styles.cooperativeItemInfo}>
+                    <Text style={styles.cooperativeItemName}>{item.name}</Text>
+                    {item.code && (
+                      <Text style={styles.cooperativeItemCode}>Code: {item.code}</Text>
+                    )}
+                  </View>
+                  <Icon name="ChevronRight" size={20} color={colors.text.disabled} />
+                </TouchableOpacity>
+              )}
+              ListEmptyComponent={(
+                <View style={styles.emptyCooperatives}>
+                  <Text style={styles.emptyCooperativesText}>No other cooperatives</Text>
+                </View>
+              )}
+              ListFooterComponent={(
+                <View style={styles.switcherActions}>
+                  <TouchableOpacity
+                    style={styles.switcherActionButton}
+                    onPress={() => {
+                      setShowCoopSwitcher(false);
+                      setShowCreateModal(true);
+                    }}
+                  >
+                    <Icon name="PlusCircle" size={20} color={colors.primary.main} />
+                    <Text style={styles.switcherActionText}>Create New Cooperative</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.switcherActionButton}
+                    onPress={() => {
+                      setShowCoopSwitcher(false);
+                      setShowJoinModal(true);
+                    }}
+                  >
+                    <Icon name="UserPlus" size={20} color={colors.primary.main} />
+                    <Text style={styles.switcherActionText}>Join Cooperative</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* Join Cooperative Modal */}
+      <Modal
+        visible={showJoinModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => {
+          setShowJoinModal(false);
+          setCooperativeCode('');
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.actionModalContent}>
+            <View style={styles.actionModalHeader}>
+              <Text style={styles.actionModalTitle}>Join Cooperative</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowJoinModal(false);
+                  setCooperativeCode('');
+                }}
+              >
+                <Icon name="X" size={24} color={colors.text.secondary} />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.modalIconContainer}>
+              <View style={[styles.modalIconCircle, { backgroundColor: colors.accent?.main ? colors.accent.main + '20' : '#26A69A20' }]}>
+                <Icon name="Key" size={32} color={colors.accent?.main || '#26A69A'} />
+              </View>
+            </View>
+            
+            <Text style={styles.actionModalDescription}>
+              Enter the 6-digit cooperative code provided by the administrator to request membership.
+            </Text>
+            
+            <View style={styles.actionInputGroup}>
+              <Text style={styles.actionInputLabel}>Cooperative Code</Text>
+              <View style={styles.actionInputWrapper}>
+                <Icon name="Hash" size={20} color={colors.text.secondary} />
+                <TextInput
+                  style={styles.actionInput}
+                  placeholder="e.g. ABC123"
+                  placeholderTextColor={colors.text.disabled}
+                  value={cooperativeCode}
+                  onChangeText={setCooperativeCode}
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                  maxLength={6}
+                />
+              </View>
+            </View>
+            
+            <View style={styles.actionModalButtons}>
+              <TouchableOpacity
+                style={[styles.actionModalButton, styles.actionModalCancelButton]}
+                onPress={() => {
+                  setShowJoinModal(false);
+                  setCooperativeCode('');
+                }}
+              >
+                <Text style={styles.actionModalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.actionModalButton,
+                  styles.actionModalPrimaryButton,
+                  (!cooperativeCode.trim() || cooperativeCode.length < 6 || isJoining) && styles.actionModalButtonDisabled
+                ]}
+                onPress={handleJoinCooperative}
+                disabled={!cooperativeCode.trim() || cooperativeCode.length < 6 || isJoining}
+              >
+                {isJoining ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.actionModalPrimaryText}>Join</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Create Cooperative Modal */}
+      <Modal
+        visible={showCreateModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => {
+          setShowCreateModal(false);
+          setNewCoopData({ name: '', description: '' });
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.actionModalContent}>
+            <View style={styles.actionModalHeader}>
+              <Text style={styles.actionModalTitle}>Create Cooperative</Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setShowCreateModal(false);
+                  setNewCoopData({ name: '', description: '' });
+                }}
+              >
+                <Icon name="X" size={24} color={colors.text.secondary} />
+              </TouchableOpacity>
+            </View>
+            
+            <View style={styles.modalIconContainer}>
+              <View style={[styles.modalIconCircle, { backgroundColor: colors.success.main + '20' }]}>
+                <Icon name="Plus" size={32} color={colors.success.main} />
+              </View>
+            </View>
+            
+            <Text style={styles.actionModalDescription}>
+              Create a new cooperative and invite members using the unique code that will be generated.
+            </Text>
+            
+            <View style={styles.actionInputGroup}>
+              <Text style={styles.actionInputLabel}>Cooperative Name</Text>
+              <View style={styles.actionInputWrapper}>
+                <Icon name="Home" size={20} color={colors.text.secondary} />
+                <TextInput
+                  style={styles.actionInput}
+                  placeholder="Enter cooperative name"
+                  placeholderTextColor={colors.text.disabled}
+                  value={newCoopData.name}
+                  onChangeText={(text) => setNewCoopData({ ...newCoopData, name: text })}
+                  autoCapitalize="words"
+                />
+              </View>
+            </View>
+            
+            <View style={styles.actionInputGroup}>
+              <Text style={styles.actionInputLabel}>
+                Description <Text style={styles.optionalLabel}>(Optional)</Text>
+              </Text>
+              <View style={[styles.actionInputWrapper, styles.textAreaWrapper]}>
+                <TextInput
+                  style={[styles.actionInput, styles.textAreaInput]}
+                  placeholder="What is this cooperative about?"
+                  placeholderTextColor={colors.text.disabled}
+                  value={newCoopData.description}
+                  onChangeText={(text) => setNewCoopData({ ...newCoopData, description: text })}
+                  multiline
+                  numberOfLines={3}
+                  textAlignVertical="top"
+                />
+              </View>
+            </View>
+            
+            <View style={styles.actionModalButtons}>
+              <TouchableOpacity
+                style={[styles.actionModalButton, styles.actionModalCancelButton]}
+                onPress={() => {
+                  setShowCreateModal(false);
+                  setNewCoopData({ name: '', description: '' });
+                }}
+              >
+                <Text style={styles.actionModalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.actionModalButton,
+                  styles.actionModalPrimaryButton,
+                  (!newCoopData.name.trim() || isJoining) && styles.actionModalButtonDisabled
+                ]}
+                onPress={handleCreateCooperative}
+                disabled={!newCoopData.name.trim() || isJoining}
+              >
+                {isJoining ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.actionModalPrimaryText}>Create</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 };
@@ -1091,6 +1446,14 @@ const styles = StyleSheet.create({
     color: colors.text.inverse,
     fontSize: 20,
     fontWeight: 'bold',
+  },
+  cooperativeNameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  switchIconBeside: {
+    marginLeft: 4,
   },
   codeBadge: {
     flexDirection: 'row',
@@ -1752,6 +2115,219 @@ const styles = StyleSheet.create({
   },
   smallIcon: {
     marginRight: spacing.xs,
+  },
+  // New styles for cooperative switcher and pending loans
+  pendingLoansSection: {
+    marginBottom: spacing.lg,
+  },
+  pendingLoansSectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.warning.main,
+    marginBottom: spacing.sm,
+  },
+  pendingLoanCard: {
+    borderLeftWidth: 4,
+    borderLeftColor: colors.warning.main,
+  },
+  loanMemberName: {
+    fontSize: 13,
+    color: colors.text.secondary,
+    fontWeight: '600',
+    marginTop: spacing.xs,
+  },
+  myLoansSectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
+    marginTop: spacing.md,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  switcherModal: {
+    backgroundColor: colors.background.paper,
+    borderTopLeftRadius: borderRadius.lg,
+    borderTopRightRadius: borderRadius.lg,
+    maxHeight: '70%',
+    paddingBottom: spacing.xl,
+  },
+  switcherHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.divider,
+  },
+  switcherTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text.primary,
+  },
+  cooperativeItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: spacing.lg,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.divider,
+  },
+  cooperativeItemInfo: {
+    flex: 1,
+  },
+  cooperativeItemName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text.primary,
+    marginBottom: spacing.xs,
+  },
+  cooperativeItemCode: {
+    fontSize: 13,
+    color: colors.text.secondary,
+  },
+  emptyCooperatives: {
+    padding: spacing.xl,
+    alignItems: 'center',
+  },
+  emptyCooperativesText: {
+    fontSize: 14,
+    color: colors.text.disabled,
+  },
+  switcherActions: {
+    borderTopWidth: 1,
+    borderTopColor: colors.border.default,
+    paddingTop: spacing.md,
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.md,
+    gap: spacing.sm,
+  },
+  switcherActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: spacing.md + 2,
+    backgroundColor: colors.primary.main,
+    borderRadius: borderRadius.lg,
+    gap: spacing.sm,
+    ...shadows.md,
+  },
+  switcherActionText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  actionModalContent: {
+    backgroundColor: colors.background.paper,
+    borderTopLeftRadius: borderRadius['2xl'],
+    borderTopRightRadius: borderRadius['2xl'],
+    padding: spacing.xl,
+    maxHeight: '85%',
+  },
+  actionModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  actionModalTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.text.primary,
+  },
+  modalIconContainer: {
+    alignItems: 'center',
+    marginBottom: spacing.lg,
+  },
+  modalIconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionModalDescription: {
+    fontSize: 15,
+    color: colors.text.secondary,
+    textAlign: 'center',
+    marginBottom: spacing.xl,
+    lineHeight: 22,
+  },
+  actionInputGroup: {
+    marginBottom: spacing.lg,
+  },
+  actionInputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text.primary,
+    marginBottom: spacing.sm,
+  },
+  optionalLabel: {
+    fontSize: 13,
+    fontWeight: '400',
+    color: colors.text.disabled,
+  },
+  actionInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.background.default,
+    borderWidth: 1,
+    borderColor: colors.border.default,
+    borderRadius: borderRadius.lg,
+    paddingHorizontal: spacing.md,
+    gap: spacing.sm,
+  },
+  actionInput: {
+    flex: 1,
+    paddingVertical: spacing.md + 2,
+    fontSize: 15,
+    color: colors.text.primary,
+  },
+  textAreaWrapper: {
+    alignItems: 'flex-start',
+    paddingTop: spacing.md,
+  },
+  textAreaInput: {
+    minHeight: 80,
+    textAlignVertical: 'top',
+  },
+  actionModalButtons: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginTop: spacing.lg,
+  },
+  actionModalButton: {
+    flex: 1,
+    paddingVertical: spacing.md + 2,
+    borderRadius: borderRadius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 50,
+  },
+  actionModalCancelButton: {
+    backgroundColor: colors.background.default,
+    borderWidth: 1,
+    borderColor: colors.border.default,
+  },
+  actionModalCancelText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text.secondary,
+  },
+  actionModalPrimaryButton: {
+    backgroundColor: colors.primary.main,
+    ...shadows.sm,
+  },
+  actionModalPrimaryText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  actionModalButtonDisabled: {
+    opacity: 0.5,
   },
 });
 

@@ -583,6 +583,10 @@ export interface LoanType {
   maxActiveLoans: number;
   requiresGuarantor: boolean;
   minGuarantors: number;
+  requiresKyc: boolean;
+  kycDocumentTypes?: string[]; // Array of required document types
+  requiresMultipleApprovals: boolean;
+  minApprovers: number;
   applicationFee?: number;
   deductInterestUpfront: boolean;
   isActive: boolean;
@@ -628,6 +632,9 @@ export interface LoanRequest {
   createdAt: string;
   updatedAt: string;
   repaymentSchedules?: LoanRepaymentSchedule[];
+  guarantors?: LoanGuarantor[];
+  kycDocuments?: LoanKycDocument[];
+  approvals?: LoanApproval[];
 }
 
 export interface LoanRepaymentSchedule {
@@ -642,6 +649,58 @@ export interface LoanRepaymentSchedule {
   paidAt?: string;
   status: 'pending' | 'partial' | 'paid' | 'overdue' | 'waived';
   notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Loan Guarantor
+export interface LoanGuarantor {
+  id: string;
+  loanId: string;
+  guarantorMemberId: string;
+  guarantor?: CooperativeMember;
+  status: 'pending' | 'approved' | 'rejected';
+  respondedAt?: string;
+  rejectionReason?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Loan KYC Document
+export type KycDocumentType = 
+  | 'bank_statement' 
+  | 'id_card' 
+  | 'drivers_license' 
+  | 'utility_bill' 
+  | 'passport' 
+  | 'other';
+
+export interface LoanKycDocument {
+  id: string;
+  loanId: string;
+  documentType: KycDocumentType;
+  documentUrl: string;
+  fileName: string;
+  fileSize: number;
+  mimeType: string;
+  status: 'pending' | 'verified' | 'rejected';
+  verifiedBy?: string;
+  verifiedAt?: string;
+  notes?: string;
+  uploadedAt: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// Loan Approval
+export interface LoanApproval {
+  id: string;
+  loanId: string;
+  approverUserId: string;
+  approver?: User;
+  decision: 'approved' | 'rejected';
+  comments?: string;
+  approvedAt: string;
   createdAt: string;
   updatedAt: string;
 }

@@ -75,6 +75,8 @@ interface OnboardingScreenProps {
 
 const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
   const insets = useSafeAreaInsets();
+  const [currentSlide, setCurrentSlide] = React.useState(0);
+  const sliderRef = React.useRef<AppIntroSlider<SlideItem>>(null);
   
   const handleDone = async () => {
     try {
@@ -108,54 +110,58 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
     );
   };
 
-  const renderNextButton = () => (
-    <View style={styles.buttonWrapper}>
-      <View style={styles.buttonContainer}>
-        <View style={styles.nextButton}>
-          <Text style={styles.nextButtonText}>Next</Text>
-        </View>
-      </View>
-    </View>
-  );
-
-  const renderDoneButton = () => (
-    <View style={styles.buttonWrapper}>
-      <View style={styles.buttonContainer}>
-        <View style={styles.doneButton}>
-          <Text style={styles.doneButtonText}>Get Started</Text>
-        </View>
-      </View>
-    </View>
-  );
-
-  const renderSkipButton = () => (
-    <View style={styles.skipButtonWrapper}>
-      <TouchableOpacity 
-        style={styles.skipButton} 
-        onPress={handleDone}
-      >
-        <Text style={styles.skipButtonText}>Skip</Text>
-      </TouchableOpacity>
-    </View>
-  );
+  const renderNextButton = () => null;
+  const renderDoneButton = () => null;
+  const renderSkipButton = () => null;
 
   return (
-    <AppIntroSlider
-      data={slides}
-      renderItem={renderItem}
-      renderNextButton={renderNextButton}
-      renderDoneButton={renderDoneButton}
-      renderSkipButton={renderSkipButton}
-      onDone={handleDone}
-      showSkipButton
-      dotStyle={styles.dot}
-      activeDotStyle={styles.activeDot}
-      bottomButton={false}
-    />
+    <View style={styles.container}>
+      {/* Skip button at top left */}
+      {currentSlide < slides.length - 1 && (
+        <TouchableOpacity 
+          style={[styles.skipButtonWrapper, { top: insets.top + 10 }]}
+          onPress={handleDone}
+        >
+          <Text style={styles.skipButtonText}>Skip</Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Next/Get Started button centered below skip */}
+      <TouchableOpacity 
+        style={[styles.buttonWrapper, { top: insets.top + 40 }]}
+        onPress={currentSlide === slides.length - 1 ? handleDone : () => sliderRef.current?.goToSlide(currentSlide + 1)}
+      >
+        <View style={styles.buttonContainer}>
+          <View style={currentSlide === slides.length - 1 ? styles.doneButton : styles.nextButton}>
+            <Text style={currentSlide === slides.length - 1 ? styles.doneButtonText : styles.nextButtonText}>
+              {currentSlide === slides.length - 1 ? 'Get Started' : 'Next'}
+            </Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+
+      <AppIntroSlider
+        ref={sliderRef}
+        data={slides}
+        renderItem={renderItem}
+        renderNextButton={renderNextButton}
+        renderDoneButton={renderDoneButton}
+        renderSkipButton={renderSkipButton}
+        onDone={handleDone}
+        onSlideChange={(index) => setCurrentSlide(index)}
+        showSkipButton={false}
+        dotStyle={styles.dot}
+        activeDotStyle={styles.activeDot}
+        bottomButton={false}
+      />
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
   slide: {
     flex: 1,
     alignItems: 'center',
@@ -166,7 +172,8 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingTop: 80,
+    paddingTop: 100, // Add space for buttons at top
+    paddingBottom: 80,
   },
   illustrationContainer: {
     justifyContent: 'center',
@@ -192,17 +199,23 @@ const styles = StyleSheet.create({
   },
   buttonWrapper: {
     position: 'absolute',
-    bottom: height * 0.4, // Position buttons at 40% from bottom (middle area)
+    top: 80, // Will be overridden by dynamic value
     left: 0,
     right: 0,
     backgroundColor: 'transparent',
     alignItems: 'center',
+    zIndex: 1000,
+    elevation: 1000,
   },
   skipButtonWrapper: {
     position: 'absolute',
-    bottom: height * 0.4, // Position skip button at same level
-    left: spacing.md,
+    top: 80, // Will be overridden by dynamic value
+    left: 0,
+    right: 0,
     backgroundColor: 'transparent',
+    alignItems: 'center',
+    zIndex: 1000,
+    elevation: 1000,
   },
   buttonContainer: {
     paddingHorizontal: spacing.xl,
@@ -235,8 +248,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   skipButton: {
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.lg,
+    paddingVertical: spacing.sm,
   },
   skipButtonText: {
     color: colorTheme.text.secondary,

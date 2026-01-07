@@ -22,6 +22,7 @@ import { Card, Button, Modal, Badge } from '../../components/common';
 import { LoanType } from '../../models';
 import { formatCurrency } from '../../utils';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { getErrorMessage } from '../../utils/errorHandler';
 
 type Props = NativeStackScreenProps<any, 'LoanTypes'>;
 
@@ -48,6 +49,10 @@ const LoanTypesScreen: React.FC<Props> = ({ route }) => {
     maxActiveLoans: string;
     requiresGuarantor: boolean;
     minGuarantors: string;
+    requiresKyc: boolean;
+    kycDocumentTypes: string[];
+    requiresMultipleApprovals: boolean;
+    minApprovers: string;
     isActive: boolean;
     requiresApproval: boolean;
   }>({
@@ -66,6 +71,10 @@ const LoanTypesScreen: React.FC<Props> = ({ route }) => {
     maxActiveLoans: '1',
     requiresGuarantor: false,
     minGuarantors: '0',
+    requiresKyc: false,
+    kycDocumentTypes: [],
+    requiresMultipleApprovals: false,
+    minApprovers: '2',
     isActive: true,
     requiresApproval: true,
   });
@@ -100,6 +109,10 @@ const LoanTypesScreen: React.FC<Props> = ({ route }) => {
       maxActiveLoans: '1',
       requiresGuarantor: false,
       minGuarantors: '0',
+      requiresKyc: false,
+      kycDocumentTypes: [],
+      requiresMultipleApprovals: false,
+      minApprovers: '2',
       isActive: true,
       requiresApproval: true,
     });
@@ -129,6 +142,10 @@ const LoanTypesScreen: React.FC<Props> = ({ route }) => {
       maxActiveLoans: loanType.maxActiveLoans.toString(),
       requiresGuarantor: loanType.requiresGuarantor,
       minGuarantors: loanType.minGuarantors.toString(),
+      requiresKyc: loanType.requiresKyc || false,
+      kycDocumentTypes: loanType.kycDocumentTypes || [],
+      requiresMultipleApprovals: loanType.requiresMultipleApprovals || false,
+      minApprovers: (loanType.minApprovers || 2).toString(),
       isActive: loanType.isActive,
       requiresApproval: loanType.requiresApproval,
     });
@@ -165,6 +182,10 @@ const LoanTypesScreen: React.FC<Props> = ({ route }) => {
       maxActiveLoans: parseInt(formData.maxActiveLoans),
       requiresGuarantor: formData.requiresGuarantor,
       minGuarantors: parseInt(formData.minGuarantors),
+      requiresKyc: formData.requiresKyc,
+      kycDocumentTypes: formData.kycDocumentTypes.length > 0 ? formData.kycDocumentTypes : undefined,
+      requiresMultipleApprovals: formData.requiresMultipleApprovals,
+      minApprovers: parseInt(formData.minApprovers),
       isActive: formData.isActive,
       requiresApproval: formData.requiresApproval,
     };
@@ -186,7 +207,7 @@ const LoanTypesScreen: React.FC<Props> = ({ route }) => {
       setModalVisible(false);
       resetForm();
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to save loan type');
+      Alert.alert('Error', getErrorMessage(error, 'Failed to save loan type'));
     }
   };
 
@@ -206,7 +227,7 @@ const LoanTypesScreen: React.FC<Props> = ({ route }) => {
               ).unwrap();
               Alert.alert('Success', 'Loan type deleted');
             } catch (error: any) {
-              Alert.alert('Error', error.message || 'Failed to delete loan type');
+              Alert.alert('Error', getErrorMessage(error, 'Failed to delete loan type'));
             }
           },
         },
@@ -258,6 +279,21 @@ const LoanTypesScreen: React.FC<Props> = ({ route }) => {
         {item.requiresApproval && (
           <View style={[styles.tag, styles.warningTag]}>
             <Text style={styles.warningTagText}>Requires Approval</Text>
+          </View>
+        )}
+        {item.requiresGuarantor && (
+          <View style={[styles.tag, styles.infoTag]}>
+            <Text style={styles.infoTagText}>{item.minGuarantors} Guarantor(s)</Text>
+          </View>
+        )}
+        {item.requiresKyc && (
+          <View style={[styles.tag, styles.infoTag]}>
+            <Text style={styles.infoTagText}>KYC Required</Text>
+          </View>
+        )}
+        {item.requiresMultipleApprovals && (
+          <View style={[styles.tag, styles.warningTag]}>
+            <Text style={styles.warningTagText}>{item.minApprovers} Approvers</Text>
           </View>
         )}
       </View>
@@ -500,6 +536,59 @@ const LoanTypesScreen: React.FC<Props> = ({ route }) => {
               { keyboardType: 'numeric' }
             )}
 
+          {renderSwitch(
+            'Requires KYC Documents',
+            formData.requiresKyc,
+            (value) => setFormData({ ...formData, requiresKyc: value }),
+            'Borrower must upload KYC documents'
+          )}
+
+          {formData.requiresKyc && (
+            <View style={styles.formField}>
+              <Text style={styles.formLabel}>Required Document Types</Text>
+              <Text style={styles.formHint}>Select documents required for this loan type</Text>
+              {['bank_statement', 'id_card', 'drivers_license', 'utility_bill', 'passport'].map((docType) => (
+                <TouchableOpacity
+                  key={docType}
+                  style={styles.checkboxContainer}
+                  onPress={() => {
+                    const newDocs = formData.kycDocumentTypes.includes(docType)
+                      ? formData.kycDocumentTypes.filter(d => d !== docType)
+                      : [...formData.kycDocumentTypes, docType];
+                    setFormData({ ...formData, kycDocumentTypes: newDocs });
+                  }}
+                >
+                  <View style={[
+                    styles.checkbox,
+                    formData.kycDocumentTypes.includes(docType) && styles.checkboxChecked
+                  ]}>
+                    {formData.kycDocumentTypes.includes(docType) && (
+                      <Text style={styles.checkmark}>✓</Text>
+                    )}
+                  </View>
+                  <Text style={styles.checkboxLabel}>
+                    {docType.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          {renderSwitch(
+            'Requires Multiple Approvals',
+            formData.requiresMultipleApprovals,
+            (value) => setFormData({ ...formData, requiresMultipleApprovals: value }),
+            'Loan requires approval from multiple admins'
+          )}
+
+          {formData.requiresMultipleApprovals &&
+            renderFormField(
+              'Min Approvers Required',
+              formData.minApprovers,
+              (text) => setFormData({ ...formData, minApprovers: text }),
+              { keyboardType: 'numeric', placeholder: '2' }
+            )}
+
           {renderSwitch('Active', formData.isActive, (value) =>
             setFormData({ ...formData, isActive: value })
           )}
@@ -717,6 +806,43 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#94a3b8',
     marginTop: 2,
+  },
+  formHint: {
+    fontSize: 12,
+    color: '#94a3b8',
+    marginTop: 4,
+    marginBottom: 12,
+  },
+  checkboxContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  checkbox: {
+    width: 24,
+    height: 24,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: '#cbd5e1',
+    backgroundColor: '#fff',
+    marginRight: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  checkboxChecked: {
+    backgroundColor: '#8b5cf6',
+    borderColor: '#8b5cf6',
+  },
+  checkmark: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  checkboxLabel: {
+    fontSize: 14,
+    color: '#334155',
+    flex: 1,
   },
   modalActions: {
     flexDirection: 'row',

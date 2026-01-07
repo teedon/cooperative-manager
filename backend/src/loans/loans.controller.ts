@@ -1,12 +1,17 @@
-import { Controller, Get, Post, Put, Delete, Body, Param, Request, UseGuards, HttpException, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Body, Param, Request, UseGuards, HttpException, HttpStatus, UseInterceptors, UploadedFile } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { LoansService } from './loans.service';
+import { SupabaseService } from '../services/supabase.service';
 import { CreateLoanTypeDto, UpdateLoanTypeDto } from './dto/loan-type.dto';
 import { RequestLoanDto, InitiateLoanDto, ApproveLoanDto, RejectLoanDto, RecordRepaymentDto } from './dto/loan.dto';
 
 @Controller()
 export class LoansController {
-  constructor(private readonly loansService: LoansService) {}
+  constructor(
+    private readonly loansService: LoansService,
+    private readonly supabaseService: SupabaseService,
+  ) {}
 
   // ==================== LOAN TYPES ====================
 
@@ -268,6 +273,153 @@ export class LoansController {
     } catch (error: any) {
       throw new HttpException(
         { success: false, message: error.message || 'Failed to record repayment', data: null },
+        error.status || HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  // ==================== FILE UPLOAD ====================
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('loans/upload-url')
+  async generateUploadUrl(
+    @Body() dto: { fileName: string; contentType: string },
+    @Request() req: any,
+  ) {
+    try {
+      const data = await this.supabaseService.generateUploadUrl(
+        'kyc-documents',
+        dto.fileName,
+        req.user.id,
+      );
+      return { success: true, message: 'Upload URL generated successfully', data };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to generate upload URL', data: null },
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('loans/upload-document')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadDocument(
+    @UploadedFile() file: Express.Multer.File,
+    @Body('fileName') fileName: string,
+    @Request() req: any,
+  ) {
+    try {
+      if (!file) {
+        throw new HttpException(
+          { success: false, message: 'No file provided', data: null },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      // Upload file to Supabase
+      const timestamp = Date.now();
+      const sanitizedFileName = (fileName || file.originalname).replace(/[^a-zA-Z0-9.-]/g, '_');
+      const filePath = `${req.user.id}/${timestamp}-${sanitizedFileName}`;
+
+      await this.supabaseService.uploadFile(
+        'kyc-documents',
+        filePath,
+        file.buffer,
+        file.mimetype,
+      );
+
+      // Get public URL (store the path, not the actual URL since bucket might be private)
+      const publicUrl = this.supabaseService.getPublicUrl('kyc-documents', filePath);
+
+      return {
+        success: true,
+        message: 'File uploaded successfully',
+        data: {
+          documentUrl: publicUrl,
+          filePath,
+          fileName: sanitizedFileName,
+        },
+      };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to upload file', data: null },
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get('loans/documents/:documentId/signed-url')
+  async getDocumentSignedUrl(
+    @Param('documentId') documentId: string,
+    @Request() req: any,
+  ) {
+    try {
+      const document = await this.loansService.getKycDocument(documentId, req.user.id);
+      
+      // Extract file path from the public URL
+      const url = new URL(document.documentUrl);
+      const pathParts = url.pathname.split('/public/kyc-documents/');
+      const filePath = pathParts[1];
+
+      // Generate signed URL valid for 1 hour
+      const signedUrl = await this.supabaseService.getSignedUrl('kyc-documents', filePath, 3600);
+
+      return {
+        success: true,
+        message: 'Signed URL generated successfully',
+        data: { signedUrl },
+      };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to generate signed URL', data: null },
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  // ==================== GUARANTOR ENDPOINTS ====================
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get('cooperatives/:cooperativeId/loans/as-guarantor')
+  async getLoansAsGuarantor(
+    @Param('cooperativeId') cooperativeId: string,
+    @Request() req: any,
+  ) {
+    try {
+      const data = await this.loansService.getLoansAsGuarantor(cooperativeId, req.user.id);
+      return { success: true, message: 'Loans retrieved successfully', data };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to fetch loans', data: null },
+        error.status || HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('loans/:loanId/guarantor-response')
+  async respondToGuarantorRequest(
+    @Param('loanId') loanId: string,
+    @Body() body: { approved: boolean; reason?: string },
+    @Request() req: any,
+  ) {
+    try {
+      const data = await this.loansService.respondToGuarantorRequest(
+        loanId,
+        body.approved,
+        body.reason,
+        req.user.id,
+      );
+      return {
+        success: true,
+        message: body.approved ? 'Guarantor approval submitted successfully' : 'Guarantor rejection submitted successfully',
+        data,
+      };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to submit response', data: null },
         error.status || HttpStatus.BAD_REQUEST,
       );
     }

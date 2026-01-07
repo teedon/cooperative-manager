@@ -15,6 +15,7 @@ import { colors, spacing, borderRadius, shadows } from '../../theme';
 import Icon from '../../components/common/Icon';
 import { expenseApi, Expense } from '../../api/expenseApi';
 import { formatCurrency, formatDate } from '../../utils/formatters';
+import { getErrorMessage } from '../../utils/errorHandler';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'ExpenseDetail'>;
 
@@ -93,7 +94,7 @@ const ExpenseDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               Alert.alert('Success', 'Expense deleted successfully');
               navigation.goBack();
             } catch (error: any) {
-              Alert.alert('Error', error.message || 'Failed to delete expense');
+              Alert.alert('Error', getErrorMessage(error, 'Failed to delete expense'));
             }
           },
         },

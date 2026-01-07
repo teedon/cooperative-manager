@@ -10,14 +10,20 @@ import {
   TextInput,
   Alert,
   Modal,
+  Linking,
+  Image,
+  Dimensions,
 } from 'react-native';
+import Pdf from 'react-native-pdf';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { HomeStackParamList } from '../../navigation/MainNavigator';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { fetchLoan, fetchRepaymentSchedule, recordRepayment, disburseLoan } from '../../store/slices/loanSlice';
+import { fetchLoan, fetchRepaymentSchedule, recordRepayment, disburseLoan, reviewLoan } from '../../store/slices/loanSlice';
 import { formatCurrency, formatDate } from '../../utils';
 import Icon from '../../components/common/Icon';
 import { usePermissions } from '../../hooks/usePermissions';
+import { getErrorMessage } from '../../utils/errorHandler';
+import { loanApi } from '../../api/loanApi';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'LoanDetail'>;
 
@@ -32,6 +38,13 @@ const LoanDetailScreen: React.FC<Props> = ({ route }) => {
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDisbursing, setIsDisbursing] = useState(false);
+  const [isReviewing, setIsReviewing] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState('');
+  const [selectedDocument, setSelectedDocument] = useState<any>(null);
+  const [showDocumentModal, setShowDocumentModal] = useState(false);
+  const [documentSignedUrl, setDocumentSignedUrl] = useState<string>('');
+  const [loadingSignedUrl, setLoadingSignedUrl] = useState(false);
 
   const { currentLoan, repaymentSchedule, isLoading } = useAppSelector((state) => state.loan);
   const { user } = useAppSelector((state) => state.auth);
@@ -47,9 +60,59 @@ const LoanDetailScreen: React.FC<Props> = ({ route }) => {
     ['disbursed', 'repaying'].includes(currentLoan?.status || '');
   
   // Check if user can disburse the loan (only admins/moderators for approved loans)
-  const canDisburseLoan = isAdminOrModerator && currentLoan?.status === 'approved';
+  // Also verify that multi-approval requirements are met if applicable
+  const hasMetApprovalRequirements = currentLoan?.loanType?.requiresMultipleApprovals
+    ? (currentLoan?.approvals?.length || 0) >= (currentLoan?.loanType?.minApprovers || 2)
+    : true;
+  const canDisburseLoan = isAdminOrModerator && currentLoan?.status === 'approved' && hasMetApprovalRequirements;
+  
+  // Check if user can approve/reject pending loans
+  const canApprovePendingLoan = canApproveLoans && currentLoan?.status === 'pending';
 
   const paymentMethods = ['bank_transfer', 'cash', 'mobile_money', 'debit_card', 'check'];
+
+  const openDocument = async (doc: any) => {
+    console.log('=== OPENING DOCUMENT ===');
+    console.log('Document:', doc);
+    console.log('Document URL:', doc?.documentUrl);
+    console.log('File Name:', doc?.fileName);
+    console.log('MIME Type:', doc?.mimeType);
+    
+    setSelectedDocument(doc);
+    setShowDocumentModal(true);
+    setLoadingSignedUrl(true);
+    
+    try {
+      // Fetch signed URL for secure access
+      const signedUrl = await loanApi.getDocumentSignedUrl(doc.id);
+      console.log('Signed URL obtained:', signedUrl);
+      setDocumentSignedUrl(signedUrl);
+    } catch (error) {
+      console.error('Failed to get signed URL:', error);
+      Alert.alert('Error', 'Failed to load document. Please try again.');
+      closeDocumentModal();
+    } finally {
+      setLoadingSignedUrl(false);
+    }
+  };
+
+  const closeDocumentModal = () => {
+    setShowDocumentModal(false);
+    setSelectedDocument(null);
+    setDocumentSignedUrl('');
+  };
+
+  const isImageFile = (url: string) => {
+    const isImage = /\.(jpg|jpeg|png|gif|bmp|webp)$/i.test(url);
+    console.log('Is Image File?', url, isImage);
+    return isImage;
+  };
+
+  const isPdfFile = (url: string) => {
+    const isPdf = /\.pdf$/i.test(url) || url.includes('pdf');
+    console.log('Is PDF File?', url, isPdf);
+    return isPdf;
+  };
 
   const handleRecordRepayment = async () => {
     if (!repaymentAmount || parseFloat(repaymentAmount) <= 0) {
@@ -63,7 +126,7 @@ const LoanDetailScreen: React.FC<Props> = ({ route }) => {
 
     setIsSubmitting(true);
     try {
-      await dispatch(recordRepayment({
+      const result = await dispatch(recordRepayment({
         loanId,
         amount: parseFloat(repaymentAmount),
         paymentMethod,
@@ -71,7 +134,11 @@ const LoanDetailScreen: React.FC<Props> = ({ route }) => {
         notes: notes || undefined,
       })).unwrap();
       
-      Alert.alert('Success', 'Repayment recorded successfully');
+      const successMessage = isAdminOrModerator 
+        ? 'Repayment recorded successfully'
+        : 'Payment notification submitted successfully. Awaiting admin approval.';
+      
+      Alert.alert('Success', successMessage);
       setShowRepaymentModal(false);
       setRepaymentAmount('');
       setPaymentMethod('');
@@ -79,7 +146,7 @@ const LoanDetailScreen: React.FC<Props> = ({ route }) => {
       setNotes('');
       loadData(); // Refresh data
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to record repayment');
+      Alert.alert('Error', getErrorMessage(error, 'Failed to record repayment'));
     } finally {
       setIsSubmitting(false);
     }
@@ -111,7 +178,7 @@ const LoanDetailScreen: React.FC<Props> = ({ route }) => {
               Alert.alert('Success', 'Loan has been disbursed successfully. The member can now start making repayments.');
               loadData();
             } catch (error: any) {
-              Alert.alert('Error', error.message || 'Failed to disburse loan');
+              Alert.alert('Error', getErrorMessage(error, 'Failed to disburse loan'));
             } finally {
               setIsDisbursing(false);
             }
@@ -121,6 +188,85 @@ const LoanDetailScreen: React.FC<Props> = ({ route }) => {
     );
   };
 
+  const handleApproveLoan = () => {
+    // Check guarantor requirements
+    if (currentLoan?.loanType?.requiresGuarantor) {
+      const minGuarantors = currentLoan.loanType.minGuarantors || 1;
+      const approvedGuarantors = currentLoan.guarantors?.filter(g => g.status === 'approved').length || 0;
+      
+      if (approvedGuarantors < minGuarantors) {
+        Alert.alert(
+          'Cannot Approve',
+          `This loan requires at least ${minGuarantors} guarantor approval(s). Currently ${approvedGuarantors} approved.`,
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+    }
+
+    Alert.alert(
+      'Approve Loan',
+      `Are you sure you want to approve this ${formatCurrency(currentLoan?.amount || 0)} loan request?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Approve',
+          onPress: async () => {
+            setIsReviewing(true);
+            try {
+              await dispatch(reviewLoan({ loanId, approved: true })).unwrap();
+              
+              // Reload loan data to get updated approvals
+              await loadData();
+              
+              // Check if more approvals are needed
+              const requiresMultiple = currentLoan?.loanType?.requiresMultipleApprovals;
+              const minApprovers = currentLoan?.loanType?.minApprovers || 2;
+              const currentApprovals = (currentLoan?.approvals?.length || 0) + 1;
+              
+              if (requiresMultiple && currentApprovals < minApprovers) {
+                const remaining = minApprovers - currentApprovals;
+                Alert.alert(
+                  'Approval Added', 
+                  `Your approval has been recorded. ${remaining} more approval(s) needed before disbursement.`
+                );
+              } else {
+                Alert.alert('Success', 'Loan has been approved successfully.');
+              }
+            } catch (error: any) {
+              Alert.alert('Error', getErrorMessage(error, 'Failed to approve loan'));
+            } finally {
+              setIsReviewing(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleRejectLoan = () => {
+    setShowRejectModal(true);
+  };
+
+  const confirmRejectLoan = async () => {
+    if (!rejectionReason || rejectionReason.trim() === '') {
+      Alert.alert('Error', 'Please provide a rejection reason');
+      return;
+    }
+    setIsReviewing(true);
+    try {
+      await dispatch(reviewLoan({ loanId, approved: false, reason: rejectionReason })).unwrap();
+      Alert.alert('Success', 'Loan has been rejected.');
+      setShowRejectModal(false);
+      setRejectionReason('');
+      loadData();
+    } catch (error: any) {
+      Alert.alert('Error', getErrorMessage(error, 'Failed to reject loan'));
+    } finally {
+      setIsReviewing(false);
+    }
+  };
+
   const loadData = useCallback(async () => {
     await Promise.all([dispatch(fetchLoan(loanId)), dispatch(fetchRepaymentSchedule(loanId))]);
   }, [dispatch, loanId]);
@@ -128,6 +274,28 @@ const LoanDetailScreen: React.FC<Props> = ({ route }) => {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // Debug logging
+  useEffect(() => {
+    if (currentLoan) {
+      console.log('=== LOAN DETAIL DEBUG ===');
+      console.log('Loan ID:', currentLoan.id);
+      console.log('Loan Type:', currentLoan.loanType);
+      console.log('Requires Guarantor:', currentLoan.loanType?.requiresGuarantor);
+      console.log('Min Guarantors:', currentLoan.loanType?.minGuarantors);
+      console.log('Guarantors:', currentLoan.guarantors);
+      console.log('Guarantors Length:', currentLoan.guarantors?.length || 0);
+      console.log('Requires KYC:', currentLoan.loanType?.requiresKyc);
+      console.log('KYC Document Types:', currentLoan.loanType?.kycDocumentTypes);
+      console.log('KYC Documents:', currentLoan.kycDocuments);
+      console.log('KYC Documents Length:', currentLoan.kycDocuments?.length || 0);
+      console.log('Requires Multiple Approvals:', currentLoan.loanType?.requiresMultipleApprovals);
+      console.log('Min Approvers:', currentLoan.loanType?.minApprovers);
+      console.log('Approvals:', currentLoan.approvals);
+      console.log('Approvals Length:', currentLoan.approvals?.length || 0);
+      console.log('========================');
+    }
+  }, [currentLoan]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -187,6 +355,128 @@ const LoanDetailScreen: React.FC<Props> = ({ route }) => {
       {currentLoan.loanType && (
         <View style={styles.loanTypeTag}>
           <Text style={styles.loanTypeText}>{currentLoan.loanType.name}</Text>
+        </View>
+      )}
+
+      {/* Guarantor Section */}
+      {currentLoan.loanType?.requiresGuarantor && currentLoan.guarantors && currentLoan.guarantors.length > 0 && (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Guarantors</Text>
+          <Text style={styles.sectionHint}>
+            Required: {currentLoan.loanType.minGuarantors} guarantor(s)
+          </Text>
+          {currentLoan.guarantors.map((guarantor, index) => {
+            const guarantorName = guarantor.guarantor?.user
+              ? `${guarantor.guarantor.user.firstName} ${guarantor.guarantor.user.lastName}`
+              : guarantor.guarantor?.firstName
+                ? `${guarantor.guarantor.firstName} ${guarantor.guarantor.lastName || ''}`
+                : 'Unknown';
+            
+            return (
+              <View key={guarantor.id} style={styles.guarantorItem}>
+                <View style={styles.guarantorInfo}>
+                  <Text style={styles.guarantorName}>{guarantorName}</Text>
+                  {guarantor.guarantor?.memberCode && (
+                    <Text style={styles.guarantorCode}>{guarantor.guarantor.memberCode}</Text>
+                  )}
+                </View>
+                <View style={[
+                  styles.guarantorStatusBadge,
+                  guarantor.status === 'approved' ? styles.guarantorApproved :
+                  guarantor.status === 'rejected' ? styles.guarantorRejected :
+                  styles.guarantorPending
+                ]}>
+                  <Text style={styles.guarantorStatusText}>{guarantor.status}</Text>
+                </View>
+              </View>
+            );
+          })}
+          {currentLoan.status === 'pending' && (
+            <View style={[
+              styles.guarantorSummary,
+              currentLoan.guarantors.filter(g => g.status === 'approved').length >= (currentLoan.loanType.minGuarantors || 1)
+                ? styles.guarantorSummarySuccess
+                : styles.guarantorSummaryWarning
+            ]}>
+              <Text style={styles.guarantorSummaryText}>
+                {currentLoan.guarantors.filter(g => g.status === 'approved').length} / {currentLoan.loanType.minGuarantors} approved
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* KYC Documents Section */}
+      {currentLoan.loanType?.requiresKyc && currentLoan.kycDocuments && currentLoan.kycDocuments.length > 0 && (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>KYC Documents</Text>
+          {currentLoan.kycDocuments.map((doc) => (
+            <TouchableOpacity 
+              key={doc.id} 
+              style={styles.kycDocItem}
+              onPress={() => openDocument(doc)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.kycDocInfo}>
+                <Text style={styles.kycDocType}>
+                  {doc.documentType.split('_').map(word => 
+                    word.charAt(0).toUpperCase() + word.slice(1)
+                  ).join(' ')}
+                </Text>
+                <Text style={styles.kycDocName}>{doc.fileName}</Text>
+              </View>
+              <View style={styles.kycDocActions}>
+                <View style={[
+                  styles.kycStatusBadge,
+                  doc.status === 'verified' ? styles.kycVerified :
+                  doc.status === 'rejected' ? styles.kycRejected :
+                  styles.kycPending
+                ]}>
+                  <Text style={styles.kycStatusText}>{doc.status}</Text>
+                </View>
+                <Icon name="eye" size={20} color="#3b82f6" style={styles.kycViewIcon} />
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
+      {/* Multiple Approvals Section */}
+      {currentLoan.loanType?.requiresMultipleApprovals && currentLoan.approvals && (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Approval Progress</Text>
+          <Text style={styles.sectionHint}>
+            Required: {currentLoan.loanType.minApprovers} approval(s)
+          </Text>
+          {currentLoan.approvals.length > 0 ? (
+            currentLoan.approvals.map((approval) => (
+              <View key={approval.id} style={styles.approvalItem}>
+                <View style={styles.approvalInfo}>
+                  <Text style={styles.approverName}>
+                    {approval.approver?.firstName} {approval.approver?.lastName}
+                  </Text>
+                  <Text style={styles.approvalDate}>
+                    {formatDate(approval.approvedAt)}
+                  </Text>
+                </View>
+                <Icon name="checkmark-circle" size={24} color="#22c55e" />
+              </View>
+            ))
+          ) : (
+            <Text style={styles.noApprovalsText}>No approvals yet</Text>
+          )}
+          {currentLoan.status === 'pending' && (
+            <View style={[
+              styles.approvalSummary,
+              currentLoan.approvals.length >= (currentLoan.loanType.minApprovers || 2)
+                ? styles.approvalSummarySuccess
+                : styles.approvalSummaryWarning
+            ]}>
+              <Text style={styles.approvalSummaryText}>
+                {currentLoan.approvals.length} / {currentLoan.loanType.minApprovers} approved
+              </Text>
+            </View>
+          )}
         </View>
       )}
 
@@ -367,6 +657,48 @@ const LoanDetailScreen: React.FC<Props> = ({ route }) => {
         </View>
       )}
 
+      {/* Approve/Reject Loan Buttons - for pending loans */}
+      {canApprovePendingLoan && (
+        <View style={styles.actionContainer}>
+          <View style={styles.pendingInfo}>
+            <Icon name="clock-outline" size={20} color="#f59e0b" />
+            <Text style={styles.pendingInfoText}>
+              This loan is pending approval. Review and make a decision.
+            </Text>
+          </View>
+          <View style={styles.decisionButtons}>
+            <TouchableOpacity 
+              style={[styles.rejectButton, isReviewing && styles.buttonDisabled]} 
+              onPress={handleRejectLoan}
+              disabled={isReviewing}
+            >
+              {isReviewing ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <Icon name="close-circle-outline" size={20} color="#fff" />
+                  <Text style={styles.rejectButtonText}>Reject</Text>
+                </>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.approveButton, isReviewing && styles.buttonDisabled]} 
+              onPress={handleApproveLoan}
+              disabled={isReviewing}
+            >
+              {isReviewing ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <>
+                  <Icon name="checkmark-circle-outline" size={20} color="#fff" />
+                  <Text style={styles.approveButtonText}>Approve</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
       {/* Disburse Loan Button - for approved loans */}
       {canDisburseLoan && (
         <View style={styles.actionContainer}>
@@ -397,11 +729,17 @@ const LoanDetailScreen: React.FC<Props> = ({ route }) => {
       {canRecordRepayment && currentLoan.outstandingBalance > 0 && (
         <View style={styles.actionContainer}>
           <TouchableOpacity 
-            style={styles.recordRepaymentButton} 
+            style={[
+              styles.recordRepaymentButton,
+              !isAdminOrModerator && styles.notifyPaymentButton
+            ]} 
             onPress={openRepaymentModal}
+            disabled={isSubmitting}
           >
             <Icon name="cash-outline" size={20} color="#fff" />
-            <Text style={styles.recordRepaymentText}>Record Repayment</Text>
+            <Text style={styles.recordRepaymentText}>
+              {isAdminOrModerator ? 'Record Repayment' : 'Notify Payment'}
+            </Text>
           </TouchableOpacity>
         </View>
       )}
@@ -416,7 +754,9 @@ const LoanDetailScreen: React.FC<Props> = ({ route }) => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Record Repayment</Text>
+              <Text style={styles.modalTitle}>
+                {isAdminOrModerator ? 'Record Repayment' : 'Notify Payment'}
+              </Text>
               <TouchableOpacity 
                 onPress={() => setShowRepaymentModal(false)}
                 style={styles.closeButton}
@@ -424,6 +764,15 @@ const LoanDetailScreen: React.FC<Props> = ({ route }) => {
                 <Icon name="close" size={24} color="#64748b" />
               </TouchableOpacity>
             </View>
+
+            {!isAdminOrModerator && (
+              <View style={styles.notificationInfo}>
+                <Icon name="info" size={16} color="#0ea5e9" />
+                <Text style={styles.notificationInfoText}>
+                  Your payment notification will be sent to admins for approval before being added to the ledger.
+                </Text>
+              </View>
+            )}
 
             <View style={styles.outstandingInfo}>
               <Text style={styles.outstandingLabel}>Outstanding Balance</Text>
@@ -505,10 +854,205 @@ const LoanDetailScreen: React.FC<Props> = ({ route }) => {
                 {isSubmitting ? (
                   <ActivityIndicator size="small" color="#fff" />
                 ) : (
-                  <Text style={styles.submitButtonText}>Record Payment</Text>
+                  <Text style={styles.submitButtonText}>
+                    {isAdminOrModerator ? 'Record Payment' : 'Notify Payment'}
+                  </Text>
                 )}
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Reject Loan Modal */}
+      <Modal
+        visible={showRejectModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => {
+          setShowRejectModal(false);
+          setRejectionReason('');
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Reject Loan</Text>
+              <TouchableOpacity 
+                onPress={() => {
+                  setShowRejectModal(false);
+                  setRejectionReason('');
+                }}
+                style={styles.closeButton}
+              >
+                <Icon name="close" size={24} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Rejection Reason *</Text>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                placeholder="Please provide a reason for rejecting this loan..."
+                value={rejectionReason}
+                onChangeText={setRejectionReason}
+                multiline
+                numberOfLines={4}
+                textAlignVertical="top"
+              />
+            </View>
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[styles.cancelButton]}
+                onPress={() => {
+                  setShowRejectModal(false);
+                  setRejectionReason('');
+                }}
+              >
+                <Text style={styles.cancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.submitButton, styles.rejectModalButton, (isReviewing || !rejectionReason.trim()) && styles.buttonDisabled]}
+                onPress={confirmRejectLoan}
+                disabled={isReviewing || !rejectionReason.trim()}
+              >
+                {isReviewing ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={styles.submitButtonText}>Reject Loan</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Document Preview Modal */}
+      <Modal
+        visible={showDocumentModal}
+        animationType="slide"
+        onRequestClose={closeDocumentModal}
+      >
+        <View style={styles.documentViewerContainer}>
+          {/* Header */}
+          <View style={styles.documentViewerHeader}>
+            <TouchableOpacity onPress={closeDocumentModal} style={styles.backButton}>
+              <Icon name="arrow-back" size={24} color="#1e293b" />
+            </TouchableOpacity>
+            <View style={styles.documentViewerHeaderInfo}>
+              <Text style={styles.documentViewerTitle} numberOfLines={1}>
+                {selectedDocument?.fileName || 'Document'}
+              </Text>
+              <Text style={styles.documentViewerSubtitle}>
+                {selectedDocument?.documentType?.split('_').map((word: string) => 
+                  word.charAt(0).toUpperCase() + word.slice(1)
+                ).join(' ')}
+              </Text>
+            </View>
+            <View style={[
+              styles.documentViewerStatusBadge,
+              selectedDocument?.status === 'verified' ? styles.kycVerified :
+              selectedDocument?.status === 'rejected' ? styles.kycRejected :
+              styles.kycPending
+            ]}>
+              <Text style={styles.kycStatusText}>{selectedDocument?.status}</Text>
+            </View>
+          </View>
+
+          {/* Document Viewer */}
+          <View style={styles.documentViewerContent}>
+            {loadingSignedUrl ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#0ea5e9" />
+                <Text style={styles.loadingText}>Loading document...</Text>
+              </View>
+            ) : documentSignedUrl ? (
+              <>
+                {isImageFile(selectedDocument?.fileName || '') ? (
+                  <ScrollView
+                    contentContainerStyle={styles.imageScrollContainer}
+                    maximumZoomScale={3}
+                    minimumZoomScale={1}
+                    showsHorizontalScrollIndicator={false}
+                    showsVerticalScrollIndicator={false}
+                  >
+                    <Image
+                      source={{ uri: documentSignedUrl }}
+                      style={styles.documentImage}
+                      resizeMode="contain"
+                      onLoad={() => console.log('Image loaded successfully')}
+                      onError={(error) => {
+                        console.error('Image Error:', error.nativeEvent);
+                        Alert.alert('Error', `Unable to load image: ${error.nativeEvent.error}`);
+                      }}
+                    />
+                  </ScrollView>
+                ) : isPdfFile(selectedDocument?.fileName || '') ? (
+                  <Pdf
+                    trustAllCerts={false}
+                    source={{ uri: documentSignedUrl, cache: true }}
+                    onLoadComplete={(numberOfPages) => {
+                      console.log(`PDF loaded: ${numberOfPages} pages`);
+                    }}
+                    onError={(error) => {
+                      console.error('PDF Error:', error);
+                      Alert.alert('Error', 'Unable to load PDF document');
+                    }}
+                    style={styles.pdf}
+                  />
+                ) : (
+                  <View style={styles.unsupportedFileContainer}>
+                    <Icon name="document-outline" size={64} color="#94a3b8" />
+                    <Text style={styles.unsupportedFileText}>
+                      This file type cannot be previewed
+                    </Text>
+                    <TouchableOpacity
+                      style={styles.openExternalButton}
+                      onPress={() => {
+                        Linking.openURL(documentSignedUrl).catch(() => {
+                          Alert.alert('Error', 'Unable to open document');
+                        });
+                      }}
+                    >
+                      <Icon name="open-outline" size={20} color="#fff" />
+                      <Text style={styles.openExternalButtonText}>Open Externally</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </>
+            ) : (
+              <View style={styles.unsupportedFileContainer}>
+                <Icon name="alert-circle-outline" size={64} color="#ef4444" />
+                <Text style={styles.unsupportedFileText}>
+                  Failed to load document
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {/* Footer with details */}
+          <View style={styles.documentViewerFooter}>
+            <View style={styles.documentDetailRow}>
+              <Text style={styles.documentDetailLabel}>Uploaded:</Text>
+              <Text style={styles.documentDetailValue}>
+                {formatDate(selectedDocument?.uploadedAt)}
+              </Text>
+            </View>
+            {selectedDocument?.verifiedAt && (
+              <View style={styles.documentDetailRow}>
+                <Text style={styles.documentDetailLabel}>Verified:</Text>
+                <Text style={styles.documentDetailValue}>
+                  {formatDate(selectedDocument.verifiedAt)}
+                </Text>
+              </View>
+            )}
+            {selectedDocument?.rejectionReason && (
+              <View style={styles.documentDetailRow}>
+                <Text style={styles.documentDetailLabel}>Rejection Reason:</Text>
+                <Text style={[styles.documentDetailValue, styles.rejectionText]}>
+                  {selectedDocument.rejectionReason}
+                </Text>
+              </View>
+            )}
           </View>
         </View>
       </Modal>
@@ -525,6 +1069,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#64748b',
   },
   errorContainer: {
     flex: 1,
@@ -779,6 +1328,56 @@ const styles = StyleSheet.create({
   buttonDisabled: {
     opacity: 0.7,
   },
+  // Pending Loan Approval Styles
+  pendingInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fef3c7',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    gap: 8,
+  },
+  pendingInfoText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#92400e',
+    lineHeight: 20,
+  },
+  decisionButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  rejectButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#ef4444',
+    paddingVertical: 14,
+    borderRadius: 10,
+    gap: 8,
+  },
+  rejectButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  approveButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#22c55e',
+    paddingVertical: 14,
+    borderRadius: 10,
+    gap: 8,
+  },
+  approveButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
+  },
   // Repayment Recording Styles
   actionContainer: {
     padding: 16,
@@ -802,6 +1401,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'flex-end',
+  },
+  documentModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   modalContent: {
     backgroundColor: '#fff',
@@ -915,6 +1520,9 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
   },
+  rejectModalButton: {
+    backgroundColor: '#ef4444',
+  },
   submitButtonDisabled: {
     opacity: 0.7,
   },
@@ -922,6 +1530,330 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#fff',
+  },
+  notifyPaymentButton: {
+    backgroundColor: '#0ea5e9', // Info blue color for members
+  },
+  notificationInfo: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: '#e0f2fe',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+    gap: 8,
+  },
+  notificationInfoText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#0369a1',
+    lineHeight: 18,
+  },
+  // New styles for guarantors, KYC, and approvals
+  sectionHint: {
+    fontSize: 12,
+    color: '#64748b',
+    marginBottom: 12,
+    fontStyle: 'italic',
+  },
+  guarantorItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  guarantorInfo: {
+    flex: 1,
+  },
+  guarantorName: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#1e293b',
+    marginBottom: 2,
+  },
+  guarantorCode: {
+    fontSize: 12,
+    color: '#64748b',
+  },
+  guarantorStatusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  guarantorApproved: {
+    backgroundColor: '#dcfce7',
+  },
+  guarantorRejected: {
+    backgroundColor: '#fee2e2',
+  },
+  guarantorPending: {
+    backgroundColor: '#fef3c7',
+  },
+  guarantorStatusText: {
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'capitalize',
+  },
+  guarantorSummary: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  guarantorSummarySuccess: {
+    backgroundColor: '#dcfce7',
+  },
+  guarantorSummaryWarning: {
+    backgroundColor: '#fef3c7',
+  },
+  guarantorSummaryText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#166534',
+  },
+  kycDocItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  kycDocInfo: {
+    flex: 1,
+  },
+  kycDocActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  kycViewIcon: {
+    marginLeft: 8,
+  },
+  kycDocType: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#1e293b',
+    marginBottom: 2,
+  },
+  kycDocName: {
+    fontSize: 12,
+    color: '#64748b',
+  },
+  kycStatusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  kycVerified: {
+    backgroundColor: '#dcfce7',
+  },
+  kycRejected: {
+    backgroundColor: '#fee2e2',
+  },
+  kycPending: {
+    backgroundColor: '#fef3c7',
+  },
+  kycStatusText: {
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'capitalize',
+  },
+  approvalItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  approvalInfo: {
+    flex: 1,
+  },
+  approverName: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#1e293b',
+    marginBottom: 2,
+  },
+  approvalDate: {
+    fontSize: 12,
+    color: '#64748b',
+  },
+  noApprovalsText: {
+    fontSize: 14,
+    color: '#94a3b8',
+    fontStyle: 'italic',
+    textAlign: 'center',
+    paddingVertical: 12,
+  },
+  approvalSummary: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  approvalSummarySuccess: {
+    backgroundColor: '#dcfce7',
+  },
+  approvalSummaryWarning: {
+    backgroundColor: '#fef3c7',
+  },
+  approvalSummaryText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#166534',
+  },
+  documentModalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 24,
+    width: '90%',
+    maxHeight: '80%',
+  },
+  // Document Viewer Styles
+  documentViewerContainer: {
+    flex: 1,
+    backgroundColor: '#fff',
+  },
+  documentViewerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+    backgroundColor: '#fff',
+  },
+  backButton: {
+    marginRight: 12,
+    padding: 4,
+  },
+  documentViewerHeaderInfo: {
+    flex: 1,
+    marginRight: 12,
+  },
+  documentViewerTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1e293b',
+    marginBottom: 2,
+  },
+  documentViewerSubtitle: {
+    fontSize: 13,
+    color: '#64748b',
+  },
+  documentViewerStatusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  documentViewerContent: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+  },
+  imageScrollContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  documentImage: {
+    width: Dimensions.get('window').width,
+    height: Dimensions.get('window').height - 200,
+  },
+  pdf: {
+    flex: 1,
+    width: Dimensions.get('window').width,
+    height: Dimensions.get('window').height,
+  },
+  unsupportedFileContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  unsupportedFileText: {
+    fontSize: 16,
+    color: '#64748b',
+    marginTop: 16,
+    marginBottom: 24,
+    textAlign: 'center',
+  },
+  openExternalButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#3b82f6',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  openExternalButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  documentViewerFooter: {
+    padding: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#e2e8f0',
+    backgroundColor: '#fff',
+  },
+  documentModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  documentModalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1e293b',
+  },
+  documentDetails: {
+    marginBottom: 24,
+  },
+  documentDetailRow: {
+    marginBottom: 16,
+  },
+  documentDetailLabel: {
+    fontSize: 13,
+    color: '#64748b',
+    marginBottom: 4,
+    fontWeight: '500',
+  },
+  documentDetailValue: {
+    fontSize: 15,
+    color: '#1e293b',
+  },
+  documentModalActions: {
+    gap: 12,
+  },
+  documentViewButton: {
+    backgroundColor: '#3b82f6',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 10,
+    gap: 8,
+  },
+  documentViewButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  documentCancelButton: {
+    backgroundColor: '#f1f5f9',
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  documentCancelButtonText: {
+    color: '#64748b',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
 

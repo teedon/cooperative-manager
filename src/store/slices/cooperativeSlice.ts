@@ -2,6 +2,7 @@ import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { Cooperative, CooperativeMember } from '../../models';
 import { cooperativeApi, UpdateCooperativeData } from '../../api/cooperativeApi';
 import logger from '../../utils/logger';
+import { getThunkErrorMessage } from '../../utils/errorHandler';
 
 interface CooperativeState {
   cooperatives: Cooperative[];
@@ -33,7 +34,7 @@ export const fetchCooperatives = createAsyncThunk(
       }
       return response.data;
     } catch (error: any) {
-      return rejectWithValue(error?.message || 'Failed to fetch cooperatives');
+      return rejectWithValue(getThunkErrorMessage(error) || 'Failed to fetch cooperatives');
     }
   }
 );
@@ -48,7 +49,7 @@ export const fetchCooperative = createAsyncThunk(
       }
       return response.data;
     } catch (error: any) {
-      return rejectWithValue(error?.message || 'Failed to fetch cooperative');
+      return rejectWithValue(getThunkErrorMessage(error) || 'Failed to fetch cooperative');
     }
   }
 );
@@ -66,7 +67,7 @@ export const createCooperative = createAsyncThunk(
       return response.data;
     } catch (error: any) {
       logger.error(op, 'rejected', { message: error?.message, payload: data, response: error?.response?.data });
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -85,7 +86,7 @@ export const updateCooperative = createAsyncThunk(
       return response.data;
     } catch (error: any) {
       logger.error(op, 'rejected', { message: error?.message, id, payload: data, response: error?.response?.data });
-      return rejectWithValue(error?.response?.data?.message || error?.message || 'Failed to update cooperative');
+      return rejectWithValue(getThunkErrorMessage(error) || 'Failed to update cooperative');
     }
   }
 );
@@ -100,7 +101,7 @@ export const fetchMembers = createAsyncThunk(
       }
       return response.data;
     } catch (error: any) {
-      return rejectWithValue(error?.message || 'Failed to fetch members');
+      return rejectWithValue(getThunkErrorMessage(error) || 'Failed to fetch members');
     }
   }
 );
@@ -115,7 +116,7 @@ export const joinCooperativeByCode = createAsyncThunk(
       }
       return response.data;
     } catch (error: any) {
-      return rejectWithValue(error?.message || 'Failed to join cooperative');
+      return rejectWithValue(getThunkErrorMessage(error) || 'Failed to join cooperative');
     }
   }
 );
@@ -130,7 +131,7 @@ export const fetchPendingMembers = createAsyncThunk(
       }
       return response.data;
     } catch (error: any) {
-      return rejectWithValue(error?.message || 'Failed to fetch pending members');
+      return rejectWithValue(getThunkErrorMessage(error) || 'Failed to fetch pending members');
     }
   }
 );
@@ -145,7 +146,7 @@ export const approveMember = createAsyncThunk(
       }
       return response.data;
     } catch (error: any) {
-      return rejectWithValue(error?.message || 'Failed to approve member');
+      return rejectWithValue(getThunkErrorMessage(error) || 'Failed to approve member');
     }
   }
 );
@@ -157,7 +158,7 @@ export const rejectMember = createAsyncThunk(
       const response = await cooperativeApi.rejectMember(memberId);
       return { memberId };
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );

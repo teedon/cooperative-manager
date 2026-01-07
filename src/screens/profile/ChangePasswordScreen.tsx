@@ -18,6 +18,7 @@ import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { changePassword } from '../../store/slices/authSlice';
 import { colors, spacing, borderRadius } from '../../theme';
 import Icon from '../../components/common/Icon';
+import { getErrorMessage } from '../../utils/errorHandler';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'ChangePassword'>;
 
@@ -73,7 +74,7 @@ const ChangePasswordScreen: React.FC<Props> = ({ navigation }) => {
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
     } catch (error: any) {
-      Alert.alert('Error', error || 'Failed to change password');
+      Alert.alert('Error', getErrorMessage(error, 'Failed to change password'));
     }
   };
 

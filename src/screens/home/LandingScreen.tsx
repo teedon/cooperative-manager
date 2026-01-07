@@ -10,6 +10,7 @@ import {
   Dimensions,
   Platform,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { fetchCooperatives } from '../../store/slices/cooperativeSlice';
@@ -93,17 +94,31 @@ const CooperativesIcon: React.FC<{ size?: number }> = ({ size = 32 }) => (
   </Svg>
 );
 
-const ContributionsIcon: React.FC<{ size?: number }> = ({ size = 32 }) => (
+const GuarantorIcon: React.FC<{ size?: number }> = ({ size = 32 }) => (
   <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
     <Defs>
-      <LinearGradient id="contribGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <LinearGradient id="guarantorGrad" x1="0%" y1="0%" x2="100%" y2="100%">
         <Stop offset="0%" stopColor="#10b981" />
         <Stop offset="100%" stopColor="#059669" />
       </LinearGradient>
     </Defs>
     <Path
-      d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"
-      stroke="url(#contribGrad)"
+      d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"
+      stroke="url(#guarantorGrad)"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+    <Circle
+      cx="9"
+      cy="7"
+      r="4"
+      stroke="url(#guarantorGrad)"
+      strokeWidth="2"
+    />
+    <Path
+      d="M22 11l-3 3m0 0l-3-3m3 3v-6"
+      stroke="url(#guarantorGrad)"
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -313,12 +328,20 @@ const LandingScreen: React.FC = () => {
 
   const navigation: any = useNavigation();
 
-  const handleCooperatives = () => navigation.navigate('Home');
-  const handleContributions = () => {
+  const handleCooperatives = () => {
     if (cooperatives.length > 0) {
-      navigation.navigate('CooperativeDetail', { cooperativeId: cooperatives[0].id });
+      // Navigate to the last joined or first cooperative as default
+      const defaultCoop = cooperatives[cooperatives.length - 1];
+      navigation.navigate('CooperativeDetail', { cooperativeId: defaultCoop.id });
     } else {
       navigation.navigate('Home');
+    }
+  };
+  const handleGuarantor = () => {
+    if (cooperatives.length > 0) {
+      navigation.navigate('GuarantorLoans', { cooperativeId: cooperatives[0].id });
+    } else {
+      Alert.alert('No Cooperatives', 'Please join a cooperative first to view guarantor requests.');
     }
   };
   const handleLoans = () => {
@@ -415,12 +438,12 @@ const LandingScreen: React.FC = () => {
             delay={100}
           />
           <FeatureCard
-            title="Contributions"
-            subtitle="Active plans"
-            value={cooperatives.length > 0 ? cooperatives.length : '—'}
-            icon={<ContributionsIcon size={28} />}
+            title="Guarantor"
+            subtitle="Requests & approvals"
+            value="—"
+            icon={<GuarantorIcon size={28} />}
             gradientColors={['#10b981', '#059669']}
-            onPress={handleContributions}
+            onPress={handleGuarantor}
             delay={200}
           />
         </View>

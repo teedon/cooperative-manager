@@ -18,6 +18,7 @@ import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { login } from '../../store/slices/authSlice';
 import { colors, spacing, borderRadius, shadows } from '../../theme';
 import Icon from '../../components/common/Icon';
+import { getErrorMessage } from '../../utils/errorHandler';
 import Logo from '../../components/common/Logo';
 
 type LoginScreenNavigationProp = NativeStackNavigationProp<AuthStackParamList, 'Login'>;
@@ -73,8 +74,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
     try {
       await dispatch(login(formData)).unwrap();
     } catch (err: any) {
-      const errorMessage = err?.response?.data?.message || err?.message || 'Please check your credentials and try again.';
-      Alert.alert('Login Failed', errorMessage);
+      Alert.alert('Login Failed', getErrorMessage(err, 'Please check your credentials and try again.'));
     }
   };
 

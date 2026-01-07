@@ -4,11 +4,12 @@ import { LoansService } from './loans.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { ActivitiesModule } from '../activities/activities.module';
 import { NotificationsModule } from '../notifications/notifications.module';
+import { SupabaseService } from '../services/supabase.service';
 
 @Module({
   imports: [PrismaModule, ActivitiesModule, NotificationsModule],
   controllers: [LoansController],
-  providers: [LoansService],
+  providers: [LoansService, SupabaseService],
   exports: [LoansService],
 })
 export class LoansModule {}

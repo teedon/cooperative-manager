@@ -14,6 +14,7 @@ import ReactNativeBlobUtil from 'react-native-blob-util';
 
 import { Card, Icon } from '../../components/common';
 import reportsApi from '../../api/reportsApi';
+import { getErrorMessage } from '../../utils/errorHandler';
 
 type ReportType =
   | 'contribution_summary'
@@ -114,7 +115,7 @@ export default function ReportsScreen({ route }: Props) {
       });
       setReportData(data);
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to generate report');
+      Alert.alert('Error', getErrorMessage(error, 'Failed to generate report'));
     } finally {
       setIsGenerating(false);
     }
@@ -165,7 +166,7 @@ export default function ReportsScreen({ route }: Props) {
       };
       reader.readAsDataURL(blob);
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to export report');
+      Alert.alert('Error', getErrorMessage(error, 'Failed to export report'));
     } finally {
       setIsExporting(false);
     }

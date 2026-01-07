@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsOptional, IsDateString, Min } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsDateString, Min, IsArray } from 'class-validator';
 
 // Request a new loan (by member)
 export class RequestLoanDto {
@@ -21,6 +21,19 @@ export class RequestLoanDto {
   @IsNumber()
   @Min(0)
   interestRate?: number; // Override rate if not using loan type
+
+  @IsOptional()
+  @IsArray()
+  guarantorIds?: string[];
+
+  @IsOptional()
+  @IsArray()
+  kycDocuments?: Array<{
+    type: string;
+    documentUrl: string;
+    fileName: string;
+    mimeType?: string;
+  }>;
 }
 
 // Admin initiates loan for a member

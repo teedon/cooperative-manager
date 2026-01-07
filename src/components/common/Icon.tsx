@@ -17,6 +17,7 @@ const ioniconsToLucideMap: Record<string, string> = {
   'chevron-down': 'ChevronDown',
   'close': 'X',
   'close-circle': 'XCircle',
+  'close-circle-outline': 'XCircle',
   'x-circle': 'XCircle',
   
   // Status
@@ -42,6 +43,7 @@ const ioniconsToLucideMap: Record<string, string> = {
   'person': 'User',
   'person-outline': 'User',
   'user': 'User',
+  'user-plus': 'UserPlus',
   'people': 'Users',
   'people-outline': 'Users',
   'users': 'Users',
@@ -52,6 +54,7 @@ const ioniconsToLucideMap: Record<string, string> = {
   'time': 'Clock',
   'time-outline': 'Clock',
   'clock': 'Clock',
+  'clock-outline': 'Clock',
   
   // Finance
   'cash': 'Banknote',

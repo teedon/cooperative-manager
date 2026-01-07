@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { ContributionPlan, ContributionPeriod, ContributionRecord, ContributionSubscription, ContributionPayment, DuePayment, PaymentSchedule } from '../../models';
 import { contributionApi, CreateContributionPlanData, SubscribeData, UpdateSubscriptionData, RecordPaymentData, ApprovePaymentData } from '../../api/contributionApi';
+import { getThunkErrorMessage } from '../../utils/errorHandler';
 
 interface ContributionState {
   plans: ContributionPlan[];
@@ -53,7 +54,7 @@ export const fetchPlans = createAsyncThunk(
       const response = await contributionApi.getPlans(cooperativeId);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -65,7 +66,7 @@ export const fetchPlan = createAsyncThunk(
       const response = await contributionApi.getPlan(planId);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -80,7 +81,7 @@ export const createPlan = createAsyncThunk(
       const response = await contributionApi.createPlan(cooperativeId, plan);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -95,7 +96,7 @@ export const updatePlan = createAsyncThunk(
       const response = await contributionApi.updatePlan(planId, plan);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -107,7 +108,7 @@ export const deletePlan = createAsyncThunk(
       await contributionApi.deletePlan(planId);
       return planId;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -123,7 +124,7 @@ export const subscribeToPlan = createAsyncThunk(
       const response = await contributionApi.subscribeToPlan(planId, data);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -138,7 +139,7 @@ export const updateSubscription = createAsyncThunk(
       const response = await contributionApi.updateSubscription(subscriptionId, data);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -150,7 +151,7 @@ export const fetchMySubscriptions = createAsyncThunk(
       const response = await contributionApi.getMySubscriptions(cooperativeId);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -162,7 +163,7 @@ export const fetchPlanSubscriptions = createAsyncThunk(
       const response = await contributionApi.getPlanSubscriptions(planId);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -174,7 +175,7 @@ export const fetchPeriods = createAsyncThunk(
       const response = await contributionApi.getPeriods(planId);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -189,7 +190,7 @@ export const recordPayment = createAsyncThunk(
       const response = await contributionApi.recordPayment(periodId, record);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -204,7 +205,7 @@ export const verifyPayment = createAsyncThunk(
       const response = await contributionApi.verifyPayment(recordId, approved, reason);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -216,7 +217,7 @@ export const fetchPendingVerifications = createAsyncThunk(
       const response = await contributionApi.getPendingVerifications(cooperativeId);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -233,7 +234,7 @@ export const recordSubscriptionPayment = createAsyncThunk(
       const response = await contributionApi.recordSubscriptionPayment(subscriptionId, data);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -245,7 +246,7 @@ export const fetchSubscriptionPayments = createAsyncThunk(
       const response = await contributionApi.getSubscriptionPayments(subscriptionId);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -257,7 +258,7 @@ export const fetchMyPayments = createAsyncThunk(
       const response = await contributionApi.getMyPayments(cooperativeId);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -269,7 +270,7 @@ export const fetchDuePayments = createAsyncThunk(
       const response = await contributionApi.getDuePayments(cooperativeId);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -281,7 +282,7 @@ export const fetchPendingPayments = createAsyncThunk(
       const response = await contributionApi.getPendingPayments(cooperativeId);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -296,7 +297,7 @@ export const approvePayment = createAsyncThunk(
       const response = await contributionApi.approvePayment(paymentId, data);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -310,7 +311,7 @@ export const fetchMySchedules = createAsyncThunk(
       const response = await contributionApi.getMySchedules(cooperativeId);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -322,7 +323,7 @@ export const fetchSubscriptionSchedules = createAsyncThunk(
       const response = await contributionApi.getSubscriptionSchedules(subscriptionId);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -334,7 +335,7 @@ export const fetchOverdueSchedules = createAsyncThunk(
       const response = await contributionApi.getOverdueSchedules(cooperativeId);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -349,7 +350,7 @@ export const recordSchedulePayment = createAsyncThunk(
       const response = await contributionApi.recordSchedulePayment(scheduleId, data);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -361,7 +362,7 @@ export const extendSchedules = createAsyncThunk(
       const response = await contributionApi.extendSchedules(subscriptionId);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );

@@ -28,6 +28,7 @@ import { formatCurrency } from '../../utils/formatters';
 import DocumentPicker, { types } from 'react-native-document-picker';
 import * as XLSX from 'xlsx';
 import ReactNativeBlobUtil from 'react-native-blob-util';
+import { getErrorMessage } from '../../utils/errorHandler';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'OfflineMembers'>;
 

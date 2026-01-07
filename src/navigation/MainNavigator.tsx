@@ -2,8 +2,10 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 // Note: keeping to bottom-tabs only to avoid adding drawer dependency
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import { Text, View, StyleSheet } from 'react-native';
+import { Text, View, StyleSheet, ActivityIndicator } from 'react-native';
 import { colors, spacing } from '../theme';
+import { useAppSelector, useAppDispatch } from '../store/hooks';
+import { fetchCooperatives } from '../store/slices/cooperativeSlice';
 import CustomTabBar from '../components/navigation/CustomTabBar';
 import NotificationBell from '../components/common/NotificationBell';
 
@@ -31,6 +33,7 @@ import LoanDecisionScreen from '../screens/loans/LoanDecisionScreen';
 import LoanTypesScreen from '../screens/loans/LoanTypesScreen';
 import LoanApprovalListScreen from '../screens/loans/LoanApprovalListScreen';
 import LoanInitiateScreen from '../screens/loans/LoanInitiateScreen';
+import GuarantorLoansScreen from '../screens/loans/GuarantorLoansScreen';
 import LedgerScreen from '../screens/ledger/LedgerScreen';
 import MemberDashboardScreen from '../screens/cooperative/MemberDashboardScreen';
 import AdminManagementScreen from '../screens/cooperative/AdminManagementScreen';
@@ -79,6 +82,7 @@ const ProfileStack = createNativeStackNavigator<HomeStackParamList>();
 export type HomeStackParamList = {
   Landing: undefined;
   Home: { openModal?: 'create' | 'join' } | undefined;
+  CooperativeRedirect: undefined;
   CooperativeDetail: { cooperativeId: string };
   PendingApproval: { cooperativeId?: string } | undefined;
   CreateContribution: { cooperativeId: string };
@@ -114,6 +118,7 @@ export type HomeStackParamList = {
   LoanTypes: { cooperativeId: string };
   LoanApprovalList: { cooperativeId: string };
   LoanInitiate: { cooperativeId: string };
+  GuarantorLoans: { cooperativeId: string };
   Ledger: { cooperativeId: string; memberId?: string };
   MemberDashboard: { cooperativeId: string; memberId: string };
   AdminManagement: { cooperativeId: string };
@@ -265,6 +270,11 @@ const HomeStackNavigator: React.FC = () => {
         component={LoanInitiateScreen}
         options={{ title: 'Initiate Loan' }}
       />
+      <HomeStack.Screen
+        name="GuarantorLoans"
+        component={GuarantorLoansScreen}
+        options={{ title: 'Guarantor Requests' }}
+      />
       <HomeStack.Screen name="Ledger" component={LedgerScreen} options={{ title: 'Ledger' }} />
       <HomeStack.Screen
         name="MemberDashboard"
@@ -389,7 +399,42 @@ const HomeStackNavigator: React.FC = () => {
   );
 };
 
-// Cooperatives tab stack - starts with the cooperatives list (Home screen)
+// Component to redirect to default cooperative
+const CooperativeRedirect: React.FC<any> = ({ navigation }) => {
+  const { cooperatives } = useAppSelector((state) => state.cooperative);
+  const dispatch = useAppDispatch();
+
+  React.useEffect(() => {
+    const loadAndNavigate = async () => {
+      // Fetch cooperatives if not loaded
+      if (cooperatives.length === 0) {
+        await dispatch(fetchCooperatives());
+      }
+    };
+    loadAndNavigate();
+  }, [dispatch]);
+
+  React.useEffect(() => {
+    // Navigate to first cooperative when available
+    if (cooperatives.length > 0) {
+      // Get the last joined or first cooperative as default
+      const defaultCoop = cooperatives[cooperatives.length - 1];
+      navigation.replace('CooperativeDetail', { cooperativeId: defaultCoop.id });
+    } else if (cooperatives.length === 0) {
+      // If no cooperatives, navigate to the home screen to join/create
+      navigation.replace('Home');
+    }
+  }, [cooperatives, navigation]);
+
+  return (
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background.default }}>
+      <ActivityIndicator size="large" color={colors.primary.main} />
+      <Text style={{ marginTop: spacing.md, color: colors.text.secondary }}>Loading...</Text>
+    </View>
+  );
+};
+
+// Cooperatives tab stack - navigates directly to default cooperative
 const CoopsStackNavigator: React.FC = () => {
   return (
     <CoopsStack.Navigator
@@ -403,8 +448,13 @@ const CoopsStackNavigator: React.FC = () => {
         },
         headerRight: () => <NotificationBell color={colors.primary.contrast} />,
       }}
-      initialRouteName="Home"
+      initialRouteName="CooperativeRedirect"
     >
+      <CoopsStack.Screen 
+        name="CooperativeRedirect" 
+        component={CooperativeRedirect} 
+        options={{ title: 'My Cooperatives' }} 
+      />
       <CoopsStack.Screen name="Home" component={HomeScreen} options={{ title: 'My Cooperatives' }} />
       <CoopsStack.Screen
         name="CooperativeDetail"
@@ -505,6 +555,11 @@ const CoopsStackNavigator: React.FC = () => {
         name="LoanInitiate"
         component={LoanInitiateScreen}
         options={{ title: 'Initiate Loan' }}
+      />
+      <CoopsStack.Screen
+        name="GuarantorLoans"
+        component={GuarantorLoansScreen}
+        options={{ title: 'Guarantor Requests' }}
       />
       <CoopsStack.Screen name="Ledger" component={LedgerScreen} options={{ title: 'Ledger' }} />
       <CoopsStack.Screen

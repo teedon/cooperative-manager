@@ -29,6 +29,7 @@ import {
   PredefinedRoleType,
 } from '../../models';
 import { usePermissions } from '../../hooks/usePermissions';
+import { getErrorMessage } from '../../utils/errorHandler';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'AdminManagement'>;
 
@@ -66,7 +67,7 @@ const AdminManagementScreen: React.FC<Props> = ({ route, navigation }) => {
         setAdmins(response.data);
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to load admins');
+      Alert.alert('Error', getErrorMessage(error, 'Failed to load admins'));
     }
   }, [cooperativeId]);
 
@@ -178,7 +179,7 @@ const AdminManagementScreen: React.FC<Props> = ({ route, navigation }) => {
         await loadData();
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to update role');
+      Alert.alert('Error', getErrorMessage(error, 'Failed to update role'));
     }
     setIsUpdating(false);
   };
@@ -209,7 +210,7 @@ const AdminManagementScreen: React.FC<Props> = ({ route, navigation }) => {
         await loadAdmins();
       }
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to update permissions');
+      Alert.alert('Error', getErrorMessage(error, 'Failed to update permissions'));
     }
     setIsUpdating(false);
   };
@@ -234,7 +235,7 @@ const AdminManagementScreen: React.FC<Props> = ({ route, navigation }) => {
                 await loadData();
               }
             } catch (error: any) {
-              Alert.alert('Error', error.message || 'Failed to remove admin');
+              Alert.alert('Error', getErrorMessage(error, 'Failed to remove admin'));
             }
           },
         },

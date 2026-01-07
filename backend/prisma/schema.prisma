@@ -29,6 +29,7 @@ model User {
   fcmTokens               FcmToken[]              @relation("UserFcmTokens")
   notificationPreferences NotificationPreference? @relation("UserNotificationPreferences")
   invitationsSent         Invitation[]
+  loanApprovals           LoanApproval[]          @relation("LoanApprovals")
 }
 
 model Cooperative {
@@ -86,6 +87,7 @@ model Member {
   contributionSubscriptions ContributionSubscription[]
   contributionPayments      ContributionPayment[]
   loans                     Loan[]
+  loanGuarantees            LoanGuarantor[]            @relation("LoanGuarantors")
   groupBuyOrders            GroupBuyOrder[]
 
   @@unique([cooperativeId, memberCode])
@@ -333,10 +335,85 @@ model Loan {
 
   // Relations
   repaymentSchedules LoanRepaymentSchedule[]
+  guarantors         LoanGuarantor[]
+  kycDocuments       LoanKycDocument[]
+  approvals          LoanApproval[]
 
   @@index([cooperativeId])
   @@index([memberId])
   @@index([status])
+}
+
+// Loan guarantors - members who guarantee loans
+model LoanGuarantor {
+  id     String @id @default(cuid())
+  loanId String
+  loan   Loan   @relation(fields: [loanId], references: [id], onDelete: Cascade)
+
+  // Guarantor details
+  guarantorMemberId String // Member acting as guarantor
+  guarantor         Member @relation("LoanGuarantors", fields: [guarantorMemberId], references: [id])
+  status            String @default("pending") // 'pending' | 'approved' | 'rejected'
+
+  // Response details
+  respondedAt     DateTime?
+  rejectionReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([loanId, guarantorMemberId])
+  @@index([loanId])
+  @@index([guarantorMemberId])
+  @@index([status])
+}
+
+// KYC documents for loan applications
+model LoanKycDocument {
+  id     String @id @default(cuid())
+  loanId String
+  loan   Loan   @relation(fields: [loanId], references: [id], onDelete: Cascade)
+
+  // Document details
+  documentType String // 'bank_statement' | 'id_card' | 'drivers_license' | 'utility_bill' | 'passport' | 'other'
+  documentUrl  String // URL to uploaded document
+  fileName     String
+  fileSize     Int // in bytes
+  mimeType     String
+
+  // Verification
+  status       String    @default("pending") // 'pending' | 'verified' | 'rejected'
+  verifiedBy   String? // userId of admin who verified
+  verifiedAt   DateTime?
+  notes        String? // Admin notes about verification
+
+  uploadedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([loanId])
+  @@index([status])
+}
+
+// Multiple approvals for loans
+model LoanApproval {
+  id     String @id @default(cuid())
+  loanId String
+  loan   Loan   @relation(fields: [loanId], references: [id], onDelete: Cascade)
+
+  // Approver details
+  approverUserId String // User who approved/rejected
+  approver       User   @relation("LoanApprovals", fields: [approverUserId], references: [id])
+  decision       String // 'approved' | 'rejected'
+  comments       String? // Optional comments
+
+  approvedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([loanId, approverUserId])
+  @@index([loanId])
+  @@index([approverUserId])
 }
 
 // Loan types configuration for cooperatives
@@ -369,8 +446,16 @@ model LoanType {
   requiresGuarantor Boolean @default(false)
   minGuarantors     Int     @default(0)
 
+  // KYC Document requirements
+  requiresKyc       Boolean  @default(false)
+  kycDocumentTypes  String[] @default([]) // Array of required document types: ['bank_statement', 'id_card', 'drivers_license', 'utility_bill', 'passport']
+
+  // Multiple approval workflow
+  requiresMultipleApprovals Boolean @default(false)
+  minApprovers              Int     @default(2) // Minimum number of approvers required
+
   // Fee configuration
-  applicationFee      Int?     // Optional application fee amount
+  applicationFee        Int?    // Optional application fee amount
   deductInterestUpfront Boolean @default(false) // If true, interest is deducted from disbursement
 
   // Admin settings

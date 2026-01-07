@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { pollsApi, Poll, CreatePollData, GetPollsQuery } from '../../api/pollsApi';
+import { getThunkErrorMessage } from '../../utils/errorHandler';
 
 interface PollsState {
   polls: Poll[];
@@ -35,7 +36,7 @@ export const fetchPolls = createAsyncThunk(
       const response = await pollsApi.getAll(cooperativeId, query);
       return response;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -47,7 +48,7 @@ export const fetchPollById = createAsyncThunk(
       const response = await pollsApi.getById(pollId);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -59,7 +60,7 @@ export const createPoll = createAsyncThunk(
       const response = await pollsApi.create(data);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -71,7 +72,7 @@ export const votePoll = createAsyncThunk(
       const response = await pollsApi.vote(pollId, optionId);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -83,7 +84,7 @@ export const closePoll = createAsyncThunk(
       const response = await pollsApi.close(pollId);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -95,7 +96,7 @@ export const pinPoll = createAsyncThunk(
       const response = await pollsApi.pin(pollId);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -107,7 +108,7 @@ export const unpinPoll = createAsyncThunk(
       const response = await pollsApi.unpin(pollId);
       return response.data;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );
@@ -119,7 +120,7 @@ export const deletePoll = createAsyncThunk(
       await pollsApi.delete(pollId);
       return pollId;
     } catch (error) {
-      return rejectWithValue((error as Error).message);
+      return rejectWithValue(getThunkErrorMessage(error));
     }
   }
 );

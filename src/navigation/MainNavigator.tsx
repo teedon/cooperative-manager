@@ -34,6 +34,7 @@ import LoanTypesScreen from '../screens/loans/LoanTypesScreen';
 import LoanApprovalListScreen from '../screens/loans/LoanApprovalListScreen';
 import LoanInitiateScreen from '../screens/loans/LoanInitiateScreen';
 import GuarantorLoansScreen from '../screens/loans/GuarantorLoansScreen';
+import PendingRepaymentsScreen from '../screens/loans/PendingRepaymentsScreen';
 import LedgerScreen from '../screens/ledger/LedgerScreen';
 import MemberDashboardScreen from '../screens/cooperative/MemberDashboardScreen';
 import AdminManagementScreen from '../screens/cooperative/AdminManagementScreen';
@@ -64,6 +65,18 @@ import MessageWallScreen from '../screens/posts/MessageWallScreen';
 import PostDetailScreen from '../screens/posts/PostDetailScreen';
 import CreatePostScreen from '../screens/posts/CreatePostScreen';
 import CreatePollScreen from '../screens/polls/CreatePollScreen';
+import AjoListScreen from '../screens/ajo/AjoListScreen';
+import AjoSettingsScreen from '../screens/ajo/AjoSettingsScreen';
+import CreateAjoScreen from '../screens/ajo/CreateAjoScreen';
+import AjoDetailScreen from '../screens/ajo/AjoDetailScreen';
+import AjoStatementScreen from '../screens/ajo/AjoStatementScreen';
+import EsusuListScreen from '../screens/esusu/EsusuListScreen';
+import EsusuSettingsScreen from '../screens/esusu/EsusuSettingsScreen';
+import CreateEsusuScreen from '../screens/esusu/CreateEsusuScreen';
+import EsusuDetailScreen from '../screens/esusu/EsusuDetailScreen';
+import RecordContributionScreen from '../screens/esusu/RecordContributionScreen';
+import ProcessCollectionScreen from '../screens/esusu/ProcessCollectionScreen';
+import SetEsusuOrderScreen from '../screens/esusu/SetEsusuOrderScreen';
 
 export type MainTabParamList = {
   HomeTab: undefined;
@@ -119,6 +132,7 @@ export type HomeStackParamList = {
   LoanApprovalList: { cooperativeId: string };
   LoanInitiate: { cooperativeId: string };
   GuarantorLoans: { cooperativeId: string };
+  PendingRepayments: { cooperativeId: string };
   Ledger: { cooperativeId: string; memberId?: string };
   MemberDashboard: { cooperativeId: string; memberId: string };
   AdminManagement: { cooperativeId: string };
@@ -146,6 +160,22 @@ export type HomeStackParamList = {
   // Message Wall screens
   MessageWall: { cooperativeId: string };
   PostDetail: { postId: string };
+  CreatePost: { cooperativeId: string };
+  CreatePoll: { cooperativeId: string };
+  // Ajo (Target Savings) screens
+  AjoList: { cooperativeId: string };
+  AjoDetail: { ajoId: string };
+  CreateAjo: { cooperativeId: string };
+  AjoSettings: { cooperativeId: string };
+  AjoStatement: { ajoId: string; memberId: string };
+  // Esusu (Rotational Savings) screens
+  EsusuList: { cooperativeId: string };
+  EsusuDetail: { esusuId: string };
+  CreateEsusu: { cooperativeId: string };
+  EsusuSettings: { cooperativeId: string };
+  RecordContribution: { esusuId: string };
+  ProcessCollection: { esusuId: string };
+  SetEsusuOrder: { esusuId: string };
 };
 
 const HomeStackNavigator: React.FC = () => {
@@ -275,6 +305,11 @@ const HomeStackNavigator: React.FC = () => {
         component={GuarantorLoansScreen}
         options={{ title: 'Guarantor Requests' }}
       />
+      <HomeStack.Screen
+        name="PendingRepayments"
+        component={PendingRepaymentsScreen}
+        options={{ title: 'Pending Repayments' }}
+      />
       <HomeStack.Screen name="Ledger" component={LedgerScreen} options={{ title: 'Ledger' }} />
       <HomeStack.Screen
         name="MemberDashboard"
@@ -394,6 +429,68 @@ const HomeStackNavigator: React.FC = () => {
         name="CreatePoll"
         component={CreatePollScreen}
         options={{ title: 'Create Poll' }}
+      />
+      {/* Ajo (Target Savings) Screens */}
+      <HomeStack.Screen
+        name="AjoList"
+        component={AjoListScreen}
+        options={{ title: 'Ajo (Target Savings)' }}
+      />
+      <HomeStack.Screen
+        name="AjoSettings"
+        component={AjoSettingsScreen}
+        options={{ title: 'Ajo Settings' }}
+      />
+      <HomeStack.Screen
+        name="CreateAjo"
+        component={CreateAjoScreen}
+        options={{ title: 'Create Ajo Plan' }}
+      />
+      <HomeStack.Screen
+        name="AjoDetail"
+        component={AjoDetailScreen}
+        options={{ title: 'Ajo Details' }}
+      />
+      <HomeStack.Screen
+        name="AjoStatement"
+        component={AjoStatementScreen}
+        options={{ title: 'Member Statement' }}
+      />
+      {/* Esusu (Rotational Savings) Screens */}
+      <HomeStack.Screen
+        name="EsusuList"
+        component={EsusuListScreen}
+        options={{ title: 'Esusu (Rotational Savings)' }}
+      />
+      <HomeStack.Screen
+        name="EsusuSettings"
+        component={EsusuSettingsScreen}
+        options={{ title: 'Esusu Settings' }}
+      />
+      <HomeStack.Screen
+        name="CreateEsusu"
+        component={CreateEsusuScreen}
+        options={{ title: 'Create Esusu Plan' }}
+      />
+      <HomeStack.Screen
+        name="EsusuDetail"
+        component={EsusuDetailScreen}
+        options={{ title: 'Esusu Details' }}
+      />
+      <HomeStack.Screen
+        name="RecordContribution"
+        component={RecordContributionScreen}
+        options={{ title: 'Record Contribution' }}
+      />
+      <HomeStack.Screen
+        name="ProcessCollection"
+        component={ProcessCollectionScreen}
+        options={{ title: 'Process Collection' }}
+      />
+      <HomeStack.Screen
+        name="SetEsusuOrder"
+        component={SetEsusuOrderScreen}
+        options={{ title: 'Set Collection Order' }}
       />
     </HomeStack.Navigator>
   );
@@ -561,6 +658,11 @@ const CoopsStackNavigator: React.FC = () => {
         component={GuarantorLoansScreen}
         options={{ title: 'Guarantor Requests' }}
       />
+      <CoopsStack.Screen
+        name="PendingRepayments"
+        component={PendingRepaymentsScreen}
+        options={{ title: 'Pending Repayments' }}
+      />
       <CoopsStack.Screen name="Ledger" component={LedgerScreen} options={{ title: 'Ledger' }} />
       <CoopsStack.Screen
         name="MemberDashboard"
@@ -680,6 +782,68 @@ const CoopsStackNavigator: React.FC = () => {
         name="CreatePoll"
         component={CreatePollScreen}
         options={{ title: 'Create Poll' }}
+      />
+      {/* Ajo (Target Savings) Screens */}
+      <CoopsStack.Screen
+        name="AjoList"
+        component={AjoListScreen}
+        options={{ title: 'Ajo (Target Savings)' }}
+      />
+      <CoopsStack.Screen
+        name="AjoSettings"
+        component={AjoSettingsScreen}
+        options={{ title: 'Ajo Settings' }}
+      />
+      <CoopsStack.Screen
+        name="CreateAjo"
+        component={CreateAjoScreen}
+        options={{ title: 'Create Ajo Plan' }}
+      />
+      <CoopsStack.Screen
+        name="AjoDetail"
+        component={AjoDetailScreen}
+        options={{ title: 'Ajo Details' }}
+      />
+      <CoopsStack.Screen
+        name="AjoStatement"
+        component={AjoStatementScreen}
+        options={{ title: 'Member Statement' }}
+      />
+      {/* Esusu (Rotational Savings) Screens */}
+      <CoopsStack.Screen
+        name="EsusuList"
+        component={EsusuListScreen}
+        options={{ title: 'Esusu (Rotational Savings)' }}
+      />
+      <CoopsStack.Screen
+        name="EsusuSettings"
+        component={EsusuSettingsScreen}
+        options={{ title: 'Esusu Settings' }}
+      />
+      <CoopsStack.Screen
+        name="CreateEsusu"
+        component={CreateEsusuScreen}
+        options={{ title: 'Create Esusu Plan' }}
+      />
+      <CoopsStack.Screen
+        name="EsusuDetail"
+        component={EsusuDetailScreen}
+        options={{ title: 'Esusu Details' }}
+      />
+      <CoopsStack.Screen
+        name="RecordContribution"
+        component={RecordContributionScreen}
+        options={{ title: 'Record Contribution' }}
+      />
+      <CoopsStack.Screen
+        name="ProcessCollection"
+        component={ProcessCollectionScreen}
+        options={{ title: 'Process Collection' }}
+      />
+      <CoopsStack.Screen
+        name="SetEsusuOrder"
+        component={SetEsusuOrderScreen}
+        options={{ title: 'Set Collection Order' }}
       />
     </CoopsStack.Navigator>
   );

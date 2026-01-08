@@ -38,6 +38,7 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const { cooperativeId } = route.params;
   const dispatch = useAppDispatch();
   const [activeTab, setActiveTab] = useState<TabType>('overview');
+  const [hubView, setHubView] = useState<'hub' | 'contributions' | 'esusu' | 'ajo'>('hub');
   const [refreshing, setRefreshing] = useState(false);
   const [memberSearchQuery, setMemberSearchQuery] = useState('');
   const [memberFilter, setMemberFilter] = useState<'all' | 'online' | 'offline'>('all');
@@ -230,7 +231,13 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         <TouchableOpacity
           key={tab.key}
           style={[styles.tab, activeTab === tab.key && styles.activeTab]}
-          onPress={() => setActiveTab(tab.key)}
+          onPress={() => {
+            setActiveTab(tab.key);
+            // Reset hub view when switching tabs
+            if (tab.key === 'contributions') {
+              setHubView('hub');
+            }
+          }}
         >
           <Text style={[styles.tabText, activeTab === tab.key && styles.activeTabText]}>
             {tab.label}
@@ -259,7 +266,7 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         </View>
         <View style={styles.statCard}>
           <Text style={styles.statCardValue}>
-            {loans.filter((l) => l.status === 'active').length}
+            {loans.filter((l) => l.status === 'approved').length}
           </Text>
           <Text style={styles.statCardLabel}>Active Loans</Text>
         </View>
@@ -518,7 +525,7 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               style={styles.actionButton}
               onPress={() => navigation.navigate('CooperativeSettings', { cooperativeId })}
             >
-              <Icon name="Settings" size={24} color={colors.neutral?.[600] || '#4B5563'} style={styles.actionIcon} />
+              <Icon name="Settings" size={24} color="#4B5563" style={styles.actionIcon} />
               <View style={styles.actionContent}>
                 <Text style={styles.actionTitle}>Cooperative Settings</Text>
                 <Text style={styles.actionSubtitle}>Name, description, and appearance</Text>
@@ -748,17 +755,89 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       : { color: colors.success.main };
   };
 
-  const renderContributions = () => (
+  const renderHub = () => (
     <View style={styles.section}>
-      {isAdmin && (
+      <Text style={styles.sectionTitle}>Savings & Contributions Hub</Text>
+      <Text style={styles.sectionSubtitle}>Manage different types of member savings and contributions</Text>
+      
+      {/* Hub Cards */}
+      <View style={styles.hubCardsContainer}>
+        {/* Contributions Card */}
         <TouchableOpacity
-          style={styles.createButton}
-          onPress={() => navigation.navigate('CreateContribution', { cooperativeId })}
+          style={styles.hubCard}
+          onPress={() => setHubView('contributions')}
         >
-          <Icon name="Plus" size={20} color={colors.primary.contrast} />
-          <Text style={styles.createButtonText}>Create New Contribution</Text>
+          <View style={[styles.hubCardIcon, { backgroundColor: '#EEF2FF' }]}>
+            <Icon name="DollarSign" size={28} color="#4F46E5" />
+          </View>
+          <Text style={styles.hubCardTitle}>Contributions</Text>
+          <Text style={styles.hubCardDescription}>
+            Regular member contributions with flexible plans
+          </Text>
+          <View style={styles.hubCardStats}>
+            <Text style={styles.hubCardStatsText}>{plans.length} active plans</Text>
+          </View>
+          <View style={styles.hubCardFooter}>
+            <Text style={styles.hubCardLink}>View Plans</Text>
+            <Icon name="ChevronRight" size={16} color="#4F46E5" />
+          </View>
         </TouchableOpacity>
-      )}
+
+        {/* Esusu Card */}
+        <TouchableOpacity
+          style={styles.hubCard}
+          onPress={() => currentCooperative && navigation.navigate('EsusuList', { cooperativeId: currentCooperative.id })}
+        >
+          <View style={[styles.hubCardIcon, { backgroundColor: '#FEF3C7' }]}>
+            <Icon name="RefreshCw" size={28} color="#D97706" />
+          </View>
+          <Text style={styles.hubCardTitle}>Esusu</Text>
+          <Text style={styles.hubCardDescription}>
+            Rotational contribution where members take turns
+          </Text>
+        </TouchableOpacity>
+
+        {/* Ajo Card */}
+        <TouchableOpacity
+          style={styles.hubCard}
+          onPress={() => navigation.navigate('AjoList', { cooperativeId })}
+        >
+          <View style={[styles.hubCardIcon, { backgroundColor: '#DCFCE7' }]}>
+            <Icon name="Target" size={28} color="#16A34A" />
+          </View>
+          <Text style={styles.hubCardTitle}>Ajo</Text>
+          <Text style={styles.hubCardDescription}>
+            Personal savings targets with optional group support
+          </Text>
+          <View style={styles.hubCardFooter}>
+            <Text style={styles.hubCardLink}>View Plans</Text>
+            <Icon name="ChevronRight" size={16} color="#16A34A" />
+          </View>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
+  const renderContributionPlans = () => (
+    <View style={styles.section}>
+      <View style={styles.plansSectionHeader}>
+        <TouchableOpacity 
+          style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}
+          onPress={() => setHubView('hub')}
+        >
+          <Icon name="ChevronLeft" size={20} color={colors.primary.main} />
+          <Text style={styles.plansSectionTitle}>Contribution Plans</Text>
+        </TouchableOpacity>
+        {isAdmin && (
+          <TouchableOpacity
+            style={styles.createSmallButton}
+            onPress={() => navigation.navigate('CreateContribution', { cooperativeId })}
+          >
+            <Icon name="Plus" size={16} color={colors.primary.contrast} />
+            <Text style={styles.createSmallButtonText}>New Plan</Text>
+          </TouchableOpacity>
+        )}
+      </View>
       
       {plans.length === 0 ? (
         <View style={styles.emptyState}>
@@ -826,6 +905,15 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       )}
     </View>
   );
+
+  const renderContributions = () => {
+    if (hubView === 'hub') {
+      return renderHub();
+    } else if (hubView === 'contributions') {
+      return renderContributionPlans();
+    }
+    return null;
+  };
 
   const renderGroupBuys = () => (
     <View style={styles.section}>
@@ -1068,8 +1156,8 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
           <View style={styles.headerBadgesRow}>
             {currentMember && (
-              <View style={styles.roleBadge}>
-                <Text style={styles.roleBadgeText}>{currentMember.role}</Text>
+              <View style={styles.headerRoleBadge}>
+                <Text style={styles.headerRoleBadgeText}>{currentMember.role}</Text>
               </View>
             )}
             {currentSubscription && (
@@ -1480,13 +1568,13 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     flexWrap: 'wrap',
   },
-  roleBadge: {
+  headerRoleBadge: {
     backgroundColor: colors.primary.main,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     borderRadius: borderRadius.lg,
   },
-  roleBadgeText: {
+  headerRoleBadgeText: {
     color: colors.primary.contrast,
     fontSize: 12,
     fontWeight: '600',
@@ -1495,7 +1583,7 @@ const styles = StyleSheet.create({
   subscriptionBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.neutral?.[500] || '#6B7280',
+    backgroundColor: '#6B7280',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     borderRadius: borderRadius.lg,
@@ -2011,7 +2099,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     borderRadius: borderRadius.md,
     marginBottom: spacing.sm,
-    backgroundColor: colors.background.main,
+    backgroundColor: colors.background.paper,
   },
   adminLoanActionPrimary: {
     backgroundColor: colors.primary.main,
@@ -2161,7 +2249,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
+    borderBottomColor: colors.border.light,
   },
   switcherTitle: {
     fontSize: 18,
@@ -2174,7 +2262,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: spacing.lg,
     borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
+    borderBottomColor: colors.border.light,
   },
   cooperativeItemInfo: {
     flex: 1,
@@ -2199,7 +2287,7 @@ const styles = StyleSheet.create({
   },
   switcherActions: {
     borderTopWidth: 1,
-    borderTopColor: colors.border.default,
+    borderTopColor: colors.border.light,
     paddingTop: spacing.md,
     paddingHorizontal: spacing.md,
     marginTop: spacing.md,
@@ -2222,8 +2310,8 @@ const styles = StyleSheet.create({
   },
   actionModalContent: {
     backgroundColor: colors.background.paper,
-    borderTopLeftRadius: borderRadius['2xl'],
-    borderTopRightRadius: borderRadius['2xl'],
+    borderTopLeftRadius: borderRadius.xl,
+    borderTopRightRadius: borderRadius.xl,
     padding: spacing.xl,
     maxHeight: '85%',
   },
@@ -2275,7 +2363,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.background.default,
     borderWidth: 1,
-    borderColor: colors.border.default,
+    borderColor: colors.border.light,
     borderRadius: borderRadius.lg,
     paddingHorizontal: spacing.md,
     gap: spacing.sm,
@@ -2310,7 +2398,7 @@ const styles = StyleSheet.create({
   actionModalCancelButton: {
     backgroundColor: colors.background.default,
     borderWidth: 1,
-    borderColor: colors.border.default,
+    borderColor: colors.border.light,
   },
   actionModalCancelText: {
     fontSize: 16,
@@ -2328,6 +2416,108 @@ const styles = StyleSheet.create({
   },
   actionModalButtonDisabled: {
     opacity: 0.5,
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    color: colors.text.secondary,
+    marginBottom: spacing.md,
+    lineHeight: 20,
+  },
+  hubCardsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.md,
+    marginBottom: spacing.xl,
+  },
+  hubCard: {
+    flex: 1,
+    minWidth: '45%',
+    backgroundColor: colors.background.paper,
+    borderRadius: borderRadius.lg,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.border.light,
+    ...shadows.sm,
+  },
+  hubCardIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: borderRadius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+  },
+  hubCardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text.primary,
+    marginBottom: spacing.xs,
+  },
+  hubCardDescription: {
+    fontSize: 13,
+    color: colors.text.secondary,
+    lineHeight: 18,
+    marginBottom: spacing.md,
+  },
+  hubCardStats: {
+    marginBottom: spacing.md,
+  },
+  hubCardStatsText: {
+    fontSize: 12,
+    color: colors.text.disabled,
+  },
+  hubCardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  hubCardLink: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary.main,
+  },
+  hubCardDisabled: {
+    opacity: 0.6,
+  },
+  hubCardBadge: {
+    backgroundColor: colors.warning.light,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: borderRadius.sm,
+  },
+  hubCardBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.warning.dark,
+    textTransform: 'uppercase',
+  },
+  contributionPlansSection: {
+    marginTop: spacing.lg,
+  },
+  plansSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.md,
+  },
+  plansSectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.text.primary,
+  },
+  createSmallButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.primary.main,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.md,
+  },
+  createSmallButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary.contrast,
   },
 });
 

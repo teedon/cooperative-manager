@@ -278,6 +278,58 @@ export class LoansController {
     }
   }
 
+  @UseGuards(AuthGuard('jwt'))
+  @Get('cooperatives/:cooperativeId/loans/pending-repayments')
+  async getPendingRepayments(
+    @Param('cooperativeId') cooperativeId: string,
+    @Request() req: any,
+  ) {
+    try {
+      const data = await this.loansService.getPendingRepayments(cooperativeId, req.user.id);
+      return { success: true, message: 'Pending repayments retrieved successfully', data };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to retrieve pending repayments', data: null },
+        error.status || HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('repayments/:repaymentId/confirm')
+  async confirmRepayment(
+    @Param('repaymentId') repaymentId: string,
+    @Request() req: any,
+  ) {
+    try {
+      const data = await this.loansService.confirmRepayment(repaymentId, req.user.id);
+      return { success: true, message: 'Repayment confirmed successfully', data };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to confirm repayment', data: null },
+        error.status || HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('repayments/:repaymentId/reject')
+  async rejectRepayment(
+    @Param('repaymentId') repaymentId: string,
+    @Body() dto: { reason: string },
+    @Request() req: any,
+  ) {
+    try {
+      const data = await this.loansService.rejectRepayment(repaymentId, dto.reason, req.user.id);
+      return { success: true, message: 'Repayment rejected successfully', data };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to reject repayment', data: null },
+        error.status || HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
   // ==================== FILE UPLOAD ====================
 
   @UseGuards(AuthGuard('jwt'))

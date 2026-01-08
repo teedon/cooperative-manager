@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import Pdf from 'react-native-pdf';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useNavigation } from '@react-navigation/native';
 import { HomeStackParamList } from '../../navigation/MainNavigator';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { fetchLoan, fetchRepaymentSchedule, recordRepayment, disburseLoan, reviewLoan } from '../../store/slices/loanSlice';
@@ -29,6 +30,7 @@ type Props = NativeStackScreenProps<HomeStackParamList, 'LoanDetail'>;
 
 const LoanDetailScreen: React.FC<Props> = ({ route }) => {
   const { loanId } = route.params;
+  const navigation = useNavigation<any>();
   const dispatch = useAppDispatch();
   const [refreshing, setRefreshing] = React.useState(false);
   const [showRepaymentModal, setShowRepaymentModal] = useState(false);
@@ -480,6 +482,38 @@ const LoanDetailScreen: React.FC<Props> = ({ route }) => {
         </View>
       )}
 
+      {/* Pending Repayments Section (for admins) */}
+      {isAdminOrModerator && currentLoan.repayments && currentLoan.repayments.length > 0 && (
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Pending Repayments</Text>
+          <Text style={styles.sectionHint}>
+            {currentLoan.repayments.length} repayment(s) awaiting confirmation
+          </Text>
+          {currentLoan.repayments.map((repayment) => (
+            <View key={repayment.id} style={styles.repaymentItem}>
+              <View style={styles.repaymentInfo}>
+                <Text style={styles.repaymentAmount}>
+                  {formatCurrency(repayment.amount)}
+                </Text>
+                <Text style={styles.repaymentDate}>
+                  Submitted {formatDate(repayment.submittedAt)}
+                </Text>
+                <Text style={styles.repaymentMethod}>
+                  via {repayment.paymentMethod}
+                </Text>
+              </View>
+              <TouchableOpacity
+                style={styles.viewRepaymentButton}
+                onPress={() => navigation.navigate('PendingRepayments', { cooperativeId: currentLoan.cooperativeId })}
+              >
+                <Text style={styles.viewRepaymentText}>Review</Text>
+                <Icon name="chevron-forward" size={16} color="#3b82f6" />
+              </TouchableOpacity>
+            </View>
+          ))}
+        </View>
+      )}
+
       <View style={styles.card}>
         <Text style={styles.cardTitle}>Loan Details</Text>
         <View style={styles.detailRow}>
@@ -765,101 +799,107 @@ const LoanDetailScreen: React.FC<Props> = ({ route }) => {
               </TouchableOpacity>
             </View>
 
-            {!isAdminOrModerator && (
-              <View style={styles.notificationInfo}>
-                <Icon name="info" size={16} color="#0ea5e9" />
-                <Text style={styles.notificationInfoText}>
-                  Your payment notification will be sent to admins for approval before being added to the ledger.
+            <ScrollView 
+              style={styles.modalScrollView}
+              showsVerticalScrollIndicator={true}
+              keyboardShouldPersistTaps="handled"
+            >
+              {!isAdminOrModerator && (
+                <View style={styles.notificationInfo}>
+                  <Icon name="info" size={16} color="#0ea5e9" />
+                  <Text style={styles.notificationInfoText}>
+                    Your payment notification will be sent to admins for approval before being added to the ledger.
+                  </Text>
+                </View>
+              )}
+
+              <View style={styles.outstandingInfo}>
+                <Text style={styles.outstandingLabel}>Outstanding Balance</Text>
+                <Text style={styles.outstandingValue}>
+                  {formatCurrency(currentLoan.outstandingBalance)}
                 </Text>
               </View>
-            )}
 
-            <View style={styles.outstandingInfo}>
-              <Text style={styles.outstandingLabel}>Outstanding Balance</Text>
-              <Text style={styles.outstandingValue}>
-                {formatCurrency(currentLoan.outstandingBalance)}
-              </Text>
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Amount *</Text>
-              <TextInput
-                style={styles.input}
-                value={repaymentAmount}
-                onChangeText={setRepaymentAmount}
-                placeholder="Enter amount"
-                keyboardType="decimal-pad"
-              />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Payment Method *</Text>
-              <View style={styles.paymentMethodsContainer}>
-                {paymentMethods.map((method) => (
-                  <TouchableOpacity
-                    key={method}
-                    style={[
-                      styles.paymentMethodButton,
-                      paymentMethod === method && styles.paymentMethodButtonActive,
-                    ]}
-                    onPress={() => setPaymentMethod(method)}
-                  >
-                    <Text
-                      style={[
-                        styles.paymentMethodText,
-                        paymentMethod === method && styles.paymentMethodTextActive,
-                      ]}
-                    >
-                      {method.replace(/_/g, ' ')}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Amount *</Text>
+                <TextInput
+                  style={styles.input}
+                  value={repaymentAmount}
+                  onChangeText={setRepaymentAmount}
+                  placeholder="Enter amount"
+                  keyboardType="decimal-pad"
+                />
               </View>
-            </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Payment Reference</Text>
-              <TextInput
-                style={styles.input}
-                value={paymentReference}
-                onChangeText={setPaymentReference}
-                placeholder="e.g. Transaction ID"
-              />
-            </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Payment Method *</Text>
+                <View style={styles.paymentMethodsContainer}>
+                  {paymentMethods.map((method) => (
+                    <TouchableOpacity
+                      key={method}
+                      style={[
+                        styles.paymentMethodButton,
+                        paymentMethod === method && styles.paymentMethodButtonActive,
+                      ]}
+                      onPress={() => setPaymentMethod(method)}
+                    >
+                      <Text
+                        style={[
+                          styles.paymentMethodText,
+                          paymentMethod === method && styles.paymentMethodTextActive,
+                        ]}
+                      >
+                        {method.replace(/_/g, ' ')}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Notes</Text>
-              <TextInput
-                style={[styles.input, styles.textArea]}
-                value={notes}
-                onChangeText={setNotes}
-                placeholder="Optional notes"
-                multiline
-                numberOfLines={3}
-              />
-            </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Payment Reference</Text>
+                <TextInput
+                  style={styles.input}
+                  value={paymentReference}
+                  onChangeText={setPaymentReference}
+                  placeholder="e.g. Transaction ID"
+                />
+              </View>
 
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={() => setShowRepaymentModal(false)}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
-                onPress={handleRecordRepayment}
-                disabled={isSubmitting}
-              >
-                {isSubmitting ? (
-                  <ActivityIndicator size="small" color="#fff" />
-                ) : (
-                  <Text style={styles.submitButtonText}>
-                    {isAdminOrModerator ? 'Record Payment' : 'Notify Payment'}
-                  </Text>
-                )}
-              </TouchableOpacity>
-            </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Notes</Text>
+                <TextInput
+                  style={[styles.input, styles.textArea]}
+                  value={notes}
+                  onChangeText={setNotes}
+                  placeholder="Optional notes"
+                  multiline
+                  numberOfLines={3}
+                />
+              </View>
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={() => setShowRepaymentModal(false)}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
+                  onPress={handleRecordRepayment}
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.submitButtonText}>
+                      {isAdminOrModerator ? 'Record Payment' : 'Notify Payment'}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -1415,6 +1455,9 @@ const styles = StyleSheet.create({
     padding: 20,
     maxHeight: '90%',
   },
+  modalScrollView: {
+    flexGrow: 1,
+  },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -1705,6 +1748,23 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: '#166534',
+  },
+  repaymentInfo: {
+    flex: 1,
+  },
+  repaymentMethod: {
+    fontSize: 12,
+    color: '#64748b',
+  },
+  viewRepaymentButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  viewRepaymentText: {
+    fontSize: 14,
+    color: '#3b82f6',
+    fontWeight: '500',
   },
   documentModalContent: {
     backgroundColor: '#fff',

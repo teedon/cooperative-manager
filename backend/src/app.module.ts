@@ -13,6 +13,8 @@ import { ReportsModule } from './reports/reports.module';
 import { PostsModule } from './posts/posts.module';
 import { PollsModule } from './polls/polls.module';
 import { DownloadsModule } from './downloads/downloads.module';
+import { AjoModule } from './ajo/ajo.module';
+import { EsusuModule } from './esusu/esusu.module';
 
 @Module({
   imports: [
@@ -30,6 +32,8 @@ import { DownloadsModule } from './downloads/downloads.module';
     PostsModule,
     PollsModule,
     DownloadsModule,
+    AjoModule,
+    EsusuModule,
   ],
 })
 export class AppModule {}

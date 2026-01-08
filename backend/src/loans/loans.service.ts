@@ -862,32 +862,58 @@ export class LoansService {
       throw new BadRequestException('A similar repayment was recorded recently. Please wait before recording another repayment.');
     }
 
-    // If member is recording their own payment (not admin), create a pending repayment notification
-    // that requires approval instead of directly updating the ledger
+    // If member is recording their own payment (not admin), create a pending repayment record
+    // that requires admin confirmation instead of directly updating the ledger
     if (isLoanOwner && !hasApprovalPermission) {
-      // Member is notifying payment - create notification for admins
+      // Create pending repayment record
+      const repayment = await this.prisma.loanRepayment.create({
+        data: {
+          loanId: loan.id,
+          amount: dto.amount,
+          paymentMethod: dto.paymentMethod || 'bank_transfer',
+          paymentDate: dto.paymentDate ? new Date(dto.paymentDate) : new Date(),
+          receiptNumber: dto.receiptNumber,
+          notes: dto.notes,
+          submittedBy: requestingUserId,
+          status: 'pending',
+        },
+        include: {
+          submitter: true,
+          loan: {
+            include: {
+              member: { include: { user: true } },
+            },
+          },
+        },
+      });
+
+      // Notify admins about pending repayment
       await this.notificationsService.notifyCooperativeAdmins(
         loan.cooperativeId,
-        'loan_repayment_notification',
-        'Loan Repayment Notification',
-        `${loan.member.user?.firstName || 'A member'} ${loan.member.user?.lastName || ''} has notified a loan repayment of ₦${dto.amount.toLocaleString()} for approval.`,
-        { loanId: loan.id, amount: dto.amount, memberId: loan.memberId },
+        'loan_repayment_pending',
+        'Loan Repayment Pending Review',
+        `${loan.member.user?.firstName || 'A member'} ${loan.member.user?.lastName || ''} has submitted a loan repayment of ₦${dto.amount.toLocaleString()} for review.`,
+        { loanId: loan.id, repaymentId: repayment.id, amount: dto.amount, memberId: loan.memberId },
         [requestingUserId], // Exclude the requester
       );
 
-      // Notify the member that their payment notification has been submitted
+      // Notify the member that their payment is pending approval
       await this.notificationsService.createNotification({
         userId: requestingUserId,
         cooperativeId: loan.cooperativeId,
-        type: 'loan_repayment_notification',
-        title: 'Payment Notification Submitted',
-        body: `Your loan repayment notification of ₦${dto.amount.toLocaleString()} has been submitted and is awaiting admin approval.`,
-        data: { loanId: loan.id, amount: dto.amount },
+        type: 'loan_repayment_submitted',
+        title: 'Repayment Submitted',
+        body: `Your loan repayment of ₦${dto.amount.toLocaleString()} has been submitted and is pending admin confirmation.`,
+        data: { loanId: loan.id, repaymentId: repayment.id, amount: dto.amount },
+        actionType: 'navigate',
+        actionRoute: 'LoanDetail',
+        actionParams: { loanId: loan.id },
       });
 
       return {
         ...loan,
-        message: 'Payment notification submitted successfully. Awaiting admin approval.',
+        repayment,
+        message: 'Repayment submitted successfully. Pending admin confirmation.',
       };
     }
 
@@ -1020,6 +1046,13 @@ export class LoansService {
         member: { include: { user: true } },
         loanType: true,
         repaymentSchedules: { orderBy: { installmentNumber: 'asc' } },
+        repayments: {
+          where: { status: 'pending' },
+          include: {
+            submitter: true,
+          },
+          orderBy: { submittedAt: 'desc' },
+        },
         guarantors: {
           include: {
             guarantor: { include: { user: true } },
@@ -1072,6 +1105,216 @@ export class LoansService {
     await this.validateMembership(document.loan.cooperativeId, requestingUserId);
 
     return document;
+  }
+
+  // ==================== REPAYMENT CONFIRMATION WORKFLOW ====================
+
+  async getPendingRepayments(cooperativeId: string, requestingUserId: string) {
+    await this.validatePermission(cooperativeId, requestingUserId, PERMISSIONS.LOANS_APPROVE);
+
+    const repayments = await this.prisma.loanRepayment.findMany({
+      where: {
+        loan: {
+          cooperativeId,
+        },
+        status: 'pending',
+      },
+      include: {
+        loan: {
+          include: {
+            member: { include: { user: true } },
+            loanType: true,
+          },
+        },
+        submitter: true,
+      },
+      orderBy: {
+        submittedAt: 'desc',
+      },
+    });
+
+    return repayments;
+  }
+
+  async confirmRepayment(repaymentId: string, requestingUserId: string) {
+    const repayment = await this.prisma.loanRepayment.findUnique({
+      where: { id: repaymentId },
+      include: {
+        loan: {
+          include: {
+            member: { include: { user: true } },
+            repaymentSchedules: { orderBy: { installmentNumber: 'asc' } },
+          },
+        },
+        submitter: true,
+      },
+    });
+
+    if (!repayment) {
+      throw new NotFoundException('Repayment record not found');
+    }
+
+    if (repayment.status !== 'pending') {
+      throw new BadRequestException('This repayment has already been reviewed');
+    }
+
+    await this.validatePermission(repayment.loan.cooperativeId, requestingUserId, PERMISSIONS.LOANS_APPROVE);
+
+    // Update repayment status
+    await this.prisma.loanRepayment.update({
+      where: { id: repaymentId },
+      data: {
+        status: 'confirmed',
+        reviewedBy: requestingUserId,
+        reviewedAt: new Date(),
+      },
+    });
+
+    // Now process the payment (same logic as admin recording)
+    const loan = repayment.loan;
+    let remainingAmount = repayment.amount;
+
+    // Apply payment to schedules
+    for (const schedule of loan.repaymentSchedules) {
+      if (remainingAmount <= 0) break;
+      if (schedule.status === 'paid') continue;
+
+      const amountDue = schedule.totalAmount - schedule.paidAmount;
+      const amountToPay = Math.min(remainingAmount, amountDue);
+
+      remainingAmount -= amountToPay;
+
+      await this.prisma.loanRepaymentSchedule.update({
+        where: { id: schedule.id },
+        data: {
+          paidAmount: schedule.paidAmount + amountToPay,
+          status: schedule.paidAmount + amountToPay >= schedule.totalAmount ? 'paid' : 'partial',
+          paidAt: schedule.paidAmount + amountToPay >= schedule.totalAmount ? new Date() : null,
+        },
+      });
+    }
+
+    // Update loan totals
+    const newAmountRepaid = loan.amountRepaid + repayment.amount;
+    const newOutstanding = loan.totalRepayment - newAmountRepaid;
+    const newStatus = newOutstanding <= 0 ? 'completed' : 'repaying';
+
+    const updatedLoan = await this.prisma.loan.update({
+      where: { id: loan.id },
+      data: {
+        amountRepaid: newAmountRepaid,
+        outstandingBalance: Math.max(0, newOutstanding),
+        status: newStatus,
+        completedAt: newStatus === 'completed' ? new Date() : null,
+      },
+      include: {
+        member: { include: { user: true } },
+        loanType: true,
+        repaymentSchedules: { orderBy: { installmentNumber: 'asc' } },
+      },
+    });
+
+    // Add ledger entry
+    await this.prisma.ledgerEntry.create({
+      data: {
+        cooperativeId: loan.cooperativeId,
+        memberId: loan.memberId,
+        type: 'loan_repayment',
+        amount: repayment.amount,
+        balanceAfter: 0,
+        referenceId: loan.id,
+        referenceType: 'loan',
+        description: `Loan repayment confirmed: ₦${repayment.amount.toLocaleString()}`,
+        createdBy: requestingUserId,
+      },
+    });
+
+    await this.activitiesService.create({
+      userId: requestingUserId,
+      cooperativeId: loan.cooperativeId,
+      action: 'loan_repayment_confirmed',
+      description: `Confirmed loan repayment of ₦${repayment.amount.toLocaleString()}`,
+    });
+
+    // Notify the member about confirmation
+    if (loan.member.userId) {
+      const message = newStatus === 'completed'
+        ? `Your loan repayment of ₦${repayment.amount.toLocaleString()} has been confirmed and your loan is now fully repaid! 🎉`
+        : `Your loan repayment of ₦${repayment.amount.toLocaleString()} has been confirmed. Outstanding balance: ₦${Math.max(0, newOutstanding).toLocaleString()}.`;
+
+      await this.notificationsService.createNotification({
+        userId: loan.member.userId,
+        cooperativeId: loan.cooperativeId,
+        type: newStatus === 'completed' ? 'loan_completed' : 'loan_repayment_confirmed',
+        title: newStatus === 'completed' ? 'Loan Fully Repaid! 🎉' : 'Repayment Confirmed',
+        body: message,
+        data: { loanId: loan.id, repaymentId, amountPaid: repayment.amount, outstandingBalance: Math.max(0, newOutstanding) },
+        actionType: 'navigate',
+        actionRoute: 'LoanDetail',
+        actionParams: { loanId: loan.id },
+      });
+    }
+
+    return updatedLoan;
+  }
+
+  async rejectRepayment(repaymentId: string, reason: string, requestingUserId: string) {
+    const repayment = await this.prisma.loanRepayment.findUnique({
+      where: { id: repaymentId },
+      include: {
+        loan: {
+          include: {
+            member: { include: { user: true } },
+          },
+        },
+        submitter: true,
+      },
+    });
+
+    if (!repayment) {
+      throw new NotFoundException('Repayment record not found');
+    }
+
+    if (repayment.status !== 'pending') {
+      throw new BadRequestException('This repayment has already been reviewed');
+    }
+
+    await this.validatePermission(repayment.loan.cooperativeId, requestingUserId, PERMISSIONS.LOANS_APPROVE);
+
+    // Update repayment status
+    await this.prisma.loanRepayment.update({
+      where: { id: repaymentId },
+      data: {
+        status: 'rejected',
+        reviewedBy: requestingUserId,
+        reviewedAt: new Date(),
+        rejectionReason: reason,
+      },
+    });
+
+    await this.activitiesService.create({
+      userId: requestingUserId,
+      cooperativeId: repayment.loan.cooperativeId,
+      action: 'loan_repayment_rejected',
+      description: `Rejected loan repayment of ₦${repayment.amount.toLocaleString()}`,
+    });
+
+    // Notify the member about rejection
+    if (repayment.loan.member.userId) {
+      await this.notificationsService.createNotification({
+        userId: repayment.loan.member.userId,
+        cooperativeId: repayment.loan.cooperativeId,
+        type: 'loan_repayment_rejected',
+        title: 'Repayment Rejected',
+        body: `Your loan repayment of ₦${repayment.amount.toLocaleString()} has been rejected. Reason: ${reason}`,
+        data: { loanId: repayment.loanId, repaymentId, amount: repayment.amount, reason },
+        actionType: 'navigate',
+        actionRoute: 'LoanDetail',
+        actionParams: { loanId: repayment.loanId },
+      });
+    }
+
+    return { success: true, message: 'Repayment rejected successfully' };
   }
 
   async getLoansAsGuarantor(cooperativeId: string, requestingUserId: string) {

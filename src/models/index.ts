@@ -632,6 +632,7 @@ export interface LoanRequest {
   createdAt: string;
   updatedAt: string;
   repaymentSchedules?: LoanRepaymentSchedule[];
+  repayments?: LoanRepayment[];
   guarantors?: LoanGuarantor[];
   kycDocuments?: LoanKycDocument[];
   approvals?: LoanApproval[];
@@ -651,6 +652,27 @@ export interface LoanRepaymentSchedule {
   notes?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface LoanRepayment {
+  id: string;
+  loanId: string;
+  amount: number;
+  paymentMethod: string;
+  paymentDate: string;
+  receiptNumber?: string;
+  notes?: string;
+  status: 'pending' | 'confirmed' | 'rejected';
+  submittedBy: string;
+  submitter?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+  };
+  submittedAt: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  rejectionReason?: string;
 }
 
 // Loan Guarantor
@@ -979,4 +1001,123 @@ export type CooperativeStackParamList = {
   PostDetail: { postId: string };
   CreatePost: { cooperativeId: string };
   CreatePoll: { cooperativeId: string };
+  AjoList: { cooperativeId: string };
+  AjoDetail: { ajoId: string };
+  CreateAjo: { cooperativeId: string };
+  AjoSettings: { cooperativeId: string };
+  AjoStatement: { ajoId: string; memberId: string };
 };
+
+// Ajo (Target Savings) Types
+export type AjoFrequency = 'daily' | 'weekly' | 'monthly';
+export type AjoStatus = 'active' | 'completed' | 'cancelled';
+export type AjoMemberStatus = 'pending' | 'accepted' | 'declined';
+export type AjoPaymentMethod = 'cash' | 'transfer' | 'wallet';
+
+export interface AjoSettings {
+  id: string;
+  cooperativeId: string;
+  commissionRate: number;
+  interestRate: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Ajo {
+  id: string;
+  cooperativeId: string;
+  title: string;
+  description?: string;
+  amount: number;
+  frequency: AjoFrequency;
+  startDate: string;
+  endDate?: string;
+  isContinuous: boolean;
+  status: AjoStatus;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  members?: AjoMember[];
+  payments?: AjoPayment[];
+  _count?: {
+    members: number;
+    payments: number;
+  };
+}
+
+// Member type for Ajo relations
+export interface Member {
+  id: string;
+  cooperativeId: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+  isOfflineMember?: boolean;
+  user?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+}
+
+export interface AjoMember {
+  id: string;
+  ajoId: string;
+  memberId: string;
+  member?: Member;
+  status: AjoMemberStatus;
+  totalPaid: number;
+  invitedAt: string;
+  respondedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AjoPayment {
+  id: string;
+  ajoId: string;
+  memberId: string;
+  member?: Member;
+  amount: number;
+  paymentMethod: AjoPaymentMethod;
+  paymentDate: string;
+  referenceNumber?: string;
+  recordedBy: string;
+  notes?: string;
+  createdAt: string;
+}
+
+export interface AjoStatement {
+  ajo: {
+    id: string;
+    title: string;
+    description?: string;
+    amount: number;
+    frequency: AjoFrequency;
+    startDate: string;
+    endDate?: string;
+    isContinuous: boolean;
+    status: AjoStatus;
+  };
+  member: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email?: string;
+    phone?: string;
+  };
+  summary: {
+    totalPaid: number;
+    expectedPayments: number;
+    totalExpected: number;
+    commission: number;
+    interest: number;
+    netAmount: number;
+    commissionRate: number;
+    interestRate: number;
+  };
+  payments: AjoPayment[];
+}
+

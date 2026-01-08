@@ -30,6 +30,8 @@ model User {
   notificationPreferences NotificationPreference? @relation("UserNotificationPreferences")
   invitationsSent         Invitation[]
   loanApprovals           LoanApproval[]          @relation("LoanApprovals")
+  submittedRepayments     LoanRepayment[]         @relation("RepaymentSubmitter")
+  reviewedRepayments      LoanRepayment[]         @relation("RepaymentReviewer")
 }
 
 model Cooperative {
@@ -58,6 +60,10 @@ model Cooperative {
   posts              Post[]
   polls              Poll[]
   invitations        Invitation[]
+  ajoSettings        AjoSettings?
+  ajos               Ajo[]
+  esusuSettings      EsusuSettings?
+  esusus             Esusu[]
 }
 
 model Member {
@@ -89,6 +95,10 @@ model Member {
   loans                     Loan[]
   loanGuarantees            LoanGuarantor[]            @relation("LoanGuarantors")
   groupBuyOrders            GroupBuyOrder[]
+  ajoMembers                AjoMember[]
+  ajoPayments               AjoPayment[]
+  esusuMembers              EsusuMember[]
+  esusuContributions        EsusuContribution[]
 
   @@unique([cooperativeId, memberCode])
 }
@@ -335,6 +345,7 @@ model Loan {
 
   // Relations
   repaymentSchedules LoanRepaymentSchedule[]
+  repayments         LoanRepayment[]
   guarantors         LoanGuarantor[]
   kycDocuments       LoanKycDocument[]
   approvals          LoanApproval[]
@@ -503,6 +514,38 @@ model LoanRepaymentSchedule {
   @@index([loanId])
   @@index([dueDate])
   @@index([status])
+}
+
+// Loan repayment records with admin confirmation workflow
+model LoanRepayment {
+  id     String @id @default(cuid())
+  loanId String
+  loan   Loan   @relation(fields: [loanId], references: [id], onDelete: Cascade)
+
+  // Payment details
+  amount        Int
+  paymentMethod String // 'bank_transfer', 'cash', 'mobile_money', 'debit_card', 'check'
+  paymentDate   DateTime
+  receiptNumber String?
+  notes         String?
+
+  // Workflow
+  status        String   @default("pending") // 'pending' | 'confirmed' | 'rejected'
+  submittedBy   String
+  submitter     User     @relation("RepaymentSubmitter", fields: [submittedBy], references: [id])
+  submittedAt   DateTime @default(now())
+  reviewedBy    String?
+  reviewer      User?    @relation("RepaymentReviewer", fields: [reviewedBy], references: [id])
+  reviewedAt    DateTime?
+  rejectionReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([loanId])
+  @@index([status])
+  @@index([submittedBy])
+  @@index([reviewedBy])
 }
 
 model LedgerEntry {
@@ -1020,4 +1063,190 @@ model AppDownload {
 
   @@index([platform])
   @@index([downloadedAt])
+}
+
+// Ajo (Target Savings) Settings
+model AjoSettings {
+  id              String      @id @default(cuid())
+  cooperative     Cooperative @relation(fields: [cooperativeId], references: [id])
+  cooperativeId   String      @unique
+  commissionRate  Float       @default(0) // Percentage commission on savings
+  interestRate    Float       @default(0) // Interest rate given to members
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+}
+
+// Ajo (Target Savings) Plan
+model Ajo {
+  id              String      @id @default(cuid())
+  cooperative     Cooperative @relation(fields: [cooperativeId], references: [id])
+  cooperativeId   String
+  title           String
+  description     String?
+  amount          Int         // Target savings amount per cycle
+  frequency       String      // 'daily' | 'weekly' | 'monthly'
+  startDate       DateTime
+  endDate         DateTime?   // Null for continuous Ajo
+  isContinuous    Boolean     @default(false)
+  status          String      @default("active") // 'active' | 'completed' | 'cancelled'
+  createdBy       String      // Admin who created it
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  members         AjoMember[]
+  payments        AjoPayment[]
+  
+  @@index([cooperativeId])
+  @@index([status])
+}
+
+// Ajo Member Assignment
+model AjoMember {
+  id              String    @id @default(cuid())
+  ajo             Ajo       @relation(fields: [ajoId], references: [id], onDelete: Cascade)
+  ajoId           String
+  member          Member    @relation(fields: [memberId], references: [id])
+  memberId        String
+  status          String    @default("pending") // 'pending' | 'accepted' | 'declined'
+  totalPaid       Int       @default(0)
+  invitedAt       DateTime  @default(now())
+  respondedAt     DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@unique([ajoId, memberId])
+  @@index([ajoId])
+  @@index([memberId])
+  @@index([status])
+}
+
+// Ajo Payment Records
+model AjoPayment {
+  id              String    @id @default(cuid())
+  ajo             Ajo       @relation(fields: [ajoId], references: [id], onDelete: Cascade)
+  ajoId           String
+  member          Member    @relation(fields: [memberId], references: [id])
+  memberId        String
+  amount          Int
+  paymentMethod   String    // 'cash' | 'transfer' | 'wallet'
+  paymentDate     DateTime  @default(now())
+  referenceNumber String?   // For transfer payments
+  recordedBy      String    // Admin/member who recorded it
+  notes           String?
+  createdAt       DateTime  @default(now())
+  
+  @@index([ajoId])
+  @@index([memberId])
+  @@index([paymentDate])
+}
+
+// ========== ESUSU (ROTATIONAL SAVINGS) MODELS ==========
+
+// Esusu Settings (cooperative-level)
+model EsusuSettings {
+  id                String      @id @default(cuid())
+  cooperative       Cooperative @relation(fields: [cooperativeId], references: [id])
+  cooperativeId     String      @unique
+  commissionRate    Float       @default(0) // Optional commission per cycle
+  defaultFrequency  String      @default("monthly") // 'weekly' | 'monthly'
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+}
+
+// Esusu Plan (Rotational Savings)
+model Esusu {
+  id                  String      @id @default(cuid())
+  cooperative         Cooperative @relation(fields: [cooperativeId], references: [id])
+  cooperativeId       String
+  title               String
+  description         String?
+  contributionAmount  Int         // Amount per person per cycle
+  frequency           String      // 'weekly' | 'monthly'
+  orderType           String      // 'random' | 'first_come' | 'selection'
+  totalCycles         Int         // Number of members = number of cycles
+  currentCycle        Int         @default(0)
+  startDate           DateTime
+  invitationDeadline  DateTime    // Members must accept before this
+  isOrderDetermined   Boolean     @default(false)
+  status              String      @default("pending") // 'pending' | 'active' | 'completed' | 'cancelled'
+  createdBy           String
+  createdAt           DateTime    @default(now())
+  updatedAt           DateTime    @updatedAt
+  
+  members             EsusuMember[]
+  contributions       EsusuContribution[]
+  collections         EsusuCollection[]
+  
+  @@index([cooperativeId])
+  @@index([status])
+}
+
+// Esusu Member Assignment
+model EsusuMember {
+  id              String    @id @default(cuid())
+  esusu           Esusu     @relation(fields: [esusuId], references: [id], onDelete: Cascade)
+  esusuId         String
+  member          Member    @relation(fields: [memberId], references: [id])
+  memberId        String
+  collectionOrder Int?      // Position in rotation (1, 2, 3...) - assigned when order is determined
+  status          String    @default("pending") // 'pending' | 'accepted' | 'declined'
+  hasCollected    Boolean   @default(false)
+  collectionCycle Int?      // Which cycle they collected in
+  invitedAt       DateTime  @default(now())
+  acceptedAt      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  collections     EsusuCollection[]
+  
+  @@unique([esusuId, memberId])
+  @@unique([esusuId, collectionOrder]) // Each position is unique
+  @@index([esusuId])
+  @@index([memberId])
+  @@index([status])
+}
+
+// Contribution Records (per member per cycle)
+model EsusuContribution {
+  id              String    @id @default(cuid())
+  esusu           Esusu     @relation(fields: [esusuId], references: [id], onDelete: Cascade)
+  esusuId         String
+  member          Member    @relation(fields: [memberId], references: [id])
+  memberId        String
+  cycleNumber     Int       // Which cycle/round (1, 2, 3...)
+  amount          Int
+  paymentMethod   String    // 'cash' | 'transfer' | 'wallet'
+  paymentDate     DateTime  @default(now())
+  referenceNumber String?
+  recordedBy      String
+  notes           String?
+  createdAt       DateTime  @default(now())
+  
+  @@unique([esusuId, memberId, cycleNumber]) // One contribution per member per cycle
+  @@index([esusuId])
+  @@index([memberId])
+  @@index([cycleNumber])
+}
+
+// Collection Records (pot payout to member)
+model EsusuCollection {
+  id              String      @id @default(cuid())
+  esusu           Esusu       @relation(fields: [esusuId], references: [id], onDelete: Cascade)
+  esusuId         String
+  member          EsusuMember @relation(fields: [memberId], references: [id])
+  memberId        String
+  cycleNumber     Int         // Which cycle they collected in
+  totalAmount     Int         // Full pot amount (contributionAmount * memberCount)
+  commission      Int         @default(0) // Optional cooperative commission
+  netAmount       Int         // totalAmount - commission
+  collectionDate  DateTime    @default(now())
+  disbursedBy     String      // Admin who processed payout
+  paymentMethod   String      // 'cash' | 'transfer' | 'wallet'
+  referenceNumber String?
+  notes           String?
+  createdAt       DateTime    @default(now())
+  
+  @@unique([esusuId, cycleNumber]) // One collection per cycle
+  @@index([esusuId])
+  @@index([memberId])
 }

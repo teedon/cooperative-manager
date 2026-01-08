@@ -105,6 +105,14 @@ export class RecordRepaymentDto {
   paymentMethod?: string;
 
   @IsOptional()
+  @IsDateString()
+  paymentDate?: string;
+
+  @IsOptional()
+  @IsString()
+  receiptNumber?: string;
+
+  @IsOptional()
   @IsString()
   paymentReference?: string;
 

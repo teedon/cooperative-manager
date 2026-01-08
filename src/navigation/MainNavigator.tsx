@@ -31,6 +31,7 @@ import LoanRequestScreen from '../screens/loans/LoanRequestScreen';
 import LoanDetailScreen from '../screens/loans/LoanDetailScreen';
 import LoanDecisionScreen from '../screens/loans/LoanDecisionScreen';
 import LoanTypesScreen from '../screens/loans/LoanTypesScreen';
+import CreateEditLoanTypeScreen from '../screens/loans/CreateEditLoanTypeScreen';
 import LoanApprovalListScreen from '../screens/loans/LoanApprovalListScreen';
 import LoanInitiateScreen from '../screens/loans/LoanInitiateScreen';
 import GuarantorLoansScreen from '../screens/loans/GuarantorLoansScreen';
@@ -129,6 +130,7 @@ export type HomeStackParamList = {
   LoanDetail: { loanId: string };
   LoanDecision: { loanId: string };
   LoanTypes: { cooperativeId: string };
+  CreateEditLoanType: { cooperativeId: string; loanType?: any };
   LoanApprovalList: { cooperativeId: string };
   LoanInitiate: { cooperativeId: string };
   GuarantorLoans: { cooperativeId: string };
@@ -289,6 +291,11 @@ const HomeStackNavigator: React.FC = () => {
         name="LoanTypes"
         component={LoanTypesScreen}
         options={{ title: 'Loan Types' }}
+      />
+      <HomeStack.Screen
+        name="CreateEditLoanType"
+        component={CreateEditLoanTypeScreen}
+        options={{ headerShown: false }}
       />
       <HomeStack.Screen
         name="LoanApprovalList"
@@ -642,6 +649,11 @@ const CoopsStackNavigator: React.FC = () => {
         name="LoanTypes"
         component={LoanTypesScreen}
         options={{ title: 'Loan Types' }}
+      />
+      <CoopsStack.Screen
+        name="CreateEditLoanType"
+        component={CreateEditLoanTypeScreen}
+        options={{ headerShown: false }}
       />
       <CoopsStack.Screen
         name="LoanApprovalList"

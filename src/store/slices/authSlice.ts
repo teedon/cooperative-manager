@@ -241,12 +241,14 @@ const authSlice = createSlice({
         state.error = action.payload as string;
       })
       // Logout
-      .addCase(logout.fulfilled, () => {
-        // Clear persisted auth data
-        AsyncStorage.removeItem('auth_token');
-        AsyncStorage.removeItem('auth_user');
-        AsyncStorage.removeItem('auth_refresh');
-        return initialState;
+      .addCase(logout.fulfilled, (state) => {
+        // Return to initial state (will clear isAuthenticated)
+        state.isAuthenticated = false;
+        state.user = null;
+        state.token = null;
+        state.refreshToken = null;
+        state.error = null;
+        state.isLoading = false;
       })
       // Restore Session
       .addCase(restoreSession.fulfilled, (state, action) => {

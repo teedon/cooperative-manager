@@ -1,5 +1,5 @@
-import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Alert } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Image, ScrollView, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -41,22 +41,33 @@ const ProfileScreen: React.FC = () => {
   };
 
   const handleLogout = () => {
-    Alert.alert('Logout', 'Are you sure you want to logout?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Logout',
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await dispatch(logout()).unwrap();
-          } catch (err) {
-            // Even if the API call fails, clear local state
-            console.warn('Logout API failed, clearing local state', err);
-            dispatch(resetAuth());
-          }
-        },
-      },
-    ]);
+    // Add a small delay to ensure Alert is properly attached before showing
+    setTimeout(() => {
+      Alert.alert(
+        'Logout',
+        'Are you sure you want to logout?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Logout',
+            style: 'destructive',
+            onPress: async () => {
+              // Add another small delay before dispatching to ensure Alert dismisses first
+              setTimeout(async () => {
+                try {
+                  await dispatch(logout()).unwrap();
+                } catch (err) {
+                  // Even if the API call fails, clear local state
+                  console.warn('Logout API failed, clearing local state', err);
+                  dispatch(resetAuth());
+                }
+              }, Platform.OS === 'android' ? 100 : 0);
+            },
+          },
+        ],
+        { cancelable: true }
+      );
+    }, 100);
   };
 
   const handleCheckForUpdates = async () => {

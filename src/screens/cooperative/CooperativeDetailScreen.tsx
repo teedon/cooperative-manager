@@ -29,6 +29,7 @@ import { usePermissions } from '../../hooks/usePermissions';
 import { getGradientConfig } from '../../utils/gradients';
 import { GradientPreset } from '../../models';
 import { getErrorMessage } from '../../utils/errorHandler';
+import { esusuApi } from '../../api/esusuApi';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'CooperativeDetail'>;
 
@@ -48,6 +49,7 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const [cooperativeCode, setCooperativeCode] = useState('');
   const [isJoining, setIsJoining] = useState(false);
   const [newCoopData, setNewCoopData] = useState({ name: '', description: '' });
+  const [esusuCount, setEsusuCount] = useState(0);
 
   const { currentCooperative, members, pendingMembers, cooperatives, isLoading } = useAppSelector((state) => state.cooperative);
   const { plans } = useAppSelector((state) => state.contribution);
@@ -149,7 +151,17 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     }
     
     await Promise.all(promises);
-  }, [dispatch, cooperativeId, canApproveLoans]);
+
+    // Fetch Esusu count for admins
+    if (isAdmin) {
+      try {
+        const esusus = await esusuApi.findAll(cooperativeId);
+        setEsusuCount(esusus.length);
+      } catch (error) {
+        console.error('Failed to fetch Esusu count:', error);
+      }
+    }
+  }, [dispatch, cooperativeId, canApproveLoans, isAdmin]);
 
   // Fetch pending members when user can approve members
   useEffect(() => {
@@ -249,28 +261,37 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const renderOverview = () => (
     <View style={styles.section}>
-      <View style={styles.statsGrid}>
-        <View style={styles.statCard}>
-          <Text style={styles.statCardValue}>{currentCooperative?.memberCount || 0}</Text>
-          <Text style={styles.statCardLabel}>Members</Text>
+      {isAdminOrModerator && (
+        <View style={styles.statsGrid}>
+          <View style={styles.statCard}>
+            <Text style={styles.statCardValue}>{currentCooperative?.memberCount || 0}</Text>
+            <Text style={styles.statCardLabel}>Members</Text>
+          </View>
+          {isAdmin ? (
+            <View style={styles.statCard}>
+              <Text style={styles.statCardValue}>{esusuCount}</Text>
+              <Text style={styles.statCardLabel}>Total Esusu</Text>
+            </View>
+          ) : (
+            <View style={styles.statCard}>
+              <Text style={styles.statCardValue}>
+                ₦{currentCooperative?.totalContributions?.toLocaleString() || 0}
+              </Text>
+              <Text style={styles.statCardLabel}>Total Contributions</Text>
+            </View>
+          )}
+          <View style={styles.statCard}>
+            <Text style={styles.statCardValue}>{plans.length}</Text>
+            <Text style={styles.statCardLabel}>Contribution Plans</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Text style={styles.statCardValue}>
+              {loans.filter((l) => l.status === 'approved').length}
+            </Text>
+            <Text style={styles.statCardLabel}>Active Loans</Text>
+          </View>
         </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statCardValue}>
-            ₦{currentCooperative?.totalContributions?.toLocaleString() || 0}
-          </Text>
-          <Text style={styles.statCardLabel}>Total Contributions</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statCardValue}>{plans.length}</Text>
-          <Text style={styles.statCardLabel}>Contribution Plans</Text>
-        </View>
-        <View style={styles.statCard}>
-          <Text style={styles.statCardValue}>
-            {loans.filter((l) => l.status === 'approved').length}
-          </Text>
-          <Text style={styles.statCardLabel}>Active Loans</Text>
-        </View>
-      </View>
+      )}
 
       {/* Admin/Moderator Actions - Show based on permissions */}
       {isAdminOrModerator && (
@@ -1133,27 +1154,6 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       <View style={styles.header}>
         {renderHeaderBackground()}
         <View style={styles.headerOverlay}>
-          <View style={styles.headerTitleRow}>
-            <TouchableOpacity 
-              onPress={() => setShowCoopSwitcher(true)}
-              style={styles.cooperativeNameContainer}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.headerTitle}>{currentCooperative.name}</Text>
-              <Icon name="RefreshCw" size={16} color={colors.text.inverse} style={styles.switchIconBeside} />
-            </TouchableOpacity>
-            {currentCooperative.code && (
-              <TouchableOpacity 
-                style={styles.codeBadge}
-                onPress={handleCopyCode}
-                activeOpacity={0.7}
-              >
-                <Icon name="Key" size={12} color={colors.text.inverse} />
-                <Text style={styles.codeText}>{currentCooperative.code}</Text>
-                <Icon name="Copy" size={11} color={colors.text.inverse} style={styles.copyIcon} />
-              </TouchableOpacity>
-            )}
-          </View>
           <View style={styles.headerBadgesRow}>
             {currentMember && (
               <View style={styles.headerRoleBadge}>
@@ -1182,6 +1182,25 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               </TouchableOpacity>
             )}
           </View>
+          <TouchableOpacity 
+            onPress={() => setShowCoopSwitcher(true)}
+            style={styles.cooperativeNameContainer}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.headerTitle} numberOfLines={2}>{currentCooperative.name}</Text>
+            <Icon name="RefreshCw" size={16} color={colors.text.inverse} style={styles.switchIconBeside} />
+          </TouchableOpacity>
+          {currentCooperative.code && (
+            <TouchableOpacity 
+              style={styles.codeBadge}
+              onPress={handleCopyCode}
+              activeOpacity={0.7}
+            >
+              <Icon name="Key" size={12} color={colors.text.inverse} />
+              <Text style={styles.codeText}>{currentCooperative.code}</Text>
+              <Icon name="Copy" size={11} color={colors.text.inverse} style={styles.copyIcon} />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
@@ -1203,9 +1222,15 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
         <View style={styles.modalOverlay}>
           <View style={styles.switcherModal}>
             <View style={styles.switcherHeader}>
-              <Text style={styles.switcherTitle}>Switch Cooperative</Text>
-              <TouchableOpacity onPress={() => setShowCoopSwitcher(false)}>
-                <Icon name="X" size={24} color={colors.text.primary} />
+              <View style={styles.switcherHeaderContent}>
+                <Text style={styles.switcherTitle}>Switch Cooperative</Text>
+                <Text style={styles.switcherSubtitle}>Select or join a cooperative</Text>
+              </View>
+              <TouchableOpacity 
+                onPress={() => setShowCoopSwitcher(false)}
+                style={styles.closeButton}
+              >
+                <Icon name="X" size={24} color={colors.text.secondary} />
               </TouchableOpacity>
             </View>
             <FlatList
@@ -1218,7 +1243,11 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
                     setShowCoopSwitcher(false);
                     navigation.replace('CooperativeDetail', { cooperativeId: item.id });
                   }}
+                  activeOpacity={0.7}
                 >
+                  <View style={styles.cooperativeItemIcon}>
+                    <Icon name="Building2" size={20} color={colors.primary.main} />
+                  </View>
                   <View style={styles.cooperativeItemInfo}>
                     <Text style={styles.cooperativeItemName}>{item.name}</Text>
                     {item.code && (
@@ -1236,25 +1265,41 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               ListFooterComponent={(
                 <View style={styles.switcherActions}>
                   <TouchableOpacity
-                    style={styles.switcherActionButton}
-                    onPress={() => {
-                      setShowCoopSwitcher(false);
-                      setShowCreateModal(true);
-                    }}
-                  >
-                    <Icon name="PlusCircle" size={20} color={colors.primary.main} />
-                    <Text style={styles.switcherActionText}>Create New Cooperative</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.switcherActionButton}
+                    style={styles.switcherActionButtonPrimary}
                     onPress={() => {
                       setShowCoopSwitcher(false);
                       setShowJoinModal(true);
                     }}
+                    activeOpacity={0.8}
                   >
-                    <Icon name="UserPlus" size={20} color={colors.primary.main} />
-                    <Text style={styles.switcherActionText}>Join Cooperative</Text>
+                    <View style={styles.actionButtonIconContainer}>
+                      <Icon name="UserPlus" size={22} color="#fff" />
+                    </View>
+                    <View style={styles.actionButtonTextContainer}>
+                      <Text style={styles.switcherActionTextPrimary}>Join Cooperative</Text>
+                      <Text style={styles.switcherActionSubtext}>Enter cooperative code</Text>
+                    </View>
+                    <Icon name="ArrowRight" size={18} color="#fff" />
                   </TouchableOpacity>
+                  {isAdmin && (
+                    <TouchableOpacity
+                      style={styles.switcherActionButtonSecondary}
+                      onPress={() => {
+                        setShowCoopSwitcher(false);
+                        setShowCreateModal(true);
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <View style={styles.actionButtonIconContainer}>
+                        <Icon name="PlusCircle" size={22} color={colors.primary.main} />
+                      </View>
+                      <View style={styles.actionButtonTextContainer}>
+                        <Text style={styles.switcherActionTextSecondary}>Create New Cooperative</Text>
+                        <Text style={styles.switcherActionSubtextSecondary}>Start your own</Text>
+                      </View>
+                      <Icon name="ArrowRight" size={18} color={colors.primary.main} />
+                    </TouchableOpacity>
+                  )}
                 </View>
               )}
             />
@@ -1519,29 +1564,17 @@ const styles = StyleSheet.create({
     right: 0,
     backgroundColor: colors.overlay,
     padding: spacing.lg,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: 'column',
   },
   headerTitleRow: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
     flexWrap: 'wrap',
   },
-  headerTitle: {
-    color: colors.text.inverse,
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  cooperativeNameContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
   switchIconBeside: {
     marginLeft: 4,
+    flexShrink: 0,
   },
   codeBadge: {
     flexDirection: 'row',
@@ -1551,12 +1584,25 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     borderRadius: borderRadius.md,
     gap: 4,
+    flexShrink: 0,
+    alignSelf: 'flex-start',
   },
   codeText: {
     color: colors.text.inverse,
     fontSize: 11,
     fontWeight: '600',
     letterSpacing: 1,
+  },
+  cooperativeNameContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  headerTitle: {
+    color: colors.text.inverse,
+    fontSize: 20,
+    fontWeight: 'bold',
   },
   copyIcon: {
     marginLeft: 4,
@@ -1567,6 +1613,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.sm,
     flexWrap: 'wrap',
+    marginBottom: spacing.md,
+    alignSelf: 'flex-end',
   },
   headerRoleBadge: {
     backgroundColor: colors.primary.main,
@@ -2238,31 +2286,55 @@ const styles = StyleSheet.create({
   },
   switcherModal: {
     backgroundColor: colors.background.paper,
-    borderTopLeftRadius: borderRadius.lg,
-    borderTopRightRadius: borderRadius.lg,
-    maxHeight: '70%',
-    paddingBottom: spacing.xl,
+    borderTopLeftRadius: borderRadius.xl,
+    borderTopRightRadius: borderRadius.xl,
+    maxHeight: '75%',
+    paddingBottom: spacing.lg,
+    ...shadows.lg,
   },
   switcherHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: spacing.lg,
+    alignItems: 'flex-start',
+    padding: spacing.xl,
+    paddingBottom: spacing.lg,
     borderBottomWidth: 1,
     borderBottomColor: colors.border.light,
   },
+  switcherHeaderContent: {
+    flex: 1,
+  },
   switcherTitle: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: '700',
     color: colors.text.primary,
+    marginBottom: spacing.xs,
+  },
+  switcherSubtitle: {
+    fontSize: 14,
+    color: colors.text.secondary,
+  },
+  closeButton: {
+    padding: spacing.xs,
+    marginTop: -spacing.xs,
   },
   cooperativeItem: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     padding: spacing.lg,
+    paddingVertical: spacing.md + 2,
     borderBottomWidth: 1,
     borderBottomColor: colors.border.light,
+    backgroundColor: colors.background.paper,
+  },
+  cooperativeItemIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.md,
+    backgroundColor: colors.primary.light + '20',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.md,
   },
   cooperativeItemInfo: {
     flex: 1,
@@ -2278,35 +2350,71 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
   },
   emptyCooperatives: {
-    padding: spacing.xl,
+    padding: spacing.xl * 2,
     alignItems: 'center',
   },
   emptyCooperativesText: {
-    fontSize: 14,
+    fontSize: 15,
     color: colors.text.disabled,
   },
   switcherActions: {
     borderTopWidth: 1,
     borderTopColor: colors.border.light,
-    paddingTop: spacing.md,
-    paddingHorizontal: spacing.md,
+    paddingTop: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
     marginTop: spacing.md,
-    gap: spacing.sm,
+    gap: spacing.md,
   },
-  switcherActionButton: {
+  switcherActionButtonPrimary: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing.md + 2,
+    padding: spacing.lg,
     backgroundColor: colors.primary.main,
     borderRadius: borderRadius.lg,
-    gap: spacing.sm,
+    gap: spacing.md,
     ...shadows.md,
   },
-  switcherActionText: {
-    fontSize: 15,
+  switcherActionButtonSecondary: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: spacing.lg,
+    backgroundColor: colors.background.default,
+    borderRadius: borderRadius.lg,
+    borderWidth: 1.5,
+    borderColor: colors.primary.main,
+    gap: spacing.md,
+  },
+  actionButtonIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: borderRadius.md,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  actionButtonTextContainer: {
+    flex: 1,
+  },
+  switcherActionTextPrimary: {
+    fontSize: 16,
     fontWeight: '600',
     color: '#fff',
+    marginBottom: 2,
+  },
+  switcherActionSubtext: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.8)',
+  },
+  switcherActionTextSecondary: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.primary.main,
+    marginBottom: 2,
+  },
+  switcherActionSubtextSecondary: {
+    fontSize: 13,
+    color: colors.text.secondary,
   },
   actionModalContent: {
     backgroundColor: colors.background.paper,

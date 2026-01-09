@@ -104,15 +104,15 @@ export class CooperativesService {
 
   async create(dto: CreateCooperativeDto, createdBy?: string) {
     //allow each member create only one cooperative but they can join others
-    if (createdBy) {
-      const existingCoop = await this.prisma.member.findFirst({
-        where: { userId: createdBy },
-        include: { cooperative: true },
-      });
-      if (existingCoop) {
-        throw new ConflictException('You have already created a cooperative. You can only create one cooperative.');
-      }
-    }
+    // if (createdBy) {
+    //   const existingCoop = await this.prisma.member.findFirst({
+    //     where: { userId: createdBy },
+    //     include: { cooperative: true },
+    //   });
+    //   if (existingCoop) {
+    //     throw new ConflictException('You have already created a cooperative. You can only create one cooperative.');
+    //   }
+    // }
     const code = await this.generateUniqueCode();
     
     const created = await this.prisma.cooperative.create({

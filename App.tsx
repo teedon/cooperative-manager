@@ -15,11 +15,6 @@ export default function App() {
     // Initialize notification service
     initializeNotifications(store);
 
-    // Check for app updates on launch
-    UpdateChecker.checkAndPromptForUpdates().catch((error) => {
-      logger.error('Failed to check for updates', error);
-    });
-
     // capture unhandled promise rejections
     const rejectionHandler = (e: any) => {
       logger.error('Unhandled promise rejection', e);

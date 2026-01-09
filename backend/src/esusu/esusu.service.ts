@@ -230,22 +230,29 @@ export class EsusuService {
       throw new NotFoundException('Member not found');
     }
 
-    // Get all Esusus where user is a member
+    // Admins and moderators can see all Esusus
+    const isAdminOrModerator = member.role === 'admin' || member.role === 'moderator';
+
+    // Get Esusus based on role
     const esusus = await this.prisma.esusu.findMany({
-      where: {
-        cooperativeId,
-        members: {
-          some: {
-            memberId: member.id,
+      where: isAdminOrModerator
+        ? { cooperativeId } // Admins see all
+        : {
+            cooperativeId,
+            members: {
+              some: {
+                memberId: member.id,
+              },
+            },
           },
-        },
-      },
       include: {
-        members: {
-          where: {
-            memberId: member.id,
-          },
-        },
+        members: isAdminOrModerator
+          ? true // Admins see all members
+          : {
+              where: {
+                memberId: member.id,
+              },
+            },
         _count: {
           select: {
             members: true,
@@ -316,7 +323,7 @@ export class EsusuService {
       throw new NotFoundException('Esusu not found');
     }
 
-    // Verify user is a member
+    // Verify user is a member of the cooperative
     const member = await this.prisma.member.findFirst({
       where: { cooperativeId: esusu.cooperativeId, userId },
     });
@@ -325,8 +332,11 @@ export class EsusuService {
       throw new ForbiddenException('You are not a member of this cooperative');
     }
 
+    // Admins and moderators can view any Esusu
+    const isAdminOrModerator = member.role === 'admin' || member.role === 'moderator';
     const isMember = esusu.members.some(m => m.memberId === member.id);
-    if (!isMember) {
+    
+    if (!isAdminOrModerator && !isMember) {
       throw new ForbiddenException('You are not a member of this Esusu');
     }
 
@@ -348,8 +358,20 @@ export class EsusuService {
       throw new BadRequestException('Cannot update Esusu after it has started');
     }
 
-    if (esusu.createdBy !== userId) {
-      throw new ForbiddenException('Only the creator can update this Esusu');
+    // Get member to check if admin/moderator
+    const member = await this.prisma.member.findFirst({
+      where: { cooperativeId: esusu.cooperativeId, userId },
+    });
+
+    if (!member) {
+      throw new ForbiddenException('You are not a member of this cooperative');
+    }
+
+    const isAdminOrModerator = member.role === 'admin' || member.role === 'moderator';
+    const isCreator = esusu.createdBy === userId;
+
+    if (!isCreator && !isAdminOrModerator) {
+      throw new ForbiddenException('Only the creator or admins can update this Esusu');
     }
 
     const updatedEsusu = await this.prisma.esusu.update({
@@ -798,8 +820,20 @@ export class EsusuService {
       throw new NotFoundException('Esusu not found');
     }
 
-    if (esusu.createdBy !== userId) {
-      throw new ForbiddenException('Only the creator can set the order');
+    // Get user's member record to check role
+    const userMember = await this.prisma.member.findFirst({
+      where: { cooperativeId: esusu.cooperativeId, userId },
+    });
+
+    if (!userMember) {
+      throw new ForbiddenException('You are not a member of this cooperative');
+    }
+
+    const isAdminOrModerator = userMember.role === 'admin' || userMember.role === 'moderator';
+    const isCreator = esusu.createdBy === userId;
+
+    if (!isCreator && !isAdminOrModerator) {
+      throw new ForbiddenException('Only the creator or admins can set the order');
     }
 
     if (esusu.orderType !== 'selection') {
@@ -937,7 +971,18 @@ export class EsusuService {
       throw new BadRequestException('Esusu is not active');
     }
 
-    // Verify member exists
+    // Get the user's member record to check role
+    const userMember = await this.prisma.member.findFirst({
+      where: { cooperativeId: esusu.cooperativeId, userId },
+    });
+
+    if (!userMember) {
+      throw new ForbiddenException('You are not a member of this cooperative');
+    }
+
+    const isAdminOrModerator = userMember.role === 'admin' || userMember.role === 'moderator';
+
+    // Verify target member exists
     const member = await this.prisma.member.findUnique({
       where: { id: dto.memberId },
       include: {
@@ -961,6 +1006,11 @@ export class EsusuService {
 
     if (!esusuMember || esusuMember.status !== 'accepted') {
       throw new NotFoundException('Member is not part of this Esusu');
+    }
+
+    // Regular members can only record their own contributions unless they're admin/moderator
+    if (!isAdminOrModerator && dto.memberId !== userMember.id) {
+      throw new ForbiddenException('You can only record your own contributions');
     }
 
     // Check if already contributed for this cycle

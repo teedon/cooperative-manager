@@ -264,4 +264,84 @@ export const loanApi = {
     );
     return response.data;
   },
+
+  // ==================== LIQUIDATION ENDPOINTS ====================
+
+  calculateLiquidation: async (
+    loanId: string,
+    liquidationType: 'partial' | 'complete',
+    requestedAmount?: number
+  ): Promise<ApiResponse<any>> => {
+    const response = await apiClient.post<ApiResponse<any>>(
+      `/loans/${loanId}/liquidations/calculate`,
+      { liquidationType, requestedAmount }
+    );
+    return response.data;
+  },
+
+  createLiquidation: async (
+    loanId: string,
+    data: {
+      liquidationType: 'partial' | 'complete';
+      requestedAmount: number;
+      paymentMethod?: string;
+      paymentReference?: string;
+      receiptUrl?: string;
+      notes?: string;
+    }
+  ): Promise<ApiResponse<any>> => {
+    const response = await apiClient.post<ApiResponse<any>>(
+      `/loans/${loanId}/liquidations`,
+      data
+    );
+    return response.data;
+  },
+
+  getLiquidations: async (loanId: string): Promise<ApiResponse<any[]>> => {
+    const response = await apiClient.get<ApiResponse<any[]>>(
+      `/loans/${loanId}/liquidations`
+    );
+    return response.data;
+  },
+
+  getLiquidation: async (
+    loanId: string,
+    liquidationId: string
+  ): Promise<ApiResponse<any>> => {
+    const response = await apiClient.get<ApiResponse<any>>(
+      `/loans/${loanId}/liquidations/${liquidationId}`
+    );
+    return response.data;
+  },
+
+  approveLiquidation: async (
+    loanId: string,
+    liquidationId: string,
+    notes?: string
+  ): Promise<ApiResponse<any>> => {
+    const response = await apiClient.post<ApiResponse<any>>(
+      `/loans/${loanId}/liquidations/${liquidationId}/approve`,
+      { notes }
+    );
+    return response.data;
+  },
+
+  rejectLiquidation: async (
+    loanId: string,
+    liquidationId: string,
+    reason: string
+  ): Promise<ApiResponse<any>> => {
+    const response = await apiClient.post<ApiResponse<any>>(
+      `/loans/${loanId}/liquidations/${liquidationId}/reject`,
+      { reason }
+    );
+    return response.data;
+  },
+
+  getPendingLiquidations: async (cooperativeId: string): Promise<ApiResponse<any[]>> => {
+    const response = await apiClient.get<ApiResponse<any[]>>(
+      `/cooperatives/${cooperativeId}/pending-liquidations`
+    );
+    return response.data;
+  },
 };

@@ -349,6 +349,7 @@ model Loan {
   guarantors         LoanGuarantor[]
   kycDocuments       LoanKycDocument[]
   approvals          LoanApproval[]
+  liquidations       LoanLiquidation[]
 
   @@index([cooperativeId])
   @@index([memberId])
@@ -546,6 +547,48 @@ model LoanRepayment {
   @@index([status])
   @@index([submittedBy])
   @@index([reviewedBy])
+}
+
+// Loan liquidation requests - for early payoff (partial or complete)
+model LoanLiquidation {
+  id     String @id @default(cuid())
+  loanId String
+  loan   Loan   @relation(fields: [loanId], references: [id], onDelete: Cascade)
+
+  // Request details
+  liquidationType    String // 'partial' | 'complete'
+  requestedBy        String // 'member' | 'admin'
+  requestedByUserId  String // userId of person who initiated
+  requestedAmount    Int // Amount member wants to pay (for partial) or calculated total (for complete)
+
+  // Calculated amounts at time of request
+  outstandingBalance       Int // Principal + interest remaining at time of request
+  principalAmount          Int // Principal portion
+  interestAmount           Int // Interest portion
+  earlyPaymentDiscount     Int     @default(0) // Discount for early payoff
+  processingFee            Int     @default(0) // Fee for processing liquidation
+  finalAmount              Int // Final amount to be paid (after discounts/fees)
+
+  // Payment information
+  paymentMethod    String? // 'bank_transfer', 'cash', 'mobile_money', etc.
+  paymentReference String? // Transaction reference
+  receiptUrl       String? // URL to payment receipt
+
+  // Status and workflow
+  status          String   @default("pending") // 'pending' | 'approved' | 'rejected' | 'completed'
+  requestedAt     DateTime @default(now())
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  completedAt     DateTime?
+  rejectionReason String?
+  notes           String? // Additional notes
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([loanId])
+  @@index([status])
+  @@index([requestedByUserId])
 }
 
 model LedgerEntry {

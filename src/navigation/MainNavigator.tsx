@@ -36,6 +36,9 @@ import LoanApprovalListScreen from '../screens/loans/LoanApprovalListScreen';
 import LoanInitiateScreen from '../screens/loans/LoanInitiateScreen';
 import GuarantorLoansScreen from '../screens/loans/GuarantorLoansScreen';
 import PendingRepaymentsScreen from '../screens/loans/PendingRepaymentsScreen';
+import LoanLiquidationScreen from '../screens/loans/LoanLiquidationScreen';
+import LiquidationDetailScreen from '../screens/loans/LiquidationDetailScreen';
+import PendingLiquidationsScreen from '../screens/loans/PendingLiquidationsScreen';
 import LedgerScreen from '../screens/ledger/LedgerScreen';
 import MemberDashboardScreen from '../screens/cooperative/MemberDashboardScreen';
 import AdminManagementScreen from '../screens/cooperative/AdminManagementScreen';
@@ -135,6 +138,10 @@ export type HomeStackParamList = {
   LoanInitiate: { cooperativeId: string };
   GuarantorLoans: { cooperativeId: string };
   PendingRepayments: { cooperativeId: string };
+  // Loan Liquidation screens
+  LoanLiquidation: { loanId: string };
+  LiquidationDetail: { loanId: string; liquidationId: string };
+  PendingLiquidations: { cooperativeId: string };
   Ledger: { cooperativeId: string; memberId?: string };
   MemberDashboard: { cooperativeId: string; memberId: string };
   AdminManagement: { cooperativeId: string };
@@ -316,6 +323,21 @@ const HomeStackNavigator: React.FC = () => {
         name="PendingRepayments"
         component={PendingRepaymentsScreen}
         options={{ title: 'Pending Repayments' }}
+      />
+      <HomeStack.Screen
+        name="LoanLiquidation"
+        component={LoanLiquidationScreen}
+        options={{ title: 'Loan Liquidation' }}
+      />
+      <HomeStack.Screen
+        name="LiquidationDetail"
+        component={LiquidationDetailScreen}
+        options={{ title: 'Liquidation Details' }}
+      />
+      <HomeStack.Screen
+        name="PendingLiquidations"
+        component={PendingLiquidationsScreen}
+        options={{ title: 'Pending Liquidations' }}
       />
       <HomeStack.Screen name="Ledger" component={LedgerScreen} options={{ title: 'Ledger' }} />
       <HomeStack.Screen
@@ -674,6 +696,21 @@ const CoopsStackNavigator: React.FC = () => {
         name="PendingRepayments"
         component={PendingRepaymentsScreen}
         options={{ title: 'Pending Repayments' }}
+      />
+      <CoopsStack.Screen
+        name="LoanLiquidation"
+        component={LoanLiquidationScreen}
+        options={{ title: 'Loan Liquidation' }}
+      />
+      <CoopsStack.Screen
+        name="LiquidationDetail"
+        component={LiquidationDetailScreen}
+        options={{ title: 'Liquidation Details' }}
+      />
+      <CoopsStack.Screen
+        name="PendingLiquidations"
+        component={PendingLiquidationsScreen}
+        options={{ title: 'Pending Liquidations' }}
       />
       <CoopsStack.Screen name="Ledger" component={LedgerScreen} options={{ title: 'Ledger' }} />
       <CoopsStack.Screen

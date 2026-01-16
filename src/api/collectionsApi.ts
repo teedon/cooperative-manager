@@ -236,4 +236,170 @@ export const collectionsApi = {
     );
     return response.data;
   },
+
+  // ============ AUDIT & STATISTICS ENDPOINTS (Phase 7) ============
+
+  // Get organization-wide statistics
+  getOrganizationStats: async (
+    organizationId: string,
+    filters?: {
+      startDate?: string;
+      endDate?: string;
+    }
+  ): Promise<{
+    totalCollections: number;
+    draftCount: number;
+    submittedCount: number;
+    approvedCount: number;
+    rejectedCount: number;
+    totalAmount: number;
+    averageAmount: number;
+    averageTransactions: number;
+  }> => {
+    const params = new URLSearchParams();
+    if (filters?.startDate) params.append('startDate', filters.startDate);
+    if (filters?.endDate) params.append('endDate', filters.endDate);
+
+    const response = await apiClient.get(
+      `/organizations/${organizationId}/collections/audit/organization-stats?${params.toString()}`
+    );
+    return response.data;
+  },
+
+  // Get staff performance statistics
+  getStaffStats: async (
+    organizationId: string,
+    staffId: string,
+    filters?: {
+      startDate?: string;
+      endDate?: string;
+    }
+  ): Promise<{
+    staffId: string;
+    totalCollections: number;
+    approvedCount: number;
+    rejectedCount: number;
+    approvalRate: number;
+    totalAmount: number;
+    averageAmount: number;
+  }> => {
+    const params = new URLSearchParams();
+    if (filters?.startDate) params.append('startDate', filters.startDate);
+    if (filters?.endDate) params.append('endDate', filters.endDate);
+
+    const response = await apiClient.get(
+      `/organizations/${organizationId}/collections/audit/staff-stats/${staffId}?${params.toString()}`
+    );
+    return response.data;
+  },
+
+  // Get transaction type breakdown
+  getTransactionTypeStats: async (
+    organizationId: string,
+    filters?: {
+      startDate?: string;
+      endDate?: string;
+    }
+  ): Promise<Array<{
+    type: string;
+    count: number;
+    totalAmount: number;
+  }>> => {
+    const params = new URLSearchParams();
+    if (filters?.startDate) params.append('startDate', filters.startDate);
+    if (filters?.endDate) params.append('endDate', filters.endDate);
+
+    const response = await apiClient.get(
+      `/organizations/${organizationId}/collections/audit/transaction-types?${params.toString()}`
+    );
+    return response.data;
+  },
+
+  // Get rejection statistics
+  getRejectionStats: async (
+    organizationId: string,
+    filters?: {
+      startDate?: string;
+      endDate?: string;
+    }
+  ): Promise<{
+    totalRejections: number;
+    topReasons: Array<{
+      reason: string;
+      count: number;
+    }>;
+  }> => {
+    const params = new URLSearchParams();
+    if (filters?.startDate) params.append('startDate', filters.startDate);
+    if (filters?.endDate) params.append('endDate', filters.endDate);
+
+    const response = await apiClient.get(
+      `/organizations/${organizationId}/collections/audit/rejections?${params.toString()}`
+    );
+    return response.data;
+  },
+
+  // Get approval latency statistics
+  getApprovalLatencyStats: async (
+    organizationId: string,
+    filters?: {
+      startDate?: string;
+      endDate?: string;
+    }
+  ): Promise<{
+    averageHours: number;
+    medianHours: number;
+    minHours: number;
+    maxHours: number;
+    totalApproved: number;
+  }> => {
+    const params = new URLSearchParams();
+    if (filters?.startDate) params.append('startDate', filters.startDate);
+    if (filters?.endDate) params.append('endDate', filters.endDate);
+
+    const response = await apiClient.get(
+      `/organizations/${organizationId}/collections/audit/approval-latency?${params.toString()}`
+    );
+    return response.data;
+  },
+
+  // Get daily trends
+  getDailyTrends: async (
+    organizationId: string,
+    days: number = 30
+  ): Promise<Array<{
+    date: string;
+    collections: number;
+    amount: number;
+    transactions: number;
+  }>> => {
+    const response = await apiClient.get(
+      `/organizations/${organizationId}/collections/audit/daily-trends?days=${days}`
+    );
+    return response.data;
+  },
+
+  // Get complete dashboard data
+  getDashboard: async (
+    organizationId: string,
+    filters?: {
+      startDate?: string;
+      endDate?: string;
+    }
+  ): Promise<{
+    organizationStats: any;
+    transactionTypes: any[];
+    rejections: any;
+    approvalLatency: any;
+    dailyTrends: any[];
+  }> => {
+    const params = new URLSearchParams();
+    if (filters?.startDate) params.append('startDate', filters.startDate);
+    if (filters?.endDate) params.append('endDate', filters.endDate);
+
+    const response = await apiClient.get(
+      `/organizations/${organizationId}/collections/audit/dashboard?${params.toString()}`
+    );
+    return response.data;
+  },
 };

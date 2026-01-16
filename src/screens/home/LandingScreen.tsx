@@ -16,6 +16,8 @@ import { useAppSelector, useAppDispatch } from '../../store/hooks';
 import { fetchCooperatives } from '../../store/slices/cooperativeSlice';
 import { colors, spacing, borderRadius } from '../../theme';
 import Icon from '../../components/common/Icon';
+import RoleSwitcher from '../../components/RoleSwitcher';
+import { useUserType } from '../../contexts/UserTypeContext';
 import { useNavigation } from '@react-navigation/native';
 import logger from '../../utils/logger';
 import { activityApi } from '../../api/activityApi';
@@ -253,6 +255,7 @@ const LandingScreen: React.FC = () => {
   const dispatch = useAppDispatch();
   const { cooperatives = [], isLoading } = useAppSelector((s) => s.cooperative);
   const { user } = useAppSelector((s) => s.auth);
+  const { userType, currentMode, canAccessOrganization, canAccessCooperative } = useUserType();
   const [activities, setActivities] = useState<Activity[]>([]);
   const [activitiesLoading, setActivitiesLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);

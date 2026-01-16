@@ -86,6 +86,10 @@ import CreateCollectionScreen from '../screens/collections/CreateCollectionScree
 import CollectionDetailsScreen from '../screens/collections/CollectionDetailsScreen';
 import AddTransactionScreen from '../screens/collections/AddTransactionScreen';
 import PendingApprovalsScreen from '../screens/collections/PendingApprovalsScreen';
+import CollectionsStatisticsScreen from '../screens/collections/CollectionsStatisticsScreen';
+import OrganizationListScreen from '../screens/organizations/OrganizationListScreen';
+import CreateOrganizationScreen from '../screens/organizations/CreateOrganizationScreen';
+import StaffListScreen from '../screens/organizations/StaffListScreen';
 
 export type MainTabParamList = {
   HomeTab: undefined;
@@ -196,6 +200,15 @@ export type HomeStackParamList = {
   CollectionDetails: { organizationId: string; collectionId: string };
   AddTransaction: { organizationId: string; collectionId: string };
   PendingCollectionApprovals: { organizationId: string };
+  CollectionsStatistics: { organizationId: string };
+  // Organization Management screens
+  OrganizationList: undefined;
+  CreateOrganization: undefined;
+  OrganizationDetail: { organizationId: string };
+  // Staff Management screens
+  StaffList: { organizationId: string };
+  CreateStaff: { organizationId: string };
+  StaffDetail: { organizationId: string; staffId: string };
 };
 
 const HomeStackNavigator: React.FC = () => {
@@ -557,6 +570,28 @@ const HomeStackNavigator: React.FC = () => {
         name="PendingCollectionApprovals"
         component={PendingApprovalsScreen}
         options={{ title: 'Pending Approvals' }}
+      />
+      <HomeStack.Screen
+        name="CollectionsStatistics"
+        component={CollectionsStatisticsScreen}
+        options={{ title: 'Statistics & Reports' }}
+      />
+      {/* Organization Management Screens */}
+      <HomeStack.Screen
+        name="OrganizationList"
+        component={OrganizationListScreen}
+        options={{ title: 'Organizations' }}
+      />
+      <HomeStack.Screen
+        name="CreateOrganization"
+        component={CreateOrganizationScreen}
+        options={{ title: 'Create Organization' }}
+      />
+      {/* Staff Management Screens */}
+      <HomeStack.Screen
+        name="StaffList"
+        component={StaffListScreen}
+        options={{ title: 'Staff Members' }}
       />
     </HomeStack.Navigator>
   );

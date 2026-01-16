@@ -52,7 +52,7 @@ const LoanLiquidationScreen: React.FC<Props> = ({ route, navigation }) => {
   const fetchLoanDetails = async () => {
     try {
       setLoading(true);
-      const response = await loanApi.get(loanId);
+      const response = await loanApi.getById(loanId);
       if (response.success && response.data) {
         setLoan(response.data);
         // Auto-calculate for complete liquidation
@@ -194,19 +194,29 @@ const LoanLiquidationScreen: React.FC<Props> = ({ route, navigation }) => {
             ]}
             onPress={() => setLiquidationType('complete')}
           >
+            <View style={styles.typeButtonIconContainer}>
+              <Icon
+                name="checkmark-done-outline"
+                size={28}
+                color={liquidationType === 'complete' ? '#22c55e' : '#cbd5e1'}
+              />
+            </View>
+            <View style={styles.typeButtonContent}>
+              <Text
+                style={[
+                  styles.typeButtonText,
+                  liquidationType === 'complete' && styles.typeButtonTextActive,
+                ]}
+              >
+                Complete Liquidation
+              </Text>
+              <Text style={styles.typeButtonSubtext}>Pay off entire loan</Text>
+            </View>
             <Icon
-              name={liquidationType === 'complete' ? 'radio-button-on' : 'radio-button-off'}
-              size={20}
-              color={liquidationType === 'complete' ? '#007AFF' : '#999'}
+              name={liquidationType === 'complete' ? 'checkmark-circle' : 'circle-outline'}
+              size={22}
+              color={liquidationType === 'complete' ? '#007AFF' : '#cbd5e1'}
             />
-            <Text
-              style={[
-                styles.typeButtonText,
-                liquidationType === 'complete' && styles.typeButtonTextActive,
-              ]}
-            >
-              Complete Liquidation
-            </Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[
@@ -215,19 +225,29 @@ const LoanLiquidationScreen: React.FC<Props> = ({ route, navigation }) => {
             ]}
             onPress={() => setLiquidationType('partial')}
           >
+            <View style={styles.typeButtonIconContainer}>
+              <Icon
+                name="wallet-outline"
+                size={28}
+                color={liquidationType === 'partial' ? '#f97316' : '#cbd5e1'}
+              />
+            </View>
+            <View style={styles.typeButtonContent}>
+              <Text
+                style={[
+                  styles.typeButtonText,
+                  liquidationType === 'partial' && styles.typeButtonTextActive,
+                ]}
+              >
+                Partial Liquidation
+              </Text>
+              <Text style={styles.typeButtonSubtext}>Pay partial amount</Text>
+            </View>
             <Icon
-              name={liquidationType === 'partial' ? 'radio-button-on' : 'radio-button-off'}
-              size={20}
-              color={liquidationType === 'partial' ? '#007AFF' : '#999'}
+              name={liquidationType === 'partial' ? 'checkmark-circle' : 'circle-outline'}
+              size={22}
+              color={liquidationType === 'partial' ? '#007AFF' : '#cbd5e1'}
             />
-            <Text
-              style={[
-                styles.typeButtonText,
-                liquidationType === 'partial' && styles.typeButtonTextActive,
-              ]}
-            >
-              Partial Liquidation
-            </Text>
           </TouchableOpacity>
         </View>
 
@@ -471,24 +491,35 @@ const styles = StyleSheet.create({
   typeButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: 8,
-    marginBottom: 8,
+    padding: 16,
+    borderWidth: 2,
+    borderColor: '#e2e8f0',
+    borderRadius: 12,
+    marginBottom: 12,
+    backgroundColor: '#fff',
   },
   typeButtonActive: {
     borderColor: '#007AFF',
-    backgroundColor: '#e3f2fd',
+    backgroundColor: '#eff6ff',
+  },
+  typeButtonIconContainer: {
+    marginRight: 12,
+  },
+  typeButtonContent: {
+    flex: 1,
   },
   typeButtonText: {
-    marginLeft: 8,
     fontSize: 16,
-    color: '#666',
+    fontWeight: '600',
+    color: '#475569',
   },
   typeButtonTextActive: {
     color: '#007AFF',
-    fontWeight: '600',
+  },
+  typeButtonSubtext: {
+    fontSize: 13,
+    color: '#94a3b8',
+    marginTop: 2,
   },
   inputContainer: {
     marginTop: 16,

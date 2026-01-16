@@ -14,3 +14,4 @@ export * from './postsApi';
 export * from './pollsApi';
 export * from './ajoApi';
 export * from './esusuApi';
+export * from './collectionsApi';

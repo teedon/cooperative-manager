@@ -81,6 +81,11 @@ import EsusuDetailScreen from '../screens/esusu/EsusuDetailScreen';
 import RecordContributionScreen from '../screens/esusu/RecordContributionScreen';
 import ProcessCollectionScreen from '../screens/esusu/ProcessCollectionScreen';
 import SetEsusuOrderScreen from '../screens/esusu/SetEsusuOrderScreen';
+import CollectionsListScreen from '../screens/collections/CollectionsListScreen';
+import CreateCollectionScreen from '../screens/collections/CreateCollectionScreen';
+import CollectionDetailsScreen from '../screens/collections/CollectionDetailsScreen';
+import AddTransactionScreen from '../screens/collections/AddTransactionScreen';
+import PendingApprovalsScreen from '../screens/collections/PendingApprovalsScreen';
 
 export type MainTabParamList = {
   HomeTab: undefined;
@@ -185,6 +190,12 @@ export type HomeStackParamList = {
   RecordContribution: { esusuId: string };
   ProcessCollection: { esusuId: string };
   SetEsusuOrder: { esusuId: string };
+  // Daily Collection screens (for field agents and managers)
+  CollectionsList: { organizationId: string };
+  CreateCollection: { organizationId: string };
+  CollectionDetails: { organizationId: string; collectionId: string };
+  AddTransaction: { organizationId: string; collectionId: string };
+  PendingCollectionApprovals: { organizationId: string };
 };
 
 const HomeStackNavigator: React.FC = () => {
@@ -520,6 +531,32 @@ const HomeStackNavigator: React.FC = () => {
         name="SetEsusuOrder"
         component={SetEsusuOrderScreen}
         options={{ title: 'Set Collection Order' }}
+      />
+      {/* Daily Collection Screens */}
+      <HomeStack.Screen
+        name="CollectionsList"
+        component={CollectionsListScreen}
+        options={{ title: 'Daily Collections' }}
+      />
+      <HomeStack.Screen
+        name="CreateCollection"
+        component={CreateCollectionScreen}
+        options={{ title: 'New Collection' }}
+      />
+      <HomeStack.Screen
+        name="CollectionDetails"
+        component={CollectionDetailsScreen}
+        options={{ title: 'Collection Details' }}
+      />
+      <HomeStack.Screen
+        name="AddTransaction"
+        component={AddTransactionScreen}
+        options={{ title: 'Add Transaction' }}
+      />
+      <HomeStack.Screen
+        name="PendingCollectionApprovals"
+        component={PendingApprovalsScreen}
+        options={{ title: 'Pending Approvals' }}
       />
     </HomeStack.Navigator>
   );

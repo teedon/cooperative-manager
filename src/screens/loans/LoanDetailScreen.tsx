@@ -778,6 +778,23 @@ const LoanDetailScreen: React.FC<Props> = ({ route }) => {
         </View>
       )}
 
+      {/* Loan Liquidation Button */}
+      {(isAdminOrModerator || isLoanOwner) && 
+       ['disbursed', 'repaying'].includes(currentLoan?.status || '') && 
+       currentLoan.outstandingBalance > 0 && (
+        <View style={styles.actionContainer}>
+          <TouchableOpacity 
+            style={styles.liquidateButton} 
+            onPress={() => navigation.navigate('LoanLiquidation', { loanId: currentLoan.id })}
+          >
+            <Icon name="trending-down-outline" size={20} color="#fff" />
+            <Text style={styles.liquidateButtonText}>
+              Liquidate Loan Early
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Repayment Modal */}
       <Modal
         visible={showRepaymentModal}
@@ -1433,6 +1450,20 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   recordRepaymentText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  liquidateButton: {
+    backgroundColor: '#f97316',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    borderRadius: 12,
+    gap: 8,
+  },
+  liquidateButtonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',

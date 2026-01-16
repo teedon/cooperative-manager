@@ -15,6 +15,7 @@ import { PollsModule } from './polls/polls.module';
 import { DownloadsModule } from './downloads/downloads.module';
 import { AjoModule } from './ajo/ajo.module';
 import { EsusuModule } from './esusu/esusu.module';
+import { OrganizationsModule } from './organizations/organizations.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { EsusuModule } from './esusu/esusu.module';
     DownloadsModule,
     AjoModule,
     EsusuModule,
+    OrganizationsModule,
   ],
 })
 export class AppModule {}

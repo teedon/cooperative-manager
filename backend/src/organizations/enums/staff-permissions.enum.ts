@@ -1,0 +1,76 @@
+export enum StaffPermission {
+  // Collection permissions
+  COLLECT_PAYMENTS = 'COLLECT_PAYMENTS',
+  APPROVE_COLLECTIONS = 'APPROVE_COLLECTIONS',
+  REJECT_COLLECTIONS = 'REJECT_COLLECTIONS',
+  VIEW_COLLECTIONS = 'VIEW_COLLECTIONS',
+  VIEW_ALL_COLLECTIONS = 'VIEW_ALL_COLLECTIONS',
+  
+  // Member management
+  MANAGE_MEMBERS = 'MANAGE_MEMBERS',
+  VIEW_MEMBERS = 'VIEW_MEMBERS',
+  ADD_OFFLINE_MEMBERS = 'ADD_OFFLINE_MEMBERS',
+  
+  // Financial
+  VIEW_FINANCIALS = 'VIEW_FINANCIALS',
+  APPROVE_TRANSACTIONS = 'APPROVE_TRANSACTIONS',
+  MANAGE_EXPENSES = 'MANAGE_EXPENSES',
+  
+  // Loan management
+  VIEW_LOANS = 'VIEW_LOANS',
+  APPROVE_LOANS = 'APPROVE_LOANS',
+  DISBURSE_LOANS = 'DISBURSE_LOANS',
+  RECORD_LOAN_REPAYMENTS = 'RECORD_LOAN_REPAYMENTS',
+  
+  // Group/Cooperative assignment
+  MANAGE_GROUPS = 'MANAGE_GROUPS',
+  VIEW_ASSIGNED_GROUPS_ONLY = 'VIEW_ASSIGNED_GROUPS_ONLY',
+  VIEW_ALL_GROUPS = 'VIEW_ALL_GROUPS',
+  
+  // Staff management
+  MANAGE_STAFF = 'MANAGE_STAFF',
+  ASSIGN_STAFF_TO_GROUPS = 'ASSIGN_STAFF_TO_GROUPS',
+  VIEW_STAFF = 'VIEW_STAFF',
+  
+  // Reporting
+  VIEW_REPORTS = 'VIEW_REPORTS',
+  EXPORT_DATA = 'EXPORT_DATA',
+  VIEW_ANALYTICS = 'VIEW_ANALYTICS',
+  
+  // System
+  MANAGE_SETTINGS = 'MANAGE_SETTINGS',
+  VIEW_AUDIT_LOGS = 'VIEW_AUDIT_LOGS',
+}
+
+export const STAFF_ROLE_PERMISSIONS = {
+  field_agent: [
+    StaffPermission.COLLECT_PAYMENTS,
+    StaffPermission.VIEW_MEMBERS,
+    StaffPermission.VIEW_ASSIGNED_GROUPS_ONLY,
+    StaffPermission.VIEW_COLLECTIONS,
+    StaffPermission.VIEW_LOANS,
+  ],
+  supervisor: [
+    StaffPermission.APPROVE_COLLECTIONS,
+    StaffPermission.REJECT_COLLECTIONS,
+    StaffPermission.VIEW_ALL_COLLECTIONS,
+    StaffPermission.VIEW_MEMBERS,
+    StaffPermission.VIEW_FINANCIALS,
+    StaffPermission.VIEW_REPORTS,
+    StaffPermission.VIEW_ALL_GROUPS,
+    StaffPermission.APPROVE_TRANSACTIONS,
+    StaffPermission.VIEW_LOANS,
+    StaffPermission.APPROVE_LOANS,
+  ],
+  accountant: [
+    StaffPermission.VIEW_FINANCIALS,
+    StaffPermission.VIEW_ALL_COLLECTIONS,
+    StaffPermission.APPROVE_TRANSACTIONS,
+    StaffPermission.MANAGE_EXPENSES,
+    StaffPermission.VIEW_REPORTS,
+    StaffPermission.EXPORT_DATA,
+    StaffPermission.VIEW_ANALYTICS,
+    StaffPermission.VIEW_ALL_GROUPS,
+  ],
+  admin: Object.values(StaffPermission), // All permissions
+};

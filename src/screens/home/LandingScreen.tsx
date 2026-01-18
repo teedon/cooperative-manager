@@ -17,6 +17,7 @@ import { fetchCooperatives } from '../../store/slices/cooperativeSlice';
 import { colors, spacing, borderRadius } from '../../theme';
 import Icon from '../../components/common/Icon';
 import RoleSwitcher from '../../components/RoleSwitcher';
+import PostOnboardingGuidance from '../../components/onboarding/PostOnboardingGuidance';
 import { useUserType } from '../../contexts/UserTypeContext';
 import { useNavigation } from '@react-navigation/native';
 import logger from '../../utils/logger';
@@ -356,6 +357,9 @@ const LandingScreen: React.FC = () => {
   };
   const handleCreate = () => navigation.navigate('Home', { openModal: 'create' });
   const handleJoin = () => navigation.navigate('Home', { openModal: 'join' });
+  const handleCreateOrganization = () => navigation.navigate('CreateOrganization');
+  const handleViewOrganizations = () => navigation.navigate('OrganizationList');
+  const handleCollectionsStats = () => navigation.navigate('CollectionsStatistics');
 
   // Calculate totals
   const totalMembers = cooperatives.reduce((s, c) => s + (c.memberCount ?? 0), 0);
@@ -388,6 +392,7 @@ const LandingScreen: React.FC = () => {
   };
 
   return (
+    <>
     <ScrollView
       style={styles.container}
       showsVerticalScrollIndicator={false}
@@ -475,6 +480,36 @@ const LandingScreen: React.FC = () => {
       </View>
 
       {/* Quick Actions */}
+      {canAccessOrganization && (
+        <View style={styles.quickActionsSection}>
+          <Text style={styles.sectionTitle}>Organization Management</Text>
+          <Text style={styles.sectionSubtitle}>
+            Manage your organizations, staff, and daily collections
+          </Text>
+          <View style={styles.quickActionsRow}>
+            <QuickAction
+              icon="Plus"
+              label="Create Organization"
+              color={colors.primary.main}
+              onPress={handleCreateOrganization}
+            />
+            <QuickAction
+              icon="business"
+              label="View Organizations"
+              color={colors.success.main}
+              onPress={handleViewOrganizations}
+            />
+            <QuickAction
+              icon="bar-chart"
+              label="Collections Stats"
+              color={colors.accent.main}
+              onPress={handleCollectionsStats}
+            />
+          </View>
+        </View>
+      )}
+
+      {/* Quick Actions for Cooperatives */}
       {cooperatives.length === 0 && !isLoading && (
         <View style={styles.quickActionsSection}>
           <Text style={styles.sectionTitle}>Get Started</Text>
@@ -532,6 +567,10 @@ const LandingScreen: React.FC = () => {
       {/* Bottom Padding */}
       <View style={{ height: spacing.xl * 2 }} />
     </ScrollView>
+
+    {/* Post-Onboarding Guidance Modal */}
+    <PostOnboardingGuidance />
+  </>
   );
 };
 

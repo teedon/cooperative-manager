@@ -15,6 +15,24 @@ export class OrganizationsService {
       },
     });
 
+    // Automatically add the creator as an admin staff member
+    await this.prisma.staff.create({
+      data: {
+        organizationId: organization.id,
+        userId: createdBy,
+        role: 'admin',
+        permissions: [
+          'create_collection',
+          'submit_collection',
+          'approve_collection',
+          'view_reports',
+          'manage_staff',
+          'manage_settings',
+        ],
+        isActive: true,
+      },
+    });
+
     // If it's a manager organization, create default collection settings
     if (createDto.type === OrganizationType.MANAGER) {
       await this.prisma.collectionSettings.create({

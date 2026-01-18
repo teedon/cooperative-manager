@@ -31,24 +31,27 @@ const CreateOrganizationScreen: React.FC<Props> = ({ navigation }) => {
 
     try {
       setLoading(true);
-      const organization = await organizationsApi.create({
+      const response = await organizationsApi.create({
         name: name.trim(),
         type: 'manager', // Default to manager organization
         description: description.trim() || undefined,
       });
 
-      Alert.alert(
-        'Success',
-        'Organization created successfully',
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              navigation.goBack();
+      if (response.success && response.data) {
+        Alert.alert(
+          'Success',
+          'Organization created successfully! You are now a staff member.',
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                // Navigate back to list, which will auto-refresh via useFocusEffect
+                navigation.goBack();
+              },
             },
-          },
-        ]
-      );
+          ]
+        );
+      }
     } catch (err) {
       Alert.alert('Error', getErrorMessage(err));
     } finally {

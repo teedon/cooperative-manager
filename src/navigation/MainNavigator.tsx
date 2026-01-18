@@ -89,6 +89,7 @@ import PendingApprovalsScreen from '../screens/collections/PendingApprovalsScree
 import CollectionsStatisticsScreen from '../screens/collections/CollectionsStatisticsScreen';
 import OrganizationListScreen from '../screens/organizations/OrganizationListScreen';
 import CreateOrganizationScreen from '../screens/organizations/CreateOrganizationScreen';
+import OrganizationDetailScreen from '../screens/organizations/OrganizationDetailScreen';
 import StaffListScreen from '../screens/organizations/StaffListScreen';
 
 export type MainTabParamList = {
@@ -586,6 +587,11 @@ const HomeStackNavigator: React.FC = () => {
         name="CreateOrganization"
         component={CreateOrganizationScreen}
         options={{ title: 'Create Organization' }}
+      />
+      <HomeStack.Screen
+        name="OrganizationDetail"
+        component={OrganizationDetailScreen}
+        options={{ title: 'Organization Details' }}
       />
       {/* Staff Management Screens */}
       <HomeStack.Screen

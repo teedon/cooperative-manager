@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   RefreshControl,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
 import { HomeStackParamList } from '../../navigation/MainNavigator';
 import { organizationsApi, Organization } from '../../api/organizationsApi';
 import Icon from '../../components/common/Icon';
@@ -23,9 +24,12 @@ const OrganizationListScreen: React.FC<Props> = ({ navigation }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadOrganizations();
-  }, []);
+  // Load organizations when screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      loadOrganizations();
+    }, [])
+  );
 
   const loadOrganizations = async () => {
     try {

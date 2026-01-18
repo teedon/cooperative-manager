@@ -34,6 +34,7 @@ export const UserTypeProvider: React.FC<Props> = ({ children }) => {
   const authUser = useAppSelector((state) => state.auth.user);
   const [currentMode, setCurrentMode] = useState<AppMode>('cooperative');
   const [user, setUser] = useState<ExtendedUser | null>(null);
+  const [onboardingPreference, setOnboardingPreference] = useState<'organization' | 'cooperative' | null>(null);
 
   // Extend user with profile data
   useEffect(() => {
@@ -46,37 +47,59 @@ export const UserTypeProvider: React.FC<Props> = ({ children }) => {
     }
   }, [authUser]);
 
-  // Load saved mode from storage
+  // Load saved mode and onboarding preference from storage
   useEffect(() => {
-    const loadMode = async () => {
+    const loadPreferences = async () => {
       try {
-        const savedMode = await AsyncStorage.getItem(MODE_STORAGE_KEY);
+        const [savedMode, preference] = await Promise.all([
+          AsyncStorage.getItem(MODE_STORAGE_KEY),
+          AsyncStorage.getItem('user_type_preference'),
+        ]);
+        
+        // Load onboarding preference
+        if (preference === 'organization' || preference === 'cooperative') {
+          setOnboardingPreference(preference);
+          // Set initial mode based on preference if no saved mode
+          if (!savedMode) {
+            setCurrentMode(preference as AppMode);
+          }
+        }
+        
+        // Load saved mode (overrides preference)
         if (savedMode && (savedMode === 'organization' || savedMode === 'cooperative')) {
           setCurrentMode(savedMode);
         }
       } catch (error) {
-        console.warn('Failed to load app mode:', error);
+        console.warn('Failed to load preferences:', error);
       }
     };
-    loadMode();
+    loadPreferences();
   }, []);
 
   // Calculate user type and permissions
   const userType = getUserType(user);
-  const canAccessOrganization = canAccessOrganizationFeatures(user);
+  
+  // Allow organization access if:
+  // 1. User is actually staff, OR
+  // 2. User selected organization in onboarding (to allow creating first org)
+  const canAccessOrganization = canAccessOrganizationFeatures(user) || 
+    (onboardingPreference === 'organization' && authUser !== null);
+  
   const canAccessCooperative = canAccessCooperativeFeatures(user);
 
-  // Auto-switch to default mode based on user type
+  // Auto-switch to default mode based on user type or preference
   useEffect(() => {
     if (userType !== 'none') {
       const defaultMode = getDefaultAppMode(userType);
       // Organization users should default to organization mode
-      // Only auto-switch if not manually set by user
       if (userType === 'organization' && currentMode !== 'organization') {
         setCurrentMode(defaultMode);
       }
+    } else if (onboardingPreference === 'organization' && authUser !== null) {
+      // New users with organization preference get organization mode
+      setCurrentMode('organization');
     }
-  }, [userType]);
+  }, [userType, onboardingPreference, authUser]);
 
   // Switch between organization and cooperative mode
   const switchMode = async (mode: AppMode) => {

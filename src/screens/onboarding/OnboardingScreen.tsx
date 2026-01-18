@@ -1,272 +1,80 @@
-import React from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  Dimensions,
-  StatusBar,
-  TouchableOpacity,
-  Platform,
-} from 'react-native';
-import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
-import AppIntroSlider from 'react-native-app-intro-slider';
+// Enhanced Onboarding - Main orchestrator for user type selection and guided flows
+import React, { useState } from 'react';
+import { View, StyleSheet } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import colors, { colors as colorTheme } from '../../theme/colors';
-import { spacing, borderRadius } from '../../theme';
-import Logo from '../../components/common/Logo';
-import {
-  CommunityIllustration,
-  SavingsIllustration,
-  GrowthIllustration,
-  SecureIllustration,
-} from '../../components/common/OnboardingIllustrations';
+import UserTypeSelectionScreen, { UserTypeSelection } from './UserTypeSelectionScreen';
+import OrganizationOnboardingFlow from './OrganizationOnboardingFlow';
+import CooperativeOnboardingFlow from './CooperativeOnboardingFlow';
 
-const { width, height } = Dimensions.get('window');
 
-interface SlideItem {
-  key: string;
-  title: string;
-  description: string;
-  illustration: React.ReactNode;
-  backgroundColor: string;
-}
-
-const slides: SlideItem[] = [
-  {
-    key: 'welcome',
-    title: 'Welcome to CoopManager',
-    description: 'Your all-in-one platform for managing cooperative societies. Join hands with your community to achieve financial goals together.',
-    illustration: <Logo size={140} showText textColor={colorTheme.text.primary} />,
-    backgroundColor: '#ffffff',
-  },
-  {
-    key: 'community',
-    title: 'Build Your Community',
-    description: 'Create or join cooperative groups, manage memberships, and collaborate with people who share your financial vision.',
-    illustration: <CommunityIllustration width={280} height={280} />,
-    backgroundColor: '#eef2ff',
-  },
-  {
-    key: 'savings',
-    title: 'Smart Contributions',
-    description: 'Set up flexible contribution plans, track payments, and watch your collective savings grow steadily over time.',
-    illustration: <SavingsIllustration width={280} height={280} />,
-    backgroundColor: '#fef3c7',
-  },
-  {
-    key: 'growth',
-    title: 'Grow Together',
-    description: 'Access group buying deals, request loans, and benefit from the power of collective bargaining.',
-    illustration: <GrowthIllustration width={280} height={280} />,
-    backgroundColor: '#d1fae5',
-  },
-  {
-    key: 'secure',
-    title: 'Safe & Transparent',
-    description: 'All transactions are tracked, verified, and visible to members. Your cooperative finances are always secure.',
-    illustration: <SecureIllustration width={280} height={280} />,
-    backgroundColor: '#dbeafe',
-  },
-];
+type OnboardingStep = 'selection' | 'organization-flow' | 'cooperative-flow';
 
 interface OnboardingScreenProps {
   onComplete: () => void;
 }
 
 const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete }) => {
-  const insets = useSafeAreaInsets();
-  const [currentSlide, setCurrentSlide] = React.useState(0);
-  const sliderRef = React.useRef<AppIntroSlider<SlideItem>>(null);
-  
-  const handleDone = async () => {
+  const [currentStep, setCurrentStep] = useState<OnboardingStep>('selection');
+  const [selectedUserType, setSelectedUserType] = useState<UserTypeSelection | null>(null);
+
+  const handleUserTypeSelected = async (userType: UserTypeSelection) => {
+    setSelectedUserType(userType);
+    
+    // Save user type preference
+    try {
+      await AsyncStorage.setItem('user_type_preference', userType);
+    } catch (error) {
+      console.error('Error saving user type preference:', error);
+    }
+
+    // Navigate to appropriate flow
+    if (userType === 'organization') {
+      setCurrentStep('organization-flow');
+    } else {
+      setCurrentStep('cooperative-flow');
+    }
+  };
+
+  const handleSkipSelection = () => {
+    // If user skips selection, default to cooperative flow
+    setCurrentStep('cooperative-flow');
+  };
+
+  const handleFlowComplete = async () => {
     try {
       await AsyncStorage.setItem('hasSeenOnboarding', 'true');
       onComplete();
     } catch (error) {
-      console.error('Error saving onboarding status:', error);
-      onComplete();
+      console.error('Error saving onboarding state:', error);
+      onComplete(); // Continue anyway
     }
   };
 
-  const renderItem = ({ item }: { item: SlideItem }) => {
+  // Render appropriate screen based on current step
+  if (currentStep === 'selection') {
     return (
-      <View style={[styles.slide, { backgroundColor: item.backgroundColor }]}>
-        <StatusBar 
-          barStyle="dark-content" 
-          backgroundColor={item.backgroundColor} 
-        />
-        
-        <View style={styles.contentContainer}>
-          <View style={styles.illustrationContainer}>
-            {item.illustration}
-          </View>
-          
-          <View style={styles.textContainer}>
-            <Text style={styles.title}>{item.title}</Text>
-            <Text style={styles.description}>{item.description}</Text>
-          </View>
-        </View>
-      </View>
-    );
-  };
-
-  const renderNextButton = () => null;
-  const renderDoneButton = () => null;
-  const renderSkipButton = () => null;
-
-  return (
-    <View style={styles.container}>
-      {/* Skip button at top left */}
-      {currentSlide < slides.length - 1 && (
-        <TouchableOpacity 
-          style={[styles.skipButtonWrapper, { top: insets.top + 10 }]}
-          onPress={handleDone}
-        >
-          <Text style={styles.skipButtonText}>Skip</Text>
-        </TouchableOpacity>
-      )}
-
-      {/* Next/Get Started button centered below skip */}
-      <TouchableOpacity 
-        style={[styles.buttonWrapper, { top: insets.top + 40 }]}
-        onPress={currentSlide === slides.length - 1 ? handleDone : () => sliderRef.current?.goToSlide(currentSlide + 1)}
-      >
-        <View style={styles.buttonContainer}>
-          <View style={currentSlide === slides.length - 1 ? styles.doneButton : styles.nextButton}>
-            <Text style={currentSlide === slides.length - 1 ? styles.doneButtonText : styles.nextButtonText}>
-              {currentSlide === slides.length - 1 ? 'Get Started' : 'Next'}
-            </Text>
-          </View>
-        </View>
-      </TouchableOpacity>
-
-      <AppIntroSlider
-        ref={sliderRef}
-        data={slides}
-        renderItem={renderItem}
-        renderNextButton={renderNextButton}
-        renderDoneButton={renderDoneButton}
-        renderSkipButton={renderSkipButton}
-        onDone={handleDone}
-        onSlideChange={(index) => setCurrentSlide(index)}
-        showSkipButton={false}
-        dotStyle={styles.dot}
-        activeDotStyle={styles.activeDot}
-        bottomButton={false}
+      <UserTypeSelectionScreen
+        onSelect={handleUserTypeSelected}
+        onSkip={handleSkipSelection}
       />
-    </View>
-  );
+    );
+  }
+
+  if (currentStep === 'organization-flow') {
+    return <OrganizationOnboardingFlow onComplete={handleFlowComplete} />;
+  }
+
+  if (currentStep === 'cooperative-flow') {
+    return <CooperativeOnboardingFlow onComplete={handleFlowComplete} />;
+  }
+
+  return null;
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  slide: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: spacing.xl,
-  },
-  contentContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: 100, // Add space for buttons at top
-    paddingBottom: 80,
-  },
-  illustrationContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: spacing.xl,
-  },
-  textContainer: {
-    alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: colorTheme.text.primary,
-    textAlign: 'center',
-    marginBottom: spacing.md,
-  },
-  description: {
-    fontSize: 16,
-    color: colorTheme.text.secondary,
-    textAlign: 'center',
-    lineHeight: 24,
-  },
-  buttonWrapper: {
-    position: 'absolute',
-    top: 80, // Will be overridden by dynamic value
-    left: 0,
-    right: 0,
-    backgroundColor: 'transparent',
-    alignItems: 'center',
-    zIndex: 1000,
-    elevation: 1000,
-  },
-  skipButtonWrapper: {
-    position: 'absolute',
-    top: 80, // Will be overridden by dynamic value
-    left: 0,
-    right: 0,
-    backgroundColor: 'transparent',
-    alignItems: 'center',
-    zIndex: 1000,
-    elevation: 1000,
-  },
-  buttonContainer: {
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.lg,
-  },
-  nextButton: {
-    backgroundColor: colorTheme.primary.main,
-    paddingHorizontal: spacing.xl * 2,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.full,
-    minWidth: 140,
-    alignItems: 'center',
-  },
-  nextButtonText: {
-    color: colorTheme.primary.contrast,
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  doneButton: {
-    backgroundColor: colorTheme.primary.main,
-    paddingHorizontal: spacing.xl * 2,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.full,
-    minWidth: 160,
-    alignItems: 'center',
-  },
-  doneButtonText: {
-    color: colorTheme.primary.contrast,
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  skipButton: {
-    paddingVertical: spacing.sm,
-  },
-  skipButtonText: {
-    color: colorTheme.text.secondary,
-    fontSize: 16,
-  },
-  dot: {
-    backgroundColor: 'rgba(79, 70, 229, 0.2)',
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginHorizontal: 4,
-  },
-  activeDot: {
-    backgroundColor: colorTheme.primary.main,
-    width: 24,
-    height: 8,
-    borderRadius: 4,
-    marginHorizontal: 4,
+    backgroundColor: '#ffffff',
   },
 });
 

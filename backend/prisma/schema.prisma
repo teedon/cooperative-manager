@@ -32,6 +32,191 @@ model User {
   loanApprovals           LoanApproval[]          @relation("LoanApprovals")
   submittedRepayments     LoanRepayment[]         @relation("RepaymentSubmitter")
   reviewedRepayments      LoanRepayment[]         @relation("RepaymentReviewer")
+  staffProfile            Staff?                  @relation("UserStaff")
+}
+
+// ==================== ORGANIZATION & STAFF MANAGEMENT ====================
+
+model Organization {
+  id          String   @id @default(cuid())
+  name        String
+  type        String // 'cooperative' | 'manager'
+  description String?
+  phone       String?
+  email       String?
+  address     String?
+  logoUrl     String?
+
+  // Settings
+  settings Json? // Organization-specific settings
+
+  // Relations
+  staff              Staff[]
+  cooperatives       Cooperative[]
+  dailyCollections   DailyCollection[]
+  collectionSettings CollectionSettings?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([type])
+}
+
+model Staff {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  userId String @unique
+  user   User   @relation("UserStaff", fields: [userId], references: [id], onDelete: Cascade)
+
+  // Role and permissions
+  role        String // 'admin' | 'supervisor' | 'field_agent' | 'accountant'
+  permissions String[] // Array of permission codes
+
+  // Status
+  isActive   Boolean   @default(true)
+  hiredAt    DateTime  @default(now())
+  terminatedAt DateTime?
+
+  // Agent-specific fields
+  employeeCode String? // Unique employee/agent code
+  commission   Int     @default(0) // Commission percentage (if applicable)
+
+  // Relations
+  groupAssignments StaffGroupAssignment[]
+  dailyCollections DailyCollection[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, employeeCode])
+  @@index([organizationId])
+  @@index([userId])
+  @@index([isActive])
+}
+
+model StaffGroupAssignment {
+  id            String      @id @default(cuid())
+  staffId       String
+  staff         Staff       @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  cooperativeId String
+  cooperative   Cooperative @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+
+  // Assignment details
+  assignedBy String // userId of person who assigned
+  assignedAt DateTime @default(now())
+
+  // Optional: Time-based assignment
+  startDate DateTime?
+  endDate   DateTime?
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([staffId, cooperativeId])
+  @@index([staffId])
+  @@index([cooperativeId])
+  @@index([isActive])
+}
+
+model CollectionSettings {
+  id             String       @id @default(cuid())
+  organizationId String       @unique
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Collection settings
+  requireApproval     Boolean @default(true)
+  allowPartialPosting Boolean @default(false)
+  autoPostAfterHours  Int? // Auto-approve after X hours (null = disabled)
+
+  // Approval levels
+  minApprovers      Int     @default(1)
+  requireSupervisor Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ==================== DAILY COLLECTION SYSTEM ====================
+
+model DailyCollection {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  staffId String
+  staff   Staff  @relation(fields: [staffId], references: [id], onDelete: Restrict)
+
+  // Collection details
+  collectionDate DateTime
+  totalAmount    Int      @default(0)
+  transactionCount Int    @default(0)
+
+  // Status
+  status          String // 'draft' | 'submitted' | 'approved' | 'rejected' | 'partially_posted'
+  submittedAt     DateTime?
+  approvedAt      DateTime?
+  rejectedAt      DateTime?
+  
+  // Approval workflow
+  approvedBy      String? // userId
+  rejectionReason String?
+  approvalNotes   String?
+
+  // Transactions in this collection
+  transactions CollectionTransaction[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([staffId])
+  @@index([collectionDate])
+  @@index([status])
+  @@index([submittedAt])
+}
+
+model CollectionTransaction {
+  id                String          @id @default(cuid())
+  dailyCollectionId String
+  dailyCollection   DailyCollection @relation(fields: [dailyCollectionId], references: [id], onDelete: Cascade)
+
+  // Target
+  cooperativeId String
+  memberId      String
+
+  // Transaction details
+  type            String // 'contribution' | 'loan_repayment' | 'ajo_payment' | 'esusu_contribution' | 'share_purchase'
+  amount          Int
+  paymentMethod   String // 'cash' | 'bank_transfer' | 'mobile_money' | 'check'
+  reference       String? // Payment reference number
+  notes           String?
+
+  // Metadata for specific transaction types
+  metadata Json? // Store type-specific data (e.g., planId for contributions, loanId for repayments)
+
+  // Links to posted records (populated after approval)
+  contributionPaymentId String? // Link to ContributionPayment
+  loanRepaymentId       String? // Link to LoanRepayment
+  ajoPaymentId          String? // Link to AjoPayment
+  esusuContributionId   String? // Link to EsusuContribution
+
+  // Status
+  status       String // 'pending' | 'posted' | 'rejected' | 'failed'
+  postedAt     DateTime?
+  errorMessage String? // If posting failed
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([dailyCollectionId])
+  @@index([cooperativeId])
+  @@index([memberId])
+  @@index([status])
+  @@index([type])
 }
 
 model Cooperative {
@@ -47,6 +232,11 @@ model Cooperative {
   memberCount        Int                @default(0)
   totalContributions Int                @default(0)
   totalExpenses      Int                @default(0)
+  
+  // Organization management (for manager businesses)
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
   members            Member[]
@@ -64,6 +254,9 @@ model Cooperative {
   ajos               Ajo[]
   esusuSettings      EsusuSettings?
   esusus             Esusu[]
+  staffAssignments   StaffGroupAssignment[]
+
+  @@index([organizationId])
 }
 
 model Member {
@@ -349,6 +542,7 @@ model Loan {
   guarantors         LoanGuarantor[]
   kycDocuments       LoanKycDocument[]
   approvals          LoanApproval[]
+  liquidations       LoanLiquidation[]
 
   @@index([cooperativeId])
   @@index([memberId])
@@ -546,6 +740,48 @@ model LoanRepayment {
   @@index([status])
   @@index([submittedBy])
   @@index([reviewedBy])
+}
+
+// Loan liquidation requests - for early payoff (partial or complete)
+model LoanLiquidation {
+  id     String @id @default(cuid())
+  loanId String
+  loan   Loan   @relation(fields: [loanId], references: [id], onDelete: Cascade)
+
+  // Request details
+  liquidationType    String // 'partial' | 'complete'
+  requestedBy        String // 'member' | 'admin'
+  requestedByUserId  String // userId of person who initiated
+  requestedAmount    Int // Amount member wants to pay (for partial) or calculated total (for complete)
+
+  // Calculated amounts at time of request
+  outstandingBalance       Int // Principal + interest remaining at time of request
+  principalAmount          Int // Principal portion
+  interestAmount           Int // Interest portion
+  earlyPaymentDiscount     Int     @default(0) // Discount for early payoff
+  processingFee            Int     @default(0) // Fee for processing liquidation
+  finalAmount              Int // Final amount to be paid (after discounts/fees)
+
+  // Payment information
+  paymentMethod    String? // 'bank_transfer', 'cash', 'mobile_money', etc.
+  paymentReference String? // Transaction reference
+  receiptUrl       String? // URL to payment receipt
+
+  // Status and workflow
+  status          String   @default("pending") // 'pending' | 'approved' | 'rejected' | 'completed'
+  requestedAt     DateTime @default(now())
+  reviewedBy      String?
+  reviewedAt      DateTime?
+  completedAt     DateTime?
+  rejectionReason String?
+  notes           String? // Additional notes
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([loanId])
+  @@index([status])
+  @@index([requestedByUserId])
 }
 
 model LedgerEntry {

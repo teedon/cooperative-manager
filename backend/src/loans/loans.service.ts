@@ -4,6 +4,7 @@ import { ActivitiesService } from '../activities/activities.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CreateLoanTypeDto, UpdateLoanTypeDto } from './dto/loan-type.dto';
 import { RequestLoanDto, InitiateLoanDto, ApproveLoanDto, RejectLoanDto, RecordRepaymentDto } from './dto/loan.dto';
+import { CreateLiquidationDto, ApproveLiquidationDto, RejectLiquidationDto, CalculateLiquidationDto } from './dto/liquidation.dto';
 import { PERMISSIONS, hasPermission, parsePermissions, Permission } from '../common/permissions';
 import {
   sendEmail,
@@ -1717,5 +1718,568 @@ export class LoansService {
     }
 
     return schedules;
+  }
+
+  // ==================== LOAN LIQUIDATION ====================
+
+  async calculateLiquidation(loanId: string, liquidationType: 'partial' | 'complete', requestedAmount?: number, requestingUserId?: string) {
+    const loan = await this.prisma.loan.findUnique({
+      where: { id: loanId },
+      include: { 
+        loanType: true,
+        repaymentSchedules: { orderBy: { installmentNumber: 'asc' } },
+      },
+    });
+
+    if (!loan) {
+      throw new NotFoundException('Loan not found');
+    }
+
+    if (requestingUserId) {
+      await this.validateMembership(loan.cooperativeId, requestingUserId);
+    }
+
+    if (!['disbursed', 'repaying'].includes(loan.status)) {
+      throw new BadRequestException('Loan must be in disbursed or repaying status to liquidate');
+    }
+
+    // Calculate current outstanding balance
+    const outstandingBalance = loan.outstandingBalance;
+    
+    if (outstandingBalance <= 0) {
+      throw new BadRequestException('Loan is already fully paid');
+    }
+
+    // Calculate principal and interest portions from remaining schedules
+    let remainingPrincipal = 0;
+    let remainingInterest = 0;
+    
+    for (const schedule of loan.repaymentSchedules) {
+      if (schedule.status !== 'paid') {
+        const principalDue = schedule.principalAmount - (schedule.paidAmount > schedule.interestAmount 
+          ? Math.min(schedule.paidAmount - schedule.interestAmount, schedule.principalAmount)
+          : 0);
+        const interestDue = schedule.interestAmount - Math.min(schedule.paidAmount, schedule.interestAmount);
+        
+        remainingPrincipal += principalDue;
+        remainingInterest += interestDue;
+      }
+    }
+
+    // For partial liquidation, validate requested amount
+    if (liquidationType === 'partial') {
+      if (!requestedAmount || requestedAmount <= 0) {
+        throw new BadRequestException('Requested amount is required for partial liquidation');
+      }
+      
+      if (requestedAmount >= outstandingBalance) {
+        throw new BadRequestException('Requested amount must be less than outstanding balance for partial liquidation. Use complete liquidation instead.');
+      }
+    }
+
+    // Calculate early payment discount (if applicable)
+    // For now, we'll use 0% discount, but this can be configurable per loan type
+    const earlyPaymentDiscount = 0;
+    
+    // Calculate processing fee (if applicable)
+    const processingFee = 0;
+
+    // Calculate final amount
+    let finalAmount: number;
+    let principalAmount: number;
+    let interestAmount: number;
+
+    if (liquidationType === 'complete') {
+      principalAmount = Math.round(remainingPrincipal);
+      interestAmount = Math.round(remainingInterest);
+      finalAmount = principalAmount + interestAmount - earlyPaymentDiscount + processingFee;
+    } else {
+      // For partial liquidation, apply payment proportionally to principal and interest
+      const interestRatio = remainingInterest / outstandingBalance;
+      const principalRatio = remainingPrincipal / outstandingBalance;
+      
+      interestAmount = Math.round(requestedAmount! * interestRatio);
+      principalAmount = Math.round(requestedAmount! * principalRatio);
+      finalAmount = requestedAmount!;
+    }
+
+    return {
+      liquidationType,
+      requestedAmount: liquidationType === 'complete' ? finalAmount : requestedAmount,
+      outstandingBalance,
+      principalAmount,
+      interestAmount,
+      earlyPaymentDiscount,
+      processingFee,
+      finalAmount,
+      newOutstandingBalance: liquidationType === 'complete' ? 0 : outstandingBalance - finalAmount,
+    };
+  }
+
+  async createLiquidation(loanId: string, dto: any, requestingUserId: string) {
+    const loan = await this.prisma.loan.findUnique({
+      where: { id: loanId },
+      include: { 
+        member: { include: { user: true } },
+        loanType: true,
+      },
+    });
+
+    if (!loan) {
+      throw new NotFoundException('Loan not found');
+    }
+
+    const member = await this.validateMembership(loan.cooperativeId, requestingUserId);
+    
+    // Check if user has permission to approve loans (admin) or is the loan owner
+    const permissions = parsePermissions(member.permissions);
+    const isAdmin = hasPermission(member.role, permissions, PERMISSIONS.LOANS_APPROVE);
+    const isLoanOwner = loan.memberId === member.id;
+
+    if (!isAdmin && !isLoanOwner) {
+      throw new ForbiddenException('You do not have permission to liquidate this loan');
+    }
+
+    // Check for existing pending liquidation
+    const existingPending = await this.prisma.loanLiquidation.findFirst({
+      where: {
+        loanId,
+        status: 'pending',
+      },
+    });
+
+    if (existingPending) {
+      throw new BadRequestException('A liquidation request is already pending for this loan');
+    }
+
+    // Calculate liquidation amounts
+    const calculation = await this.calculateLiquidation(loanId, dto.liquidationType, dto.requestedAmount);
+
+    // Determine if this is admin-initiated (immediate approval) or member-initiated (requires approval)
+    const requestedBy = isAdmin && !isLoanOwner ? 'admin' : 'member';
+    const status = requestedBy === 'admin' ? 'approved' : 'pending';
+
+    // Create liquidation record
+    const liquidation = await this.prisma.loanLiquidation.create({
+      data: {
+        loanId,
+        liquidationType: dto.liquidationType,
+        requestedBy,
+        requestedByUserId: requestingUserId,
+        requestedAmount: calculation.requestedAmount!,
+        outstandingBalance: calculation.outstandingBalance,
+        principalAmount: calculation.principalAmount,
+        interestAmount: calculation.interestAmount,
+        earlyPaymentDiscount: calculation.earlyPaymentDiscount,
+        processingFee: calculation.processingFee,
+        finalAmount: calculation.finalAmount,
+        paymentMethod: dto.paymentMethod,
+        paymentReference: dto.paymentReference,
+        receiptUrl: dto.receiptUrl,
+        status,
+        notes: dto.notes,
+        reviewedBy: requestedBy === 'admin' ? requestingUserId : null,
+        reviewedAt: requestedBy === 'admin' ? new Date() : null,
+      },
+      include: {
+        loan: {
+          include: {
+            member: { include: { user: true } },
+            loanType: true,
+          },
+        },
+      },
+    });
+
+    // If admin-initiated, process immediately
+    if (requestedBy === 'admin') {
+      return this.processLiquidation(liquidation.id, requestingUserId);
+    }
+
+    // Member-initiated: notify admins
+    await this.notificationsService.notifyCooperativeAdmins(
+      loan.cooperativeId,
+      'loan_liquidation_pending',
+      'Loan Liquidation Request',
+      `${loan.member.user?.firstName || 'A member'} ${loan.member.user?.lastName || ''} has requested ${dto.liquidationType} liquidation of ₦${calculation.finalAmount.toLocaleString()}`,
+      { 
+        loanId: loan.id, 
+        liquidationId: liquidation.id, 
+        amount: calculation.finalAmount,
+        liquidationType: dto.liquidationType,
+      },
+      [requestingUserId],
+    );
+
+    // Notify member of submission
+    if (loan.member.userId) {
+      await this.notificationsService.createNotification({
+        userId: loan.member.userId,
+        cooperativeId: loan.cooperativeId,
+        type: 'loan_liquidation_submitted',
+        title: 'Liquidation Request Submitted',
+        body: `Your ${dto.liquidationType} loan liquidation request of ₦${calculation.finalAmount.toLocaleString()} has been submitted and is pending admin approval.`,
+        data: { loanId: loan.id, liquidationId: liquidation.id },
+        actionType: 'navigate',
+        actionRoute: 'LoanDetail',
+        actionParams: { loanId: loan.id },
+      });
+    }
+
+    await this.activitiesService.create({
+      userId: requestingUserId,
+      cooperativeId: loan.cooperativeId,
+      action: 'loan_liquidation_requested',
+      description: `Requested ${dto.liquidationType} loan liquidation of ₦${calculation.finalAmount.toLocaleString()}`,
+    });
+
+    return liquidation;
+  }
+
+  async approveLiquidation(loanId: string, liquidationId: string, dto: any, requestingUserId: string) {
+    const liquidation = await this.prisma.loanLiquidation.findUnique({
+      where: { id: liquidationId },
+      include: {
+        loan: {
+          include: {
+            member: { include: { user: true } },
+            loanType: true,
+          },
+        },
+      },
+    });
+
+    if (!liquidation) {
+      throw new NotFoundException('Liquidation request not found');
+    }
+
+    if (liquidation.loanId !== loanId) {
+      throw new BadRequestException('Liquidation does not belong to this loan');
+    }
+
+    await this.validatePermission(liquidation.loan.cooperativeId, requestingUserId, PERMISSIONS.LOANS_APPROVE);
+
+    if (liquidation.status !== 'pending') {
+      throw new BadRequestException(`Cannot approve liquidation with status: ${liquidation.status}`);
+    }
+
+    // Update liquidation status
+    const updated = await this.prisma.loanLiquidation.update({
+      where: { id: liquidationId },
+      data: {
+        status: 'approved',
+        reviewedBy: requestingUserId,
+        reviewedAt: new Date(),
+        notes: dto.notes || liquidation.notes,
+      },
+      include: {
+        loan: {
+          include: {
+            member: { include: { user: true } },
+            loanType: true,
+          },
+        },
+      },
+    });
+
+    // Process the liquidation
+    await this.processLiquidation(liquidationId, requestingUserId);
+
+    // Notify member
+    if (updated.loan.member.userId) {
+      await this.notificationsService.createNotification({
+        userId: updated.loan.member.userId,
+        cooperativeId: updated.loan.cooperativeId,
+        type: 'loan_liquidation_approved',
+        title: 'Liquidation Approved',
+        body: `Your ${liquidation.liquidationType} loan liquidation of ₦${liquidation.finalAmount.toLocaleString()} has been approved.`,
+        data: { loanId: liquidation.loanId, liquidationId },
+        actionType: 'navigate',
+        actionRoute: 'LoanDetail',
+        actionParams: { loanId: liquidation.loanId },
+      });
+    }
+
+    await this.activitiesService.create({
+      userId: requestingUserId,
+      cooperativeId: updated.loan.cooperativeId,
+      action: 'loan_liquidation_approved',
+      description: `Approved ${liquidation.liquidationType} loan liquidation of ₦${liquidation.finalAmount.toLocaleString()}`,
+    });
+
+    return this.prisma.loanLiquidation.findUnique({
+      where: { id: liquidationId },
+      include: {
+        loan: {
+          include: {
+            member: { include: { user: true } },
+            loanType: true,
+          },
+        },
+      },
+    });
+  }
+
+  async rejectLiquidation(loanId: string, liquidationId: string, dto: any, requestingUserId: string) {
+    const liquidation = await this.prisma.loanLiquidation.findUnique({
+      where: { id: liquidationId },
+      include: {
+        loan: {
+          include: {
+            member: { include: { user: true } },
+          },
+        },
+      },
+    });
+
+    if (!liquidation) {
+      throw new NotFoundException('Liquidation request not found');
+    }
+
+    if (liquidation.loanId !== loanId) {
+      throw new BadRequestException('Liquidation does not belong to this loan');
+    }
+
+    await this.validatePermission(liquidation.loan.cooperativeId, requestingUserId, PERMISSIONS.LOANS_APPROVE);
+
+    if (liquidation.status !== 'pending') {
+      throw new BadRequestException(`Cannot reject liquidation with status: ${liquidation.status}`);
+    }
+
+    const updated = await this.prisma.loanLiquidation.update({
+      where: { id: liquidationId },
+      data: {
+        status: 'rejected',
+        reviewedBy: requestingUserId,
+        reviewedAt: new Date(),
+        rejectionReason: dto.reason,
+      },
+      include: {
+        loan: {
+          include: {
+            member: { include: { user: true } },
+          },
+        },
+      },
+    });
+
+    // Notify member
+    if (updated.loan.member.userId) {
+      await this.notificationsService.createNotification({
+        userId: updated.loan.member.userId,
+        cooperativeId: updated.loan.cooperativeId,
+        type: 'loan_liquidation_rejected',
+        title: 'Liquidation Rejected',
+        body: `Your ${liquidation.liquidationType} loan liquidation request has been rejected. Reason: ${dto.reason}`,
+        data: { loanId: liquidation.loanId, liquidationId, reason: dto.reason },
+        actionType: 'navigate',
+        actionRoute: 'LoanDetail',
+        actionParams: { loanId: liquidation.loanId },
+      });
+    }
+
+    await this.activitiesService.create({
+      userId: requestingUserId,
+      cooperativeId: updated.loan.cooperativeId,
+      action: 'loan_liquidation_rejected',
+      description: `Rejected ${liquidation.liquidationType} loan liquidation: ${dto.reason}`,
+    });
+
+    return updated;
+  }
+
+  async getLiquidations(loanId: string, requestingUserId: string) {
+    const loan = await this.prisma.loan.findUnique({ where: { id: loanId } });
+
+    if (!loan) {
+      throw new NotFoundException('Loan not found');
+    }
+
+    await this.validateMembership(loan.cooperativeId, requestingUserId);
+
+    return this.prisma.loanLiquidation.findMany({
+      where: { loanId },
+      orderBy: { requestedAt: 'desc' },
+    });
+  }
+
+  async getLiquidation(loanId: string, liquidationId: string, requestingUserId: string) {
+    const liquidation = await this.prisma.loanLiquidation.findUnique({
+      where: { id: liquidationId },
+      include: {
+        loan: {
+          include: {
+            member: { include: { user: true } },
+            loanType: true,
+          },
+        },
+      },
+    });
+
+    if (!liquidation) {
+      throw new NotFoundException('Liquidation not found');
+    }
+
+    if (liquidation.loanId !== loanId) {
+      throw new BadRequestException('Liquidation does not belong to this loan');
+    }
+
+    await this.validateMembership(liquidation.loan.cooperativeId, requestingUserId);
+
+    return liquidation;
+  }
+
+  async getPendingLiquidations(cooperativeId: string, requestingUserId: string) {
+    await this.validatePermission(cooperativeId, requestingUserId, PERMISSIONS.LOANS_APPROVE);
+
+    return this.prisma.loanLiquidation.findMany({
+      where: {
+        loan: {
+          cooperativeId,
+        },
+        status: 'pending',
+      },
+      include: {
+        loan: {
+          include: {
+            member: { include: { user: true } },
+            loanType: true,
+          },
+        },
+      },
+      orderBy: { requestedAt: 'asc' },
+    });
+  }
+
+  private async processLiquidation(liquidationId: string, requestingUserId: string) {
+    const liquidation = await this.prisma.loanLiquidation.findUnique({
+      where: { id: liquidationId },
+      include: {
+        loan: {
+          include: {
+            member: { include: { user: true } },
+            repaymentSchedules: { orderBy: { installmentNumber: 'asc' } },
+          },
+        },
+      },
+    });
+
+    if (!liquidation) {
+      throw new NotFoundException('Liquidation not found');
+    }
+
+    const loan = liquidation.loan;
+
+    if (liquidation.liquidationType === 'complete') {
+      // Mark all unpaid schedules as paid
+      for (const schedule of loan.repaymentSchedules) {
+        if (schedule.status !== 'paid') {
+          await this.prisma.loanRepaymentSchedule.update({
+            where: { id: schedule.id },
+            data: {
+              paidAmount: schedule.totalAmount,
+              status: 'paid',
+              paidAt: new Date(),
+            },
+          });
+        }
+      }
+
+      // Update loan to completed
+      await this.prisma.loan.update({
+        where: { id: loan.id },
+        data: {
+          amountRepaid: loan.totalRepayment,
+          outstandingBalance: 0,
+          status: 'completed',
+          completedAt: new Date(),
+        },
+      });
+    } else {
+      // Partial liquidation: apply payment to schedules
+      let remainingAmount = liquidation.finalAmount;
+
+      for (const schedule of loan.repaymentSchedules) {
+        if (remainingAmount <= 0) break;
+        if (schedule.status === 'paid') continue;
+
+        const amountDue = schedule.totalAmount - schedule.paidAmount;
+        const amountToPay = Math.min(remainingAmount, amountDue);
+
+        remainingAmount -= amountToPay;
+
+        await this.prisma.loanRepaymentSchedule.update({
+          where: { id: schedule.id },
+          data: {
+            paidAmount: schedule.paidAmount + amountToPay,
+            status: schedule.paidAmount + amountToPay >= schedule.totalAmount ? 'paid' : 'partial',
+            paidAt: schedule.paidAmount + amountToPay >= schedule.totalAmount ? new Date() : null,
+          },
+        });
+      }
+
+      // Update loan balance
+      const newAmountRepaid = loan.amountRepaid + liquidation.finalAmount;
+      const newOutstanding = loan.totalRepayment - newAmountRepaid;
+
+      await this.prisma.loan.update({
+        where: { id: loan.id },
+        data: {
+          amountRepaid: newAmountRepaid,
+          outstandingBalance: Math.max(0, newOutstanding),
+          status: newOutstanding <= 0 ? 'completed' : 'repaying',
+          completedAt: newOutstanding <= 0 ? new Date() : null,
+        },
+      });
+    }
+
+    // Update liquidation status
+    await this.prisma.loanLiquidation.update({
+      where: { id: liquidationId },
+      data: {
+        status: 'completed',
+        completedAt: new Date(),
+      },
+    });
+
+    // Add ledger entry
+    await this.prisma.ledgerEntry.create({
+      data: {
+        cooperativeId: loan.cooperativeId,
+        memberId: loan.memberId,
+        type: 'loan_liquidation',
+        amount: liquidation.finalAmount,
+        balanceAfter: 0,
+        referenceId: liquidation.id,
+        referenceType: 'loan_liquidation',
+        description: `Loan ${liquidation.liquidationType} liquidation: ₦${liquidation.finalAmount.toLocaleString()}`,
+        createdBy: requestingUserId,
+      },
+    });
+
+    // Notify member of completion
+    if (loan.member.userId) {
+      const message = liquidation.liquidationType === 'complete'
+        ? `Your loan has been fully liquidated with a payment of ₦${liquidation.finalAmount.toLocaleString()}. The loan is now closed. 🎉`
+        : `Your partial loan liquidation of ₦${liquidation.finalAmount.toLocaleString()} has been processed. New outstanding balance: ₦${Math.max(0, loan.outstandingBalance - liquidation.finalAmount).toLocaleString()}.`;
+
+      await this.notificationsService.createNotification({
+        userId: loan.member.userId,
+        cooperativeId: loan.cooperativeId,
+        type: liquidation.liquidationType === 'complete' ? 'loan_liquidation_completed' : 'loan_liquidation_partial_completed',
+        title: liquidation.liquidationType === 'complete' ? 'Loan Fully Liquidated 🎉' : 'Partial Liquidation Completed',
+        body: message,
+        data: { 
+          loanId: loan.id, 
+          liquidationId, 
+          amount: liquidation.finalAmount,
+        },
+        actionType: 'navigate',
+        actionRoute: 'LoanDetail',
+        actionParams: { loanId: loan.id },
+      });
+    }
+
+    return liquidation;
   }
 }

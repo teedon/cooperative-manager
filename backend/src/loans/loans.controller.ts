@@ -476,4 +476,137 @@ export class LoansController {
       );
     }
   }
+
+  // ==================== LOAN LIQUIDATION ENDPOINTS ====================
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('loans/:loanId/liquidations/calculate')
+  async calculateLiquidation(
+    @Param('loanId') loanId: string,
+    @Body() dto: any,
+    @Request() req: any,
+  ) {
+    try {
+      const data = await this.loansService.calculateLiquidation(
+        loanId,
+        dto.liquidationType,
+        dto.requestedAmount,
+        req.user.id,
+      );
+      return { success: true, message: 'Liquidation calculated successfully', data };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to calculate liquidation', data: null },
+        error.status || HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('loans/:loanId/liquidations')
+  async createLiquidation(
+    @Param('loanId') loanId: string,
+    @Body() dto: any,
+    @Request() req: any,
+  ) {
+    try {
+      const data = await this.loansService.createLiquidation(loanId, dto, req.user.id);
+      return { success: true, message: 'Liquidation request created successfully', data };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to create liquidation request', data: null },
+        error.status || HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get('loans/:loanId/liquidations')
+  async getLiquidations(
+    @Param('loanId') loanId: string,
+    @Request() req: any,
+  ) {
+    try {
+      const data = await this.loansService.getLiquidations(loanId, req.user.id);
+      return { success: true, message: 'Liquidations retrieved successfully', data };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to retrieve liquidations', data: null },
+        error.status || HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get('loans/:loanId/liquidations/:liquidationId')
+  async getLiquidation(
+    @Param('loanId') loanId: string,
+    @Param('liquidationId') liquidationId: string,
+    @Request() req: any,
+  ) {
+    try {
+      const data = await this.loansService.getLiquidation(loanId, liquidationId, req.user.id);
+      return { success: true, message: 'Liquidation retrieved successfully', data };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to retrieve liquidation', data: null },
+        error.status || HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('loans/:loanId/liquidations/:liquidationId/approve')
+  async approveLiquidation(
+    @Param('loanId') loanId: string,
+    @Param('liquidationId') liquidationId: string,
+    @Body() dto: any,
+    @Request() req: any,
+  ) {
+    try {
+      const data = await this.loansService.approveLiquidation(loanId, liquidationId, dto, req.user.id);
+      return { success: true, message: 'Liquidation approved successfully', data };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to approve liquidation', data: null },
+        error.status || HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('loans/:loanId/liquidations/:liquidationId/reject')
+  async rejectLiquidation(
+    @Param('loanId') loanId: string,
+    @Param('liquidationId') liquidationId: string,
+    @Body() dto: any,
+    @Request() req: any,
+  ) {
+    try {
+      const data = await this.loansService.rejectLiquidation(loanId, liquidationId, dto, req.user.id);
+      return { success: true, message: 'Liquidation rejected successfully', data };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to reject liquidation', data: null },
+        error.status || HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Get('cooperatives/:cooperativeId/pending-liquidations')
+  async getPendingLiquidations(
+    @Param('cooperativeId') cooperativeId: string,
+    @Request() req: any,
+  ) {
+    try {
+      const data = await this.loansService.getPendingLiquidations(cooperativeId, req.user.id);
+      return { success: true, message: 'Pending liquidations retrieved successfully', data };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to retrieve pending liquidations', data: null },
+        error.status || HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
 }

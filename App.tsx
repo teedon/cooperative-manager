@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { store } from './src/store';
 import { RootNavigator } from './src/navigation';
 import { AppThemeProvider } from './src/theme/ThemeProvider';
+import { UserTypeProvider } from './src/contexts/UserTypeContext';
 import ErrorBoundary from './src/components/common/ErrorBoundary';
 import logger from './src/utils/logger';
 import { initializeNotifications } from './src/services/notificationService';
@@ -35,14 +36,16 @@ export default function App() {
 
   return (
     <Provider store={store}>
-      <AppThemeProvider>
-        <SafeAreaProvider>
-          <ErrorBoundary>
-            <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
-            <RootNavigator />
-          </ErrorBoundary>
-        </SafeAreaProvider>
-      </AppThemeProvider>
+      <UserTypeProvider>
+        <AppThemeProvider>
+          <SafeAreaProvider>
+            <ErrorBoundary>
+              <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+              <RootNavigator />
+            </ErrorBoundary>
+          </SafeAreaProvider>
+        </AppThemeProvider>
+      </UserTypeProvider>
     </Provider>
   );
 }

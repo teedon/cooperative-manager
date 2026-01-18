@@ -36,6 +36,9 @@ import LoanApprovalListScreen from '../screens/loans/LoanApprovalListScreen';
 import LoanInitiateScreen from '../screens/loans/LoanInitiateScreen';
 import GuarantorLoansScreen from '../screens/loans/GuarantorLoansScreen';
 import PendingRepaymentsScreen from '../screens/loans/PendingRepaymentsScreen';
+import LoanLiquidationScreen from '../screens/loans/LoanLiquidationScreen';
+import LiquidationDetailScreen from '../screens/loans/LiquidationDetailScreen';
+import PendingLiquidationsScreen from '../screens/loans/PendingLiquidationsScreen';
 import LedgerScreen from '../screens/ledger/LedgerScreen';
 import MemberDashboardScreen from '../screens/cooperative/MemberDashboardScreen';
 import AdminManagementScreen from '../screens/cooperative/AdminManagementScreen';
@@ -78,6 +81,16 @@ import EsusuDetailScreen from '../screens/esusu/EsusuDetailScreen';
 import RecordContributionScreen from '../screens/esusu/RecordContributionScreen';
 import ProcessCollectionScreen from '../screens/esusu/ProcessCollectionScreen';
 import SetEsusuOrderScreen from '../screens/esusu/SetEsusuOrderScreen';
+import CollectionsListScreen from '../screens/collections/CollectionsListScreen';
+import CreateCollectionScreen from '../screens/collections/CreateCollectionScreen';
+import CollectionDetailsScreen from '../screens/collections/CollectionDetailsScreen';
+import AddTransactionScreen from '../screens/collections/AddTransactionScreen';
+import PendingApprovalsScreen from '../screens/collections/PendingApprovalsScreen';
+import CollectionsStatisticsScreen from '../screens/collections/CollectionsStatisticsScreen';
+import OrganizationListScreen from '../screens/organizations/OrganizationListScreen';
+import CreateOrganizationScreen from '../screens/organizations/CreateOrganizationScreen';
+import OrganizationDetailScreen from '../screens/organizations/OrganizationDetailScreen';
+import StaffListScreen from '../screens/organizations/StaffListScreen';
 
 export type MainTabParamList = {
   HomeTab: undefined;
@@ -135,6 +148,10 @@ export type HomeStackParamList = {
   LoanInitiate: { cooperativeId: string };
   GuarantorLoans: { cooperativeId: string };
   PendingRepayments: { cooperativeId: string };
+  // Loan Liquidation screens
+  LoanLiquidation: { loanId: string };
+  LiquidationDetail: { loanId: string; liquidationId: string };
+  PendingLiquidations: { cooperativeId: string };
   Ledger: { cooperativeId: string; memberId?: string };
   MemberDashboard: { cooperativeId: string; memberId: string };
   AdminManagement: { cooperativeId: string };
@@ -178,6 +195,21 @@ export type HomeStackParamList = {
   RecordContribution: { esusuId: string };
   ProcessCollection: { esusuId: string };
   SetEsusuOrder: { esusuId: string };
+  // Daily Collection screens (for field agents and managers)
+  CollectionsList: { organizationId: string };
+  CreateCollection: { organizationId: string };
+  CollectionDetails: { organizationId: string; collectionId: string };
+  AddTransaction: { organizationId: string; collectionId: string };
+  PendingCollectionApprovals: { organizationId: string };
+  CollectionsStatistics: { organizationId: string };
+  // Organization Management screens
+  OrganizationList: undefined;
+  CreateOrganization: undefined;
+  OrganizationDetail: { organizationId: string };
+  // Staff Management screens
+  StaffList: { organizationId: string };
+  CreateStaff: { organizationId: string };
+  StaffDetail: { organizationId: string; staffId: string };
 };
 
 const HomeStackNavigator: React.FC = () => {
@@ -316,6 +348,21 @@ const HomeStackNavigator: React.FC = () => {
         name="PendingRepayments"
         component={PendingRepaymentsScreen}
         options={{ title: 'Pending Repayments' }}
+      />
+      <HomeStack.Screen
+        name="LoanLiquidation"
+        component={LoanLiquidationScreen}
+        options={{ title: 'Loan Liquidation' }}
+      />
+      <HomeStack.Screen
+        name="LiquidationDetail"
+        component={LiquidationDetailScreen}
+        options={{ title: 'Liquidation Details' }}
+      />
+      <HomeStack.Screen
+        name="PendingLiquidations"
+        component={PendingLiquidationsScreen}
+        options={{ title: 'Pending Liquidations' }}
       />
       <HomeStack.Screen name="Ledger" component={LedgerScreen} options={{ title: 'Ledger' }} />
       <HomeStack.Screen
@@ -499,6 +546,59 @@ const HomeStackNavigator: React.FC = () => {
         component={SetEsusuOrderScreen}
         options={{ title: 'Set Collection Order' }}
       />
+      {/* Daily Collection Screens */}
+      <HomeStack.Screen
+        name="CollectionsList"
+        component={CollectionsListScreen}
+        options={{ title: 'Daily Collections' }}
+      />
+      <HomeStack.Screen
+        name="CreateCollection"
+        component={CreateCollectionScreen}
+        options={{ title: 'New Collection' }}
+      />
+      <HomeStack.Screen
+        name="CollectionDetails"
+        component={CollectionDetailsScreen}
+        options={{ title: 'Collection Details' }}
+      />
+      <HomeStack.Screen
+        name="AddTransaction"
+        component={AddTransactionScreen}
+        options={{ title: 'Add Transaction' }}
+      />
+      <HomeStack.Screen
+        name="PendingCollectionApprovals"
+        component={PendingApprovalsScreen}
+        options={{ title: 'Pending Approvals' }}
+      />
+      <HomeStack.Screen
+        name="CollectionsStatistics"
+        component={CollectionsStatisticsScreen}
+        options={{ title: 'Statistics & Reports' }}
+      />
+      {/* Organization Management Screens */}
+      <HomeStack.Screen
+        name="OrganizationList"
+        component={OrganizationListScreen}
+        options={{ title: 'Organizations' }}
+      />
+      <HomeStack.Screen
+        name="CreateOrganization"
+        component={CreateOrganizationScreen}
+        options={{ title: 'Create Organization' }}
+      />
+      <HomeStack.Screen
+        name="OrganizationDetail"
+        component={OrganizationDetailScreen}
+        options={{ title: 'Organization Details' }}
+      />
+      {/* Staff Management Screens */}
+      <HomeStack.Screen
+        name="StaffList"
+        component={StaffListScreen}
+        options={{ title: 'Staff Members' }}
+      />
     </HomeStack.Navigator>
   );
 };
@@ -674,6 +774,21 @@ const CoopsStackNavigator: React.FC = () => {
         name="PendingRepayments"
         component={PendingRepaymentsScreen}
         options={{ title: 'Pending Repayments' }}
+      />
+      <CoopsStack.Screen
+        name="LoanLiquidation"
+        component={LoanLiquidationScreen}
+        options={{ title: 'Loan Liquidation' }}
+      />
+      <CoopsStack.Screen
+        name="LiquidationDetail"
+        component={LiquidationDetailScreen}
+        options={{ title: 'Liquidation Details' }}
+      />
+      <CoopsStack.Screen
+        name="PendingLiquidations"
+        component={PendingLiquidationsScreen}
+        options={{ title: 'Pending Liquidations' }}
       />
       <CoopsStack.Screen name="Ledger" component={LedgerScreen} options={{ title: 'Ledger' }} />
       <CoopsStack.Screen

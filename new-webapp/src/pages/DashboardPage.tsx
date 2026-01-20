@@ -6,7 +6,7 @@ import { Button, Card, useToast } from '../components/ui'
 import { 
   Users, TrendingUp, DollarSign, Activity, Plus, 
   LogOut, Building2, ArrowRight, Clock,
-  Wallet, FileText, ShoppingCart, User, Settings
+  Wallet, FileText, ShoppingCart, User
 } from 'lucide-react'
 import { cooperativeApi } from '../api/cooperativeApi'
 import { activityApi } from '../api/activityApi'
@@ -191,13 +191,6 @@ export const DashboardPage: React.FC = () => {
             </p>
           </div>
           <div className="flex gap-3">
-            <Button
-              variant="outline"
-              onClick={() => navigate('/admin/app-versions')}
-              leftIcon={<Settings className="w-4 h-4" />}
-            >
-              Admin
-            </Button>
             <Button
               variant="outline"
               onClick={handleLogout}
@@ -395,6 +388,7 @@ export const DashboardPage: React.FC = () => {
                   variant="primary" 
                   fullWidth
                   leftIcon={<Plus className="w-4 h-4" />}
+                  onClick={() => setShowCreateModal(true)}
                 >
                   Create Cooperative
                 </Button>
@@ -409,6 +403,7 @@ export const DashboardPage: React.FC = () => {
                   variant="outline" 
                   fullWidth
                   leftIcon={<TrendingUp className="w-4 h-4" />}
+                  onClick={() => navigate('/cooperatives')}
                 >
                   Request Loan
                 </Button>
@@ -425,6 +420,22 @@ export const DashboardPage: React.FC = () => {
                   leftIcon={<FileText className="w-4 h-4" />}
                 >
                   View Reports
+                </Button>
+                <Button 
+                  variant="outline" 
+                  fullWidth
+                  leftIcon={<Building2 className="w-4 h-4" />}
+                  onClick={() => navigate('/organizations')}
+                >
+                  Manage Organizations
+                </Button>
+                <Button 
+                  variant="outline" 
+                  fullWidth
+                  leftIcon={<Users className="w-4 h-4" />}
+                  onClick={() => navigate('/admin/users')}
+                >
+                  Manage Users
                 </Button>
               </div>
             </Card>

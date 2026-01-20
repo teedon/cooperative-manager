@@ -16,12 +16,24 @@ import { DownloadsModule } from './downloads/downloads.module';
 import { AjoModule } from './ajo/ajo.module';
 import { EsusuModule } from './esusu/esusu.module';
 import { OrganizationsModule } from './organizations/organizations.module';
+import { AdminAuthModule } from './admin-auth/admin-auth.module';
+import { AdminDashboardModule } from './admin-dashboard/admin-dashboard.module';
+import { AdminUsersModule } from './admin-users/admin-users.module';
+import { AdminCooperativesModule } from './admin-cooperatives/admin-cooperatives.module';
+import { AdminSubscriptionsModule } from './admin-subscriptions/admin-subscriptions.module';
+import { AdminOrganizationsModule } from './admin-organizations/admin-organizations.module';
 
 @Module({
   imports: [
     PrismaModule,
     UsersModule,
     AuthModule,
+    AdminAuthModule,
+    AdminDashboardModule,
+    AdminUsersModule,
+    AdminCooperativesModule,
+    AdminSubscriptionsModule,
+    AdminOrganizationsModule,
     CooperativesModule,
     ActivitiesModule,
     ContributionsModule,

@@ -32,7 +32,7 @@ model User {
   loanApprovals           LoanApproval[]          @relation("LoanApprovals")
   submittedRepayments     LoanRepayment[]         @relation("RepaymentSubmitter")
   reviewedRepayments      LoanRepayment[]         @relation("RepaymentReviewer")
-  staffProfile            Staff?                  @relation("UserStaff")
+  staffProfiles           Staff[]                 @relation("UserStaff")
 }
 
 // ==================== ORGANIZATION & STAFF MANAGEMENT ====================
@@ -67,7 +67,7 @@ model Staff {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
 
-  userId String @unique
+  userId String
   user   User   @relation("UserStaff", fields: [userId], references: [id], onDelete: Cascade)
 
   // Role and permissions
@@ -90,6 +90,7 @@ model Staff {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([organizationId, userId]) // Prevent same user being added twice to same organization
   @@unique([organizationId, employeeCode])
   @@index([organizationId])
   @@index([userId])
@@ -1485,4 +1486,31 @@ model EsusuCollection {
   @@unique([esusuId, cycleNumber]) // One collection per cycle
   @@index([esusuId])
   @@index([memberId])
+}
+
+// ==================== ADMIN USERS (Platform Administration) ====================
+
+model AdminUser {
+  id           String  @id @default(cuid())
+  email        String  @unique
+  password     String
+  firstName    String
+  lastName     String
+  role         String  @default("admin") // 'super_admin' | 'admin' | 'support'
+  avatarUrl    String?
+  refreshToken String?
+  
+  // Status
+  isActive     Boolean @default(true)
+  lastLoginAt  DateTime?
+  
+  // Password reset
+  passwordResetToken   String?
+  passwordResetExpires DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@index([role])
 }

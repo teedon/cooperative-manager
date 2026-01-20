@@ -246,7 +246,7 @@ export class CollectionValidationService {
       },
       select: {
         id: true,
-        principalAmount: true,
+        amount: true,
         interestAmount: true,
         amountRepaid: true,
         status: true,
@@ -262,7 +262,7 @@ export class CollectionValidationService {
     // Calculate total outstanding
     let totalOutstanding = 0;
     loans.forEach((loan) => {
-      const totalDue = loan.principalAmount + loan.interestAmount;
+      const totalDue = loan.amount + loan.interestAmount;
       const outstanding = totalDue - loan.amountRepaid;
       totalOutstanding += outstanding;
     });

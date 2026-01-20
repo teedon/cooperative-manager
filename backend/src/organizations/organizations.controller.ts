@@ -7,6 +7,8 @@ import {
   Param,
   UseGuards,
   Request,
+  Query,
+  Delete,
 } from '@nestjs/common';
 import { OrganizationsService } from './organizations.service';
 import { CreateOrganizationDto, UpdateOrganizationDto } from './dto/create-organization.dto';
@@ -90,6 +92,45 @@ export class OrganizationsController {
     return {
       success: true,
       data: await this.organizationsService.getStats(id, req.user.id),
+    };
+  }
+
+  @Get(':id/staff')
+  async getStaff(
+    @Param('id') organizationId: string,
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10',
+    @Request() req: any,
+  ) {
+    return {
+      success: true,
+      data: await this.organizationsService.getStaff(organizationId, req.user.id, parseInt(page), parseInt(limit)),
+    };
+  }
+
+  @Post(':id/staff')
+  async addStaff(
+    @Param('id') organizationId: string,
+    @Body() addStaffDto: { userId: string; role: string; permissions: string[]; employeeCode?: string },
+    @Request() req: any,
+  ) {
+    return {
+      success: true,
+      message: 'Staff member added successfully',
+      data: await this.organizationsService.addStaff(organizationId, req.user.id, addStaffDto),
+    };
+  }
+
+  @Delete(':id/staff/:staffId')
+  async removeStaff(
+    @Param('id') organizationId: string,
+    @Param('staffId') staffId: string,
+    @Request() req: any,
+  ) {
+    return {
+      success: true,
+      message: 'Staff member removed successfully',
+      data: await this.organizationsService.removeStaff(organizationId, staffId, req.user.id),
     };
   }
 }

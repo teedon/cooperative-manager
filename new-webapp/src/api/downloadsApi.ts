@@ -2,67 +2,51 @@ import axios from 'axios'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:3001/api'
 
-export interface DownloadStats {
-  total: number
-  byPlatform: {
-    android?: number
-    ios?: number
-    web?: number
+const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  withCredentials: true,
+})
+
+// Add auth token to requests
+apiClient.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token')
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
   }
-  last30Days: number
-  dailyDownloads: Array<{
-    date: string
-    count: number
-  }>
-}
+  return config
+})
 
 export const downloadsApi = {
-  /**
-   * Trigger app download - this will automatically track the download
-   */
-  downloadApp: (platform: 'android' | 'ios' | 'web') => {
-    // Return the download URL - browser will handle the download
-    return `${API_BASE_URL}/downloads/app/${platform}`
+  // Get download URL for app
+  downloadApp(platform: 'ios' | 'android' | 'web'): string {
+    // For now, return placeholder URLs
+    // In production, these would come from the backend
+    switch (platform) {
+      case 'ios':
+        return 'https://apps.apple.com/app/cooperative-manager'
+      case 'android':
+        return 'https://play.google.com/store/apps/details?id=com.cooperativemanager'
+      case 'web':
+        return window.location.origin
+      default:
+        return window.location.origin
+    }
   },
 
-  /**
-   * Get download statistics
-   */
-  getStats: async (platform?: 'android' | 'ios' | 'web'): Promise<DownloadStats> => {
-    const params = platform ? { platform } : {}
-    const response = await axios.get(`${API_BASE_URL}/downloads/stats`, { params })
-    return response.data
-  },
-
-  /**
-   * Upload app file (requires authentication)
-   */
-  uploadApp: async (platform: 'android' | 'ios' | 'web', file: File, token: string) => {
-    const formData = new FormData()
-    formData.append('file', file)
-
-    const response = await axios.post(
-      `${API_BASE_URL}/downloads/upload/${platform}`,
-      formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          Authorization: `Bearer ${token}`,
-        },
+  // Get app versions
+  async getAppVersions(): Promise<{ success: boolean, data?: any[], message?: string }> {
+    try {
+      const response = await apiClient.get('/admin/app-versions')
+      return { success: true, data: response.data }
+    } catch (error: any) {
+      console.error('Failed to fetch app versions:', error)
+      return {
+        success: false,
+        message: error.response?.data?.message || 'Failed to fetch app versions'
       }
-    )
-    return response.data
-  },
-
-  /**
-   * List available app files (requires authentication)
-   */
-  listFiles: async (token: string) => {
-    const response = await axios.get(`${API_BASE_URL}/downloads/files`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    })
-    return response.data
-  },
+    }
+  }
 }

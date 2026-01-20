@@ -5,8 +5,6 @@ import { store } from './store'
 import { useAppSelector } from './hooks/useAuth'
 import { LoginPage, SignupPage } from './pages/auth'
 import { LandingPage } from './pages/LandingPage'
-import { DownloadStatsPage } from './pages/DownloadStatsPage'
-import AppVersionManagementPage from './pages/AppVersionManagementPage'
 import PrivacyPolicyPage from './pages/legal/PrivacyPolicyPage'
 import TermsOfServicePage from './pages/legal/TermsOfServicePage'
 import CookiePolicyPage from './pages/legal/CookiePolicyPage'
@@ -27,6 +25,9 @@ import { AdminManagementPage } from './pages/AdminManagementPage'
 import { CooperativeSettingsPage } from './pages/CooperativeSettingsPage'
 import { BulkApproveSchedulesPage } from './pages/BulkApproveSchedulesPage'
 import { ReportsPage } from './pages/ReportsPage'
+import { OrganizationsPage } from './pages/OrganizationsPage'
+import { OrganizationDetailPage } from './pages/OrganizationDetailPage'
+import { UserManagementPage } from './pages/UserManagementPage'
 import { ToastProvider } from './components/ui'
 import CookieConsent from './components/CookieConsent'
 import './index.css'
@@ -75,23 +76,10 @@ const AppRoutes: React.FC = () => {
         } 
       />
       
-      {/* Public Download Stats - accessible to all */}
-      <Route path="/download-stats" element={<DownloadStatsPage />} />
-      
       {/* Legal Pages - accessible to all */}
       <Route path="/privacy-policy" element={<PrivacyPolicyPage />} />
       <Route path="/terms-of-service" element={<TermsOfServicePage />} />
       <Route path="/cookie-policy" element={<CookiePolicyPage />} />
-      
-      {/* Admin Version Management - protected */}
-      <Route 
-        path="/admin/app-versions" 
-        element={
-          <ProtectedRoute>
-            <AppVersionManagementPage />
-          </ProtectedRoute>
-        } 
-      />
       
       {/* Protected Routes */}
       <Route 
@@ -227,6 +215,34 @@ const AppRoutes: React.FC = () => {
         element={
           <ProtectedRoute>
             <ReportsPage />
+          </ProtectedRoute>
+        } 
+      />
+      
+      {/* Organization Management Routes */}
+      <Route 
+        path="/organizations" 
+        element={
+          <ProtectedRoute>
+            <OrganizationsPage />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/organizations/:id" 
+        element={
+          <ProtectedRoute>
+            <OrganizationDetailPage />
+          </ProtectedRoute>
+        } 
+      />
+      
+      {/* User Management Routes */}
+      <Route 
+        path="/admin/users" 
+        element={
+          <ProtectedRoute>
+            <UserManagementPage />
           </ProtectedRoute>
         } 
       />

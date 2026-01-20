@@ -6,6 +6,8 @@ export interface User {
   lastName: string
   phone?: string
   avatarUrl?: string
+  role?: string
+  status?: 'active' | 'inactive'
   createdAt: string
   updatedAt: string
 }
@@ -159,10 +161,61 @@ export interface Activity {
   createdAt: string
 }
 
+// Organization Types
+export interface Organization {
+  id: string
+  name: string
+  type: 'cooperative' | 'manager'
+  description?: string
+  cooperativesCount: number
+  staffCount: number
+  status: 'active' | 'inactive'
+  totalRevenue: number
+  createdAt: string
+  userRole?: 'admin' | 'supervisor' | 'field_agent' | 'accountant'
+  userPermissions?: string[]
+  contactInfo: {
+    email?: string
+    phone?: string
+    address?: string
+  }
+}
+
+export interface OrganizationStaff {
+  id: string
+  userId: string
+  organizationId: string
+  role: 'admin' | 'supervisor' | 'field_agent' | 'accountant'
+  permissions: string[]
+  hiredAt: string
+  user: {
+    id: string
+    firstName: string
+    lastName: string
+    email: string
+    phone?: string
+  }
+}
+
+export interface CreateOrganizationDto {
+  name: string
+  type: 'cooperative' | 'manager'
+  description?: string
+  email?: string
+  phone?: string
+  address?: string
+}
+
+export interface AddStaffDto {
+  userId: string
+  role: 'admin' | 'supervisor' | 'field_agent' | 'accountant'
+  permissions: string[]
+}
+
 // API Response wrapper
 export interface ApiResponse<T> {
   success: boolean
-  data: T
+  data: T | null
   message?: string
   error?: string
 }

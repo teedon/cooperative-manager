@@ -1,7 +1,9 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrganizationDto, UpdateOrganizationDto } from './dto/create-organization.dto';
+import { InviteStaffDto } from './dto/staff-invite.dto';
 import { OrganizationType } from './enums/organization-type.enum';
+import { sendMailWithZoho, generateStaffInviteEmailTemplate } from '../services/mailer';
 
 @Injectable()
 export class OrganizationsService {
@@ -224,6 +226,8 @@ export class OrganizationsService {
 
   // Helper methods
   private async verifyAccess(organizationId: string, userId: string) {
+    console.log('verifyAccess called with:', { organizationId, userId });
+    
     const staff = await this.prisma.staff.findFirst({
       where: {
         organizationId,
@@ -232,6 +236,8 @@ export class OrganizationsService {
       },
     });
 
+    console.log('Staff found for user:', staff);
+
     if (!staff) {
       throw new NotFoundException('Organization not found or access denied');
     }
@@ -239,8 +245,10 @@ export class OrganizationsService {
     return staff;
   }
   async getStaff(organizationId: string, userId: string, page: number = 1, limit: number = 10) {
-    // Verify user has access to this organization
-    await this.verifyAdminAccess(organizationId, userId);
+    console.log('getStaff called with:', { organizationId, userId, page, limit });
+    
+    // Verify user has access to this organization (any staff member can view staff list)
+    await this.verifyAccess(organizationId, userId);
 
     const skip = (page - 1) * limit;
 
@@ -272,6 +280,9 @@ export class OrganizationsService {
         }
       })
     ]);
+
+    console.log('Found staff members:', staff.length);
+    console.log('Staff data:', staff);
 
     const formattedStaff = staff.map(member => ({
       id: member.id,
@@ -384,6 +395,251 @@ export class OrganizationsService {
 
     return { success: true };
   }
+
+  // ==================== STAFF INVITATION METHODS ====================
+
+  async inviteStaff(organizationId: string, inviteDto: InviteStaffDto, inviterId: string) {
+    // Verify user has admin access to this organization
+    await this.verifyAdminAccess(organizationId, inviterId);
+
+    const organization = await this.prisma.organization.findUnique({
+      where: { id: organizationId },
+    });
+
+    if (!organization) {
+      throw new NotFoundException('Organization not found');
+    }
+
+    // Check if user is already a staff member
+    const existingUser = await this.prisma.user.findUnique({
+      where: { email: inviteDto.email },
+    });
+
+    if (existingUser) {
+      const existingStaff = await this.prisma.staff.findFirst({
+        where: {
+          organizationId,
+          userId: existingUser.id,
+        },
+      });
+
+      if (existingStaff) {
+        throw new BadRequestException('User is already a staff member of this organization');
+      }
+    }
+
+    // Check for existing pending invitation
+    const existingInvitation = await this.prisma.invitation.findFirst({
+      where: {
+        organizationId,
+        email: inviteDto.email,
+        invitationType: 'staff',
+        status: 'pending',
+        expiresAt: { gt: new Date() },
+      },
+    });
+
+    if (existingInvitation) {
+      throw new BadRequestException('A pending invitation already exists for this email');
+    }
+
+    // Get inviter info
+    const inviter = await this.prisma.user.findUnique({
+      where: { id: inviterId },
+      select: { firstName: true, lastName: true },
+    });
+
+    const inviterName = inviter ? `${inviter.firstName} ${inviter.lastName}` : 'Organization Admin';
+    
+    // If cooperative assignments provided, validate they exist and belong to organization
+    if (inviteDto.cooperativeIds && inviteDto.cooperativeIds.length > 0) {
+      const cooperatives = await this.prisma.cooperative.findMany({
+        where: {
+          id: { in: inviteDto.cooperativeIds },
+          organizationId,
+        },
+      });
+
+      if (cooperatives.length !== inviteDto.cooperativeIds.length) {
+        throw new BadRequestException('Some cooperatives do not exist or do not belong to this organization');
+      }
+    }
+
+    try {
+      // Create invitation record
+      const invitation = await this.prisma.invitation.create({
+        data: {
+          organizationId,
+          inviterId,
+          email: inviteDto.email,
+          message: inviteDto.message,
+          invitationType: 'staff',
+          role: inviteDto.role,
+          permissions: inviteDto.permissions || [],
+          employeeCode: inviteDto.employeeCode,
+          status: 'pending',
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days expiration
+          // Store cooperative assignments in metadata for later use
+          metadata: inviteDto.cooperativeIds ? { cooperativeIds: inviteDto.cooperativeIds } : undefined,
+        },
+      });
+
+      // Send invitation email
+      const htmlContent = generateStaffInviteEmailTemplate(
+        inviteDto.email,
+        inviterName,
+        organization.name,
+        inviteDto.role,
+        inviteDto.message,
+      );
+
+      const emailSent = await sendMailWithZoho({
+        recipient: inviteDto.email,
+        subject: `You're invited to join ${organization.name} as staff`,
+        htmlContent,
+      });
+
+      return {
+        invitation,
+        emailSent,
+        organizationName: organization.name,
+        inviterName,
+      };
+    } catch (error) {
+      console.error('Error sending staff invitation:', error);
+      throw new BadRequestException('Failed to send staff invitation');
+    }
+  }
+
+  async getStaffInvitations(organizationId: string, userId: string) {
+    // Verify user has admin access to this organization
+    await this.verifyAdminAccess(organizationId, userId);
+
+    const invitations = await this.prisma.invitation.findMany({
+      where: { 
+        organizationId,
+        invitationType: 'staff',
+      },
+      include: {
+        inviter: {
+          select: {
+            id: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+          },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return invitations;
+  }
+
+  async revokeStaffInvitation(invitationId: string, userId: string) {
+    const invitation = await this.prisma.invitation.findUnique({
+      where: { id: invitationId },
+    });
+
+    if (!invitation || invitation.invitationType !== 'staff') {
+      throw new NotFoundException('Staff invitation not found');
+    }
+
+    // Verify user has admin access to this organization
+    await this.verifyAdminAccess(invitation.organizationId!, userId);
+
+    await this.prisma.invitation.update({
+      where: { id: invitationId },
+      data: { status: 'revoked' },
+    });
+
+    return { success: true };
+  }
+
+  async acceptStaffInvitation(invitationId: string, userId: string) {
+    const invitation = await this.prisma.invitation.findUnique({
+      where: { id: invitationId },
+      include: { organization: true },
+    });
+
+    if (!invitation || invitation.invitationType !== 'staff') {
+      throw new NotFoundException('Staff invitation not found');
+    }
+
+    if (invitation.status !== 'pending') {
+      throw new BadRequestException('Invitation is no longer valid');
+    }
+
+    if (invitation.expiresAt && invitation.expiresAt < new Date()) {
+      throw new BadRequestException('Invitation has expired');
+    }
+
+    // Get user email to verify they match
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true },
+    });
+
+    if (!user || user.email !== invitation.email) {
+      throw new BadRequestException('You can only accept invitations sent to your email address');
+    }
+
+    // Check if user is already staff in this organization
+    const existingStaff = await this.prisma.staff.findFirst({
+      where: {
+        organizationId: invitation.organizationId!,
+        userId,
+      },
+    });
+
+    if (existingStaff) {
+      throw new BadRequestException('You are already a staff member of this organization');
+    }
+
+    // Create staff record and mark invitation as accepted
+    const staff = await this.prisma.staff.create({
+      data: {
+        organizationId: invitation.organizationId!,
+        userId,
+        role: invitation.role!,
+        permissions: invitation.permissions,
+        employeeCode: invitation.employeeCode,
+        isActive: true,
+        hiredAt: new Date(),
+      },
+    });
+
+    // Handle cooperative assignments if they were included in the invitation
+    const metadata = invitation.metadata as any;
+    if (metadata?.cooperativeIds && Array.isArray(metadata.cooperativeIds)) {
+      const assignments = metadata.cooperativeIds.map((cooperativeId: string) => ({
+        staffId: staff.id,
+        cooperativeId,
+        assignedBy: invitation.inviterId!,
+        assignedAt: new Date(),
+        isActive: true,
+      }));
+
+      await this.prisma.staffGroupAssignment.createMany({
+        data: assignments,
+      });
+    }
+
+    await this.prisma.invitation.update({
+      where: { id: invitationId },
+      data: {
+        status: 'accepted',
+        acceptedBy: userId,
+        acceptedAt: new Date(),
+      },
+    });
+
+    return {
+      staff,
+      organization: invitation.organization,
+    };
+  }
+
   private async verifyAdminAccess(organizationId: string, userId: string) {
     const staff = await this.verifyAccess(organizationId, userId);
 

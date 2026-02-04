@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { OrganizationsService } from './organizations.service';
 import { CreateOrganizationDto, UpdateOrganizationDto } from './dto/create-organization.dto';
+import { InviteStaffDto } from './dto/staff-invite.dto';
 import { AuthGuard } from '@nestjs/passport';
 
 @Controller('organizations')
@@ -132,5 +133,71 @@ export class OrganizationsController {
       message: 'Staff member removed successfully',
       data: await this.organizationsService.removeStaff(organizationId, staffId, req.user.id),
     };
+  }
+
+  // ==================== STAFF INVITATION ENDPOINTS ====================
+
+  @Post(':id/staff/invite')
+  async inviteStaff(
+    @Param('id') organizationId: string,
+    @Body() inviteDto: InviteStaffDto,
+    @Request() req: any,
+  ) {
+    try {
+      const data = await this.organizationsService.inviteStaff(organizationId, inviteDto, req.user.id);
+      return { 
+        success: true, 
+        message: data.emailSent ? 'Staff invitation sent successfully' : 'Staff invitation created but email failed to send', 
+        data 
+      };
+    } catch (error: any) {
+      return { 
+        success: false, 
+        message: error.message || 'Failed to send staff invitation', 
+        data: null 
+      };
+    }
+  }
+
+  @Get(':id/staff/invitations')
+  async getStaffInvitations(@Param('id') organizationId: string, @Request() req: any) {
+    try {
+      const data = await this.organizationsService.getStaffInvitations(organizationId, req.user.id);
+      return { success: true, message: 'Staff invitations retrieved successfully', data };
+    } catch (error: any) {
+      return { 
+        success: false, 
+        message: error.message || 'Failed to retrieve staff invitations', 
+        data: null 
+      };
+    }
+  }
+
+  @Delete('/staff/invitations/:invitationId')
+  async revokeStaffInvitation(@Param('invitationId') invitationId: string, @Request() req: any) {
+    try {
+      const data = await this.organizationsService.revokeStaffInvitation(invitationId, req.user.id);
+      return { success: true, message: 'Staff invitation revoked successfully', data };
+    } catch (error: any) {
+      return { 
+        success: false, 
+        message: error.message || 'Failed to revoke staff invitation', 
+        data: null 
+      };
+    }
+  }
+
+  @Post('/staff/invitations/:invitationId/accept')
+  async acceptStaffInvitation(@Param('invitationId') invitationId: string, @Request() req: any) {
+    try {
+      const data = await this.organizationsService.acceptStaffInvitation(invitationId, req.user.id);
+      return { success: true, message: 'Staff invitation accepted successfully', data };
+    } catch (error: any) {
+      return { 
+        success: false, 
+        message: error.message || 'Failed to accept staff invitation', 
+        data: null 
+      };
+    }
   }
 }

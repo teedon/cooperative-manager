@@ -61,6 +61,14 @@ export interface CreateStaffDto {
   permissions: string[];
 }
 
+export interface InviteStaffDto {
+  email: string;
+  role: 'admin' | 'supervisor' | 'agent';
+  permissions: string[];
+  employeeCode?: string;
+  message?: string;
+}
+
 export interface UpdateStaffDto {
   role?: 'admin' | 'supervisor' | 'agent';
   permissions?: string[];
@@ -152,6 +160,18 @@ export const organizationsApi = {
     return response.data;
   },
 
+  // Invite staff member via email
+  inviteStaff: async (
+    organizationId: string,
+    data: InviteStaffDto
+  ): Promise<ApiResponse<any>> => {
+    const response = await apiClient.post<ApiResponse<any>>(
+      `/organizations/${organizationId}/staff/invite`,
+      data
+    );
+    return response.data;
+  },
+
   // Get all staff in organization
   getAllStaff: async (organizationId: string): Promise<ApiResponse<Staff[]>> => {
     const response = await apiClient.get<ApiResponse<Staff[]>>(
@@ -197,19 +217,31 @@ export const organizationsApi = {
 
   // ============ STAFF GROUP ASSIGNMENTS ============
 
-  // Assign staff to cooperative/group
-  assignStaffToGroup: async (
+  // Assign staff to cooperatives
+  assignStaffToCooperatives: async (
     organizationId: string,
     staffId: string,
     data: {
-      cooperativeId: string;
-      groupName?: string;
-      groupType?: string;
+      cooperativeIds: string[];
+      startDate?: string;
+      endDate?: string;
     }
-  ): Promise<ApiResponse<StaffGroupAssignment>> => {
-    const response = await apiClient.post<ApiResponse<StaffGroupAssignment>>(
-      `/organizations/${organizationId}/staff/${staffId}/assignments`,
+  ): Promise<ApiResponse<any>> => {
+    const response = await apiClient.post<ApiResponse<any>>(
+      `/organizations/${organizationId}/staff/${staffId}/assign-groups`,
       data
+    );
+    return response.data;
+  },
+
+  // Remove staff assignment from cooperative
+  removeStaffAssignment: async (
+    organizationId: string,
+    staffId: string,
+    cooperativeId: string
+  ): Promise<ApiResponse<{ message: string }>> => {
+    const response = await apiClient.delete<ApiResponse<{ message: string }>>(
+      `/organizations/${organizationId}/staff/${staffId}/assignments/${cooperativeId}`
     );
     return response.data;
   },

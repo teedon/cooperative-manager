@@ -7,6 +7,7 @@ import { useAppSelector, useAppDispatch } from '../store/hooks';
 import { restoreSession } from '../store/slices/authSlice';
 import { notificationService } from '../services/notificationService';
 import { linking, setupDeepLinking } from '../utils/deepLinking';
+import { useSessionInit } from '../hooks/useSessionInit';
 
 import AuthNavigator from './AuthNavigator';
 import MainNavigator from './MainNavigator';
@@ -26,6 +27,9 @@ const RootNavigator: React.FC = () => {
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const navigationRef = useRef<NavigationContainerRef<any>>(null);
+
+  // Initialize session to get extended user profile
+  useSessionInit();
 
   // Check onboarding state whenever auth changes
   useEffect(() => {

@@ -46,11 +46,9 @@ const PostOnboardingGuidance: React.FC = () => {
         return; // Already shown
       }
 
-      const preference = await AsyncStorage.getItem('user_type_preference');
-      if (preference === 'organization' || preference === 'cooperative') {
-        setUserPreference(preference);
-        setVisible(true);
-      }
+      // Since user type selection is removed, default to cooperative
+      setUserPreference('cooperative');
+      setVisible(true);
     } catch (error) {
       console.error('Error checking post-onboarding guidance:', error);
     }

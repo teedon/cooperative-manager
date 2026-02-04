@@ -1,10 +1,18 @@
 import apiClient from './client';
 import { User, LoginCredentials, SignupData, ApiResponse } from '../models';
 
-interface AuthResponse {
+export interface AuthResponse {
   user: User;
   token: string;
   refreshToken?: string;
+  organization?: {
+    id: string;
+    name: string;
+    code: string;
+    logo?: string;
+    settings?: any;
+    createdAt: string;
+  };
 }
 
 export interface UpdateProfileData {

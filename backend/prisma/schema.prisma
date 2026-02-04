@@ -55,6 +55,7 @@ model Organization {
   cooperatives       Cooperative[]
   dailyCollections   DailyCollection[]
   collectionSettings CollectionSettings?
+  invitations        Invitation[] // Staff invitations
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -845,15 +846,27 @@ model Notification {
 // Invitations created when admins invite people via email/whatsapp
 model Invitation {
   id            String      @id @default(cuid())
-  cooperative   Cooperative @relation(fields: [cooperativeId], references: [id])
-  cooperativeId String
+  cooperative   Cooperative? @relation(fields: [cooperativeId], references: [id])
+  cooperativeId String?
+  
+  // Staff invitation support
+  organization   Organization? @relation(fields: [organizationId], references: [id])
+  organizationId String?
+  
   inviter       User?       @relation(fields: [inviterId], references: [id])
   inviterId     String?
   email         String?
   phone         String?
   message       String?
   code          String?     // cooperative code included in the invite
-  status        String      @default("pending") // pending | accepted | revoked
+  
+  // Staff invitation details
+  invitationType String     @default("cooperative") // 'cooperative' | 'staff'
+  role           String?    // For staff invitations: 'admin' | 'supervisor' | 'agent'  
+  permissions    String[]   @default([]) // For staff invitations
+  employeeCode   String?    // For staff invitations
+  
+  status        String      @default("pending") // pending | accepted | revoked | expired
   acceptedBy    String?     // userId who accepted
   acceptedAt    DateTime?
   expiresAt     DateTime?
@@ -862,6 +875,8 @@ model Invitation {
 
   @@index([email])
   @@index([cooperativeId])
+  @@index([organizationId])
+  @@index([invitationType])
 }
 
 model FcmToken {

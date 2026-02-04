@@ -12,11 +12,12 @@ import { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle, G, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { colors, spacing, borderRadius } from '../../theme';
+import { useAppSelector } from '../../store/hooks';
 
 const { width } = Dimensions.get('window');
 
 interface TabIconProps {
-  name: 'Home' | 'Users' | 'User';
+  name: 'Home' | 'Users' | 'User' | 'Building';
   focused: boolean;
   size?: number;
 }
@@ -90,6 +91,19 @@ const TabIcon: React.FC<TabIconProps> = ({ name, focused, size = 24 }) => {
             r="4"
             stroke={color}
             strokeWidth={strokeWidth}
+            fill={focused ? `${colors.primary.main}20` : 'none'}
+          />
+        </Svg>
+      );
+    case 'Building':
+      return (
+        <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+          <Path
+            d="M3 21h18M5 21V7l6-4 6 4v14M9 9v.01M15 9v.01M9 12v.01M15 12v.01M9 15v.01M15 15v.01M9 18v.01M15 18v.01"
+            stroke={color}
+            strokeWidth={strokeWidth}
+            strokeLinecap="round"
+            strokeLinejoin="round"
             fill={focused ? `${colors.primary.main}20` : 'none'}
           />
         </Svg>
@@ -183,11 +197,22 @@ const TabItem: React.FC<TabItemProps> = ({ label, icon, focused, onPress, onLong
 
 const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, descriptors, navigation }) => {
   const insets = useSafeAreaInsets();
+  const { organization } = useAppSelector((state) => state.auth);
 
-  const tabs: Array<{ key: string; label: string; icon: 'Home' | 'Users' | 'User' }> = [
+  const baseTabs: Array<{ key: string; label: string; icon: 'Home' | 'Users' | 'User' | 'Building' }> = [
     { key: 'HomeTab', label: 'Home', icon: 'Home' },
     { key: 'CoopsTab', label: 'Cooperatives', icon: 'Users' },
-    { key: 'ProfileTab', label: 'Profile', icon: 'User' },
+  ];
+
+  // Add organization tab if user belongs to organization
+  const organizationTab = organization 
+    ? [{ key: 'OrganizationTab', label: 'My Organization', icon: 'Building' as const }]
+    : [];
+
+  const tabs = [
+    ...baseTabs,
+    ...organizationTab,
+    { key: 'ProfileTab', label: 'Profile', icon: 'User' as const },
   ];
 
   return (

@@ -17,7 +17,18 @@ export interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
+  organization?: {
+    id: string;
+    name: string;
+    code: string;
+    logo?: string;
+    settings?: any;
+    createdAt: string;
+  } | null;
 }
+
+// Import extended user types
+export * from './UserProfile';
 
 export interface LoginCredentials {
   email: string;
@@ -108,6 +119,7 @@ export interface Cooperative {
   // User-specific fields (returned when fetching user's cooperatives)
   memberRole?: MemberRole;
   userTotalContributions?: number;
+  accessType?: 'member' | 'staff_assignment'; // How the user accesses this cooperative
 }
 
 export interface CooperativeMember {

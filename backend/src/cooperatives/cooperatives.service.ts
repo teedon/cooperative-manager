@@ -45,8 +45,10 @@ export class CooperativesService {
   }
 
   async findAll(userId?: string) {
-    // If userId is provided, only return cooperatives where user is an active member
+    // If userId is provided, return cooperatives where user is an active member
+    // OR cooperatives assigned to them through organization staff assignments
     if (userId) {
+      // Get direct memberships
       const memberships = await this.prisma.member.findMany({
         where: { 
           userId, 
@@ -57,7 +59,28 @@ export class CooperativesService {
         },
       });
 
-      // Get the user's contribution totals for each cooperative
+      // Get cooperatives assigned through organization (for staff users)
+      const staffRecord = await this.prisma.staff.findFirst({
+        where: {
+          userId,
+          isActive: true,
+        },
+        include: {
+          groupAssignments: {
+            where: {
+              isActive: true,
+            },
+            include: {
+              cooperative: true,
+            },
+          },
+        },
+      });
+
+      // Combine both direct memberships and organization assignments
+      const allCooperatives = new Map();
+
+      // Add direct memberships with user contribution data
       const cooperativesWithUserData = await Promise.all(
         memberships.map(async (membership) => {
           // Calculate user's total contributions for this cooperative
@@ -75,11 +98,33 @@ export class CooperativesService {
             ...membership.cooperative,
             memberRole: membership.role,
             userTotalContributions: userContributions._sum.amount || 0,
+            accessType: 'member', // Direct member access
           };
         })
       );
 
-      return cooperativesWithUserData.sort((a, b) => 
+      // Add to map to avoid duplicates
+      cooperativesWithUserData.forEach(coop => {
+        allCooperatives.set(coop.id, coop);
+      });
+
+      // Add organization-assigned cooperatives (for staff users)
+      if (staffRecord?.groupAssignments) {
+        staffRecord.groupAssignments.forEach(assignment => {
+          if (!allCooperatives.has(assignment.cooperative.id)) {
+            allCooperatives.set(assignment.cooperative.id, {
+              ...assignment.cooperative,
+              memberRole: 'agent', // Staff role in cooperative context
+              userTotalContributions: 0, // Staff don't have direct contributions
+              accessType: 'staff_assignment', // Organization assignment access
+            });
+          }
+        });
+      }
+
+      // Convert map to array and sort
+      const finalCooperatives = Array.from(allCooperatives.values());
+      return finalCooperatives.sort((a, b) => 
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
     }
@@ -102,7 +147,7 @@ export class CooperativesService {
     return coop;
   }
 
-  async create(dto: CreateCooperativeDto, createdBy?: string) {
+  async create(dto: CreateCooperativeDto, createdBy?: string, organizationId?: string) {
     //allow each member create only one cooperative but they can join others
     // if (createdBy) {
     //   const existingCoop = await this.prisma.member.findFirst({
@@ -125,6 +170,7 @@ export class CooperativesService {
         gradientPreset: dto.gradientPreset ?? 'ocean',
         status: dto.status ?? 'active',
         createdBy: createdBy ?? null,
+        organizationId: organizationId ?? null,
         memberCount: createdBy ? 1 : 0,
       },
     });
@@ -320,7 +366,73 @@ export class CooperativesService {
       });
     }
 
+    // Automatically subscribe to compulsory contribution plans
+    await this.subscribeToCompulsoryContributions(member.id, member.cooperativeId);
+
     return updatedMember;
+  }
+
+  /**
+   * Automatically subscribe a member to all active compulsory contribution plans
+   */
+  private async subscribeToCompulsoryContributions(memberId: string, cooperativeId: string) {
+    // Find all active compulsory contribution plans for this cooperative
+    const compulsoryPlans = await this.prisma.contributionPlan.findMany({
+      where: {
+        cooperativeId,
+        category: 'compulsory',
+        isActive: true,
+        // Only subscribe to plans that have started or will start
+        OR: [
+          { startDate: null }, // Continuous plans without start date
+          { startDate: { lte: new Date() } }, // Started plans
+          { startDate: { gt: new Date() } }, // Future plans
+        ],
+      },
+    });
+
+    // Create subscriptions for each compulsory plan
+    for (const plan of compulsoryPlans) {
+      // Check if member is already subscribed to this plan
+      const existingSubscription = await this.prisma.contributionSubscription.findFirst({
+        where: {
+          planId: plan.id,
+          memberId,
+        },
+      });
+
+      // Only create subscription if not already subscribed
+      if (!existingSubscription) {
+        const subscriptionAmount = plan.amountType === 'fixed' 
+          ? plan.fixedAmount || 0
+          : plan.minAmount || 0; // Use minimum amount for notional plans
+
+        await this.prisma.contributionSubscription.create({
+          data: {
+            planId: plan.id,
+            memberId,
+            amount: subscriptionAmount,
+            status: 'active',
+          },
+        });
+
+        // Log the automatic subscription
+        const member = await this.prisma.member.findUnique({
+          where: { id: memberId },
+          include: { user: true },
+        });
+
+        if (member?.userId) {
+          await this.activitiesService.log(
+            member.userId,
+            'contribution.auto_subscribed',
+            `Automatically subscribed to compulsory contribution plan: ${plan.name}`,
+            cooperativeId,
+            { planName: plan.name, planId: plan.id, amount: subscriptionAmount },
+          );
+        }
+      }
+    }
   }
 
   async rejectMember(memberId: string, adminUserId: string) {
@@ -766,11 +878,32 @@ ${webLink}`;
       },
     });
 
+    // Also check if user has access through organization staff assignment
+    let hasStaffAccess = false;
+    let isStaffAdmin = false;
     if (!requestingMember) {
-      throw new BadRequestException('You are not a member of this cooperative');
+      const staffAssignment = await this.prisma.staff.findFirst({
+        where: {
+          userId: requestingUserId,
+          isActive: true,
+          groupAssignments: {
+            some: {
+              cooperativeId,
+              isActive: true,
+            },
+          },
+        },
+      });
+
+      if (staffAssignment) {
+        hasStaffAccess = true;
+        isStaffAdmin = staffAssignment.role === 'admin' || staffAssignment.role === 'supervisor';
+      } else {
+        throw new BadRequestException('You do not have access to this cooperative');
+      }
     }
 
-    const isAdmin = requestingMember.role === 'admin';
+    const isAdmin = requestingMember?.role === 'admin' || isStaffAdmin;
 
     const members = await this.prisma.member.findMany({
       where: {
@@ -1167,23 +1300,40 @@ ${webLink}`;
       data: { memberCount: { increment: 1 } },
     });
 
-    // Auto-subscribe to active plans if requested
+    // Automatically subscribe to compulsory contribution plans
+    await this.subscribeToCompulsoryContributions(member.id, cooperativeId);
+
+    // Auto-subscribe to other active plans if requested
     if (dto.autoSubscribe) {
-      const activePlans = await this.prisma.contributionPlan.findMany({
-        where: { cooperativeId, isActive: true },
+      const optionalPlans = await this.prisma.contributionPlan.findMany({
+        where: { 
+          cooperativeId, 
+          isActive: true, 
+          category: 'optional' // Only subscribe to optional plans if autoSubscribe is true
+        },
       });
 
-      for (const plan of activePlans) {
-        const amount = plan.fixedAmount || plan.minAmount || 0;
-        await this.prisma.contributionSubscription.create({
-          data: {
-            memberId: member.id,
+      for (const plan of optionalPlans) {
+        // Check if not already subscribed (compulsory ones are handled above)
+        const existingSubscription = await this.prisma.contributionSubscription.findFirst({
+          where: {
             planId: plan.id,
-            amount,
-            status: 'active',
-            subscribedAt: new Date(),
+            memberId: member.id,
           },
         });
+
+        if (!existingSubscription) {
+          const amount = plan.fixedAmount || plan.minAmount || 0;
+          await this.prisma.contributionSubscription.create({
+            data: {
+              memberId: member.id,
+              planId: plan.id,
+              amount,
+              status: 'active',
+              subscribedAt: new Date(),
+            },
+          });
+        }
       }
     }
 

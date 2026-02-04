@@ -1,6 +1,49 @@
-// User Type Detection Utilities
+// Extended User Profile Types for Role-Based Access Control
 
-import { ExtendedUser, UserType, AppMode } from '../models/UserProfile';
+export interface StaffProfile {
+  id: string;
+  organizationId: string;
+  organizationName?: string;
+  role: 'admin' | 'supervisor' | 'field_agent' | 'accountant';
+  permissions: string[];
+  isActive: boolean;
+}
+
+export interface CooperativeMembership {
+  cooperativeId: string;
+  cooperativeName: string;
+  memberRole: 'admin' | 'moderator' | 'member';
+}
+
+export interface ExtendedUser {
+  id: string;
+  email: string;
+  firstName: string;
+  lastName: string;
+  avatar?: string;
+  createdAt: string;
+  
+  // Staff profile if user works for an organization
+  staffProfile?: StaffProfile;
+  
+  // Cooperative memberships if user is a member
+  cooperativeMemberships?: CooperativeMembership[];
+}
+
+export type UserType = 
+  | 'organization'  // User is only staff (manages organizations/collections)
+  | 'cooperative'   // User is only a cooperative member
+  | 'both'          // User has both roles
+  | 'none';         // New user, no roles yet
+
+export type AppMode = 'organization' | 'cooperative';
+
+export interface UserTypeState {
+  userType: UserType;
+  currentMode: AppMode;
+  canAccessOrganization: boolean;
+  canAccessCooperative: boolean;
+}
 
 /**
  * Determines the user type based on their profiles
@@ -56,51 +99,11 @@ export const getDefaultAppMode = (userType: UserType): AppMode => {
 };
 
 /**
- * Checks if user has a specific staff permission
- */
-export const hasPermission = (user: ExtendedUser | null, permission: string): boolean => {
-  if (!user?.staffProfile) return false;
-  return user.staffProfile.permissions.includes(permission);
-};
-
-/**
- * Gets user's role in a specific cooperative
- */
-export const getCooperativeRole = (
-  user: ExtendedUser | null,
-  cooperativeId: string
-): 'admin' | 'moderator' | 'member' | null => {
-  if (!user?.cooperativeMemberships) return null;
-  
-  const membership = user.cooperativeMemberships.find(
-    m => m.cooperativeId === cooperativeId
-  );
-  
-  return membership?.memberRole ?? null;
-};
-
-/**
- * Checks if user is admin of any cooperative
- */
-export const isCooperativeAdmin = (user: ExtendedUser | null): boolean => {
-  if (!user?.cooperativeMemberships) return false;
-  return user.cooperativeMemberships.some(m => m.memberRole === 'admin');
-};
-
-/**
- * Gets user's organization ID (if staff)
- */
-export const getUserOrganizationId = (user: ExtendedUser | null): string | null => {
-  return user?.staffProfile?.organizationId ?? null;
-};
-
-/**
  * Mock function to extend user with profiles
- * TODO: Remove this when backend provides extended user data
+ * Backend now provides extended user data
  */
 export const mockExtendUser = (user: any): ExtendedUser => {
   // Backend now provides extended user data with staffProfile and cooperativeMemberships
-  // This function can now pass through the data directly
   return {
     ...user,
     // Backend now populates these fields directly

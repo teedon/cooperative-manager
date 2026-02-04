@@ -1,4 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
+import { ExtendedUser, mockExtendUser } from '../types/UserProfile'
 
 export interface User {
   id: string
@@ -10,7 +11,7 @@ export interface User {
 }
 
 interface AuthState {
-  user: User | null
+  user: ExtendedUser | null
   token: string | null
   refreshToken: string | null
   isAuthenticated: boolean
@@ -87,11 +88,24 @@ const authAPI = {
         console.error('Logout API call failed:', error)
       }
     }
+  },
+
+  getCurrentUser: async (): Promise<ExtendedUser> => {
+    const token = localStorage.getItem('auth_token')
+    if (!token) {
+      throw new Error('No token available')
+    }
+    
+    const response = await authAxios.get('/auth/me', {
+      headers: { Authorization: `Bearer ${token}` }
+    })
+    
+    return response.data.data
   }
 }
 
 const initialState: AuthState = {
-  user: JSON.parse(localStorage.getItem('auth_user') || 'null'),
+  user: localStorage.getItem('auth_user') ? mockExtendUser(JSON.parse(localStorage.getItem('auth_user')!)) : null,
   token: localStorage.getItem('auth_token'),
   refreshToken: localStorage.getItem('auth_refresh_token'),
   isAuthenticated: !!localStorage.getItem('auth_token'),
@@ -145,6 +159,24 @@ export const signupUser = createAsyncThunk(
       console.error('Signup error:', error)
       console.error('Error response:', error.response)
       const errorMessage = error.response?.data?.message || error.message || 'Signup failed'
+      return rejectWithValue(errorMessage)
+    }
+  }
+)
+
+export const getCurrentUser = createAsyncThunk(
+  'auth/getCurrentUser',
+  async (_, { rejectWithValue }) => {
+    try {
+      const userData = await authAPI.getCurrentUser()
+      
+      // Update localStorage with fresh user data
+      localStorage.setItem('auth_user', JSON.stringify(userData))
+      
+      return userData
+    } catch (error: any) {
+      console.error('Get current user error:', error)
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to get user profile'
       return rejectWithValue(errorMessage)
     }
   }
@@ -240,7 +272,7 @@ const authSlice = createSlice({
       })
       .addCase(loginUser.fulfilled, (state, action) => {
         state.isLoading = false
-        state.user = action.payload.user
+        state.user = mockExtendUser(action.payload.user)
         state.token = action.payload.accessToken
         state.refreshToken = action.payload.refreshToken || null
         state.isAuthenticated = true
@@ -260,7 +292,7 @@ const authSlice = createSlice({
       })
       .addCase(signupUser.fulfilled, (state, action) => {
         state.isLoading = false
-        state.user = action.payload.user
+        state.user = mockExtendUser(action.payload.user)
         state.token = action.payload.accessToken
         state.refreshToken = action.payload.refreshToken || null
         state.isAuthenticated = true
@@ -270,6 +302,22 @@ const authSlice = createSlice({
         state.isLoading = false
         state.error = action.payload as string
         state.isAuthenticated = false
+      })
+
+    // Get Current User
+    builder
+      .addCase(getCurrentUser.pending, (state) => {
+        state.isLoading = true
+        state.error = null
+      })
+      .addCase(getCurrentUser.fulfilled, (state, action) => {
+        state.isLoading = false
+        state.user = mockExtendUser(action.payload)
+        state.error = null
+      })
+      .addCase(getCurrentUser.rejected, (state, action) => {
+        state.isLoading = false
+        state.error = action.payload as string
       })
 
     // Logout

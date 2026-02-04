@@ -256,7 +256,7 @@ const LandingScreen: React.FC = () => {
   const dispatch = useAppDispatch();
   const { cooperatives = [], isLoading } = useAppSelector((s) => s.cooperative);
   const { user } = useAppSelector((s) => s.auth);
-  const { userType, currentMode, canAccessOrganization, canAccessCooperative } = useUserType();
+  const { userType, currentMode, canAccessCooperative } = useUserType();
   const [activities, setActivities] = useState<Activity[]>([]);
   const [activitiesLoading, setActivitiesLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -357,9 +357,7 @@ const LandingScreen: React.FC = () => {
   };
   const handleCreate = () => navigation.navigate('Home', { openModal: 'create' });
   const handleJoin = () => navigation.navigate('Home', { openModal: 'join' });
-  const handleCreateOrganization = () => navigation.navigate('CreateOrganization');
-  const handleViewOrganizations = () => navigation.navigate('OrganizationList');
-  const handleCollectionsStats = () => navigation.navigate('CollectionsStatistics');
+
 
   // Calculate totals
   const totalMembers = cooperatives.reduce((s, c) => s + (c.memberCount ?? 0), 0);
@@ -479,35 +477,7 @@ const LandingScreen: React.FC = () => {
         </View>
       </View>
 
-      {/* Quick Actions */}
-      {canAccessOrganization && (
-        <View style={styles.quickActionsSection}>
-          <Text style={styles.sectionTitle}>Organization Management</Text>
-          <Text style={styles.sectionSubtitle}>
-            Manage your organizations, staff, and daily collections
-          </Text>
-          <View style={styles.quickActionsRow}>
-            <QuickAction
-              icon="Plus"
-              label="Create Organization"
-              color={colors.primary.main}
-              onPress={handleCreateOrganization}
-            />
-            <QuickAction
-              icon="business"
-              label="View Organizations"
-              color={colors.success.main}
-              onPress={handleViewOrganizations}
-            />
-            <QuickAction
-              icon="bar-chart"
-              label="Collections Stats"
-              color={colors.accent.main}
-              onPress={handleCollectionsStats}
-            />
-          </View>
-        </View>
-      )}
+
 
       {/* Quick Actions for Cooperatives */}
       {cooperatives.length === 0 && !isLoading && (

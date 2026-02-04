@@ -41,6 +41,12 @@ export class AuthService {
     const hashed = await bcrypt.hash(refreshToken, 10);
     await this.users.setRefreshToken(user.id, hashed);
 
+    // Auto-accept any pending invitations for this email on login
+    await this.linkPendingInvitations(user.id, user.email);
+
+    // Get user's organization if they are a staff member
+    const organization = await this.getUserOrganization(user.id);
+
     // Log activity
     await this.activitiesService.log(
       user.id,
@@ -50,7 +56,7 @@ export class AuthService {
       { email: user.email },
     );
 
-    return { accessToken, refreshToken } as TokenPair;
+    return { accessToken, refreshToken, organization } as TokenPair & { organization?: any };
   }
 
   async register(createDto: any) {
@@ -61,6 +67,9 @@ export class AuthService {
     
     // Link any offline members that match this user's email or phone
     await this.linkOfflineMembers(user.id, user.email, user.phone);
+    
+    // Auto-accept any pending invitations for this email
+    await this.linkPendingInvitations(user.id, user.email);
     
     // @ts-ignore
     const { password, ...safe } = user;
@@ -142,6 +151,124 @@ export class AuthService {
     return uniqueMatches.length;
   }
 
+  /**
+   * Auto-accept pending invitations for a newly registered user based on email match.
+   * This applies to both cooperative and staff invitations.
+   */
+  private async linkPendingInvitations(userId: string, email: string) {
+    // Find all pending invitations for this email
+    const pendingInvitations = await this.prisma.invitation.findMany({
+      where: {
+        email: { equals: email, mode: 'insensitive' },
+        status: 'pending',
+        expiresAt: { gt: new Date() }, // Only non-expired invitations
+      },
+      include: {
+        cooperative: true,
+        organization: true,
+      },
+    });
+
+    let linkedInvitations = 0;
+
+    for (const invitation of pendingInvitations) {
+      if (invitation.invitationType === 'cooperative') {
+        // Handle cooperative invitations
+        try {
+          // Check if user is already a member
+          const existingMember = await this.prisma.member.findFirst({
+            where: {
+              cooperativeId: invitation.cooperativeId!,
+              userId: userId,
+            },
+          });
+
+          if (!existingMember) {
+            // Create member record
+            await this.prisma.member.create({
+              data: {
+                cooperativeId: invitation.cooperativeId!,
+                userId: userId,
+                role: 'member', // Default role for invited members
+                permissions: '',
+                joinedAt: new Date(),
+                status: 'active',
+              },
+            });
+
+            // Log the activity
+            await this.activitiesService.log(
+              userId,
+              'member.invitation_accepted',
+              `Automatically joined cooperative ${invitation.cooperative?.name} via email invitation`,
+              invitation.cooperativeId,
+              { invitationId: invitation.id },
+            );
+          }
+        } catch (error) {
+          console.error(`Failed to auto-accept cooperative invitation ${invitation.id}:`, error);
+          continue;
+        }
+      } else if (invitation.invitationType === 'staff') {
+        // Handle staff invitations
+        try {
+          // Check if user is already staff
+          const existingStaff = await this.prisma.staff.findFirst({
+            where: {
+              organizationId: invitation.organizationId!,
+              userId: userId,
+            },
+          });
+
+          if (!existingStaff) {
+            // Create staff record
+            await this.prisma.staff.create({
+              data: {
+                organizationId: invitation.organizationId!,
+                userId: userId,
+                role: invitation.role!,
+                permissions: invitation.permissions,
+                employeeCode: invitation.employeeCode,
+                isActive: true,
+                hiredAt: new Date(),
+              },
+            });
+
+            // Log the activity
+            await this.activitiesService.log(
+              userId,
+              'staff.invitation_accepted',
+              `Automatically joined organization ${invitation.organization?.name} as ${invitation.role} via email invitation`,
+              undefined,
+              { 
+                invitationId: invitation.id, 
+                organizationId: invitation.organizationId,
+                role: invitation.role 
+              },
+            );
+          }
+        } catch (error) {
+          console.error(`Failed to auto-accept staff invitation ${invitation.id}:`, error);
+          continue;
+        }
+      }
+
+      // Mark invitation as accepted
+      await this.prisma.invitation.update({
+        where: { id: invitation.id },
+        data: {
+          status: 'accepted',
+          acceptedBy: userId,
+          acceptedAt: new Date(),
+        },
+      });
+
+      linkedInvitations++;
+    }
+
+    return linkedInvitations;
+  }
+
   async refresh(oldRefreshToken: string) {
     try {
       // we signed refresh tokens as opaque random strings, so we must find the user by comparing hashed token
@@ -166,9 +293,108 @@ export class AuthService {
   async me(userId: string) {
     const user = await this.users.findById(userId);
     if (!user) throw new UnauthorizedException('User not found');
+    
+    // Get user's organization if they are a staff member
+    const organization = await this.getUserOrganization(userId);
+    
+    // Get staff profile if user is staff
+    const staffProfile = await this.getStaffProfile(userId);
+    
+    // Get cooperative memberships
+    const cooperativeMemberships = await this.getCooperativeMemberships(userId);
+    
     // @ts-ignore
     const { password, refreshToken, ...safe } = user;
-    return safe;
+    return { 
+      ...safe, 
+      organization,
+      staffProfile,
+      cooperativeMemberships
+    };
+  }
+
+  /**
+   * Get the organization a user belongs to as a staff member
+   */
+  private async getUserOrganization(userId: string) {
+    const staff = await this.prisma.staff.findFirst({
+      where: {
+        userId: userId,
+        isActive: true,
+      },
+      include: {
+        organization: {
+          select: {
+            id: true,
+            name: true,
+            type: true,
+            description: true,
+            phone: true,
+            email: true,
+            logoUrl: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+
+    return staff?.organization || null;
+  }
+
+  /**
+   * Get user's staff profile if they are a staff member
+   */
+  private async getStaffProfile(userId: string) {
+    const staff = await this.prisma.staff.findFirst({
+      where: {
+        userId: userId,
+        isActive: true,
+      },
+      include: {
+        organization: {
+          select: {
+            name: true,
+          },
+        },
+      },
+    });
+
+    if (!staff) return null;
+
+    return {
+      id: staff.id,
+      organizationId: staff.organizationId,
+      organizationName: staff.organization?.name,
+      role: staff.role as 'admin' | 'supervisor' | 'field_agent' | 'accountant',
+      permissions: staff.permissions,
+      isActive: staff.isActive,
+    };
+  }
+
+  /**
+   * Get user's cooperative memberships
+   */
+  private async getCooperativeMemberships(userId: string) {
+    const memberships = await this.prisma.member.findMany({
+      where: {
+        userId,
+        status: 'active',
+      },
+      include: {
+        cooperative: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    return memberships.map(membership => ({
+      cooperativeId: membership.cooperativeId,
+      cooperativeName: membership.cooperative.name,
+      memberRole: membership.role as 'admin' | 'moderator' | 'member',
+    }));
   }
 
   /**

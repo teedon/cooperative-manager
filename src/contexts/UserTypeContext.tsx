@@ -47,30 +47,23 @@ export const UserTypeProvider: React.FC<Props> = ({ children }) => {
     }
   }, [authUser]);
 
-  // Load saved mode and onboarding preference from storage
+  // Load saved mode from storage
   useEffect(() => {
     const loadPreferences = async () => {
       try {
-        const [savedMode, preference] = await Promise.all([
-          AsyncStorage.getItem(MODE_STORAGE_KEY),
-          AsyncStorage.getItem('user_type_preference'),
-        ]);
+        const savedMode = await AsyncStorage.getItem(MODE_STORAGE_KEY);
         
-        // Load onboarding preference
-        if (preference === 'organization' || preference === 'cooperative') {
-          setOnboardingPreference(preference);
-          // Set initial mode based on preference if no saved mode
-          if (!savedMode) {
-            setCurrentMode(preference as AppMode);
-          }
-        }
-        
-        // Load saved mode (overrides preference)
+        // Load saved mode, default to cooperative
         if (savedMode && (savedMode === 'organization' || savedMode === 'cooperative')) {
           setCurrentMode(savedMode);
+        } else {
+          setCurrentMode('cooperative'); // Default to cooperative since user type selection is removed
+          setOnboardingPreference('cooperative');
         }
       } catch (error) {
         console.warn('Failed to load preferences:', error);
+        setCurrentMode('cooperative');
+        setOnboardingPreference('cooperative');
       }
     };
     loadPreferences();

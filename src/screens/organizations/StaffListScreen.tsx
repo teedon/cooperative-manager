@@ -7,8 +7,11 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useFocusEffect } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { HomeStackParamList } from '../../navigation/MainNavigator';
 import { organizationsApi, Staff } from '../../api/organizationsApi';
 import Icon from '../../components/common/Icon';
@@ -29,14 +32,48 @@ const StaffListScreen: React.FC<Props> = ({ navigation, route }) => {
     loadStaff();
   }, []);
 
+  // Refresh staff list when screen comes back into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      loadStaff();
+    }, [])
+  );
+
   const loadStaff = async () => {
     try {
       setLoading(true);
       setError(null);
+      
+      // Check if user is authenticated
+      const token = await AsyncStorage.getItem('authToken');
+      console.log('Loading staff for organization:', organizationId);
+      console.log('Auth token exists:', !!token);
+      
       const response = await organizationsApi.getAllStaff(organizationId);
-      setStaff(response.data);
-    } catch (err) {
-      setError(getErrorMessage(err));
+      console.log('Staff API response:', response);
+      
+      if (response.success) {
+        console.log('Staff data:', response.data);
+        console.log('Staff array:', response.data.staff);
+        setStaff(response.data.staff || []);
+      } else {
+        console.error('API response not successful:', response);
+        setError(response.message || 'Failed to load staff');
+      }
+    } catch (err: any) {
+      console.error('Error loading staff:', err);
+      console.error('Error details:', err?.response?.data);
+      
+      // Handle specific error cases
+      if (err?.response?.status === 401) {
+        setError('You do not have permission to view staff members for this organization.');
+      } else if (err?.response?.status === 403) {
+        setError('Access denied. You may not have the required permissions.');
+      } else if (err?.response?.status === 404) {
+        setError('Organization not found or no staff members exist.');
+      } else {
+        setError(getErrorMessage(err));
+      }
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -56,7 +93,12 @@ const StaffListScreen: React.FC<Props> = ({ navigation, route }) => {
   };
 
   const handleCreatePress = () => {
-    navigation.navigate('CreateStaff', { organizationId });
+    try {
+      navigation.navigate('CreateStaff', { organizationId });
+    } catch (err) {
+      console.error('Navigation error:', err);
+      Alert.alert('Navigation Error', 'Unable to navigate to add staff screen. Please try again.');
+    }
   };
 
   const getStatusColor = (isActive: boolean) => {
@@ -159,7 +201,7 @@ const StaffListScreen: React.FC<Props> = ({ navigation, route }) => {
         }
       />
       <TouchableOpacity style={styles.fab} onPress={handleCreatePress}>
-        <Icon name="person-add" size={24} color="#fff" />
+        <Icon name="mail" size={24} color="#fff" />
       </TouchableOpacity>
     </View>
   );

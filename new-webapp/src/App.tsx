@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { Provider } from 'react-redux'
 import { store } from './store'
 import { useAppSelector } from './hooks/useAuth'
+import { useSessionInit } from './hooks/useSessionInit'
 import { LoginPage, SignupPage } from './pages/auth'
 import { LandingPage } from './pages/LandingPage'
 import PrivacyPolicyPage from './pages/legal/PrivacyPolicyPage'
@@ -35,6 +36,9 @@ import './index.css'
 // Protected Route Component
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, isLoading } = useAppSelector((state) => state.auth)
+  
+  // Initialize user session to get extended profile data
+  useSessionInit()
   
   if (isLoading) {
     return (

@@ -52,7 +52,8 @@ export class CooperativesController {
   async create(@Request() req: any, @Body() dto: CreateCooperativeDto) {
     try {
       const user = req.user;
-      const data = await this.service.create(dto, user?.id);
+      const organizationId = req.headers['x-organization-id'];
+      const data = await this.service.create(dto, user?.id, organizationId);
       return { success: true, message: 'Cooperative created successfully', data };
     } catch (error: any) {
       throw new HttpException(

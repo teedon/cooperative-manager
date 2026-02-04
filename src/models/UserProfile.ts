@@ -6,7 +6,7 @@ export interface StaffProfile {
   id: string;
   organizationId: string;
   organizationName?: string;
-  role: 'admin' | 'supervisor' | 'agent';
+  role: 'admin' | 'supervisor' | 'field_agent' | 'accountant';
   permissions: string[];
   isActive: boolean;
 }

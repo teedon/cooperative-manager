@@ -52,16 +52,32 @@ const apiClient: AxiosInstance = axios.create({
   },
 });
 
-// Request interceptor to add auth token
+// Request interceptor to add auth token and organization ID
 apiClient.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
     try {
-      const token = await AsyncStorage.getItem('auth_token');
+      const [token, organizationData] = await Promise.all([
+        AsyncStorage.getItem('auth_token'),
+        AsyncStorage.getItem('auth_organization')
+      ]);
+      
       if (token && config.headers) {
         config.headers.Authorization = `Bearer ${token}`;
       }
+      
+      // Add organization ID header if user belongs to an organization
+      if (organizationData && config.headers) {
+        try {
+          const organization = JSON.parse(organizationData);
+          if (organization?.id) {
+            config.headers['x-organization-id'] = organization.id;
+          }
+        } catch (parseError) {
+          logger.warn('Error parsing organization data:', parseError);
+        }
+      }
     } catch (error) {
-      logger.error('Error getting auth token:', error);
+      logger.error('Error getting auth data:', error);
     }
     logger.debug('api request', { url: config.url, method: config.method, data: config.data });
     return config;
@@ -160,6 +176,7 @@ const clearAuthData = async () => {
   await AsyncStorage.removeItem('auth_token');
   await AsyncStorage.removeItem('auth_user');
   await AsyncStorage.removeItem('auth_refresh');
+  await AsyncStorage.removeItem('auth_organization');
 };
 
 export default apiClient;

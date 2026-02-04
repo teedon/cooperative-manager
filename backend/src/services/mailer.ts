@@ -360,6 +360,62 @@ export function generateCooperativeInviteEmailTemplate(
   return getBaseTemplate(content, `Join ${cooperativeName}`);
 }
 
+export function generateStaffInviteEmailTemplate(
+  recipientEmail: string,
+  inviterName: string,
+  organizationName: string,
+  role: string,
+  customMessage?: string,
+): string {
+  const roleDisplay = role.charAt(0).toUpperCase() + role.slice(1).replace('_', ' ');
+  
+  const content = `
+    <div class="header">
+      <div class="header-icon">🏢</div>
+      <h1>You're Invited to Join Our Team!</h1>
+    </div>
+    <div class="content">
+      <p class="greeting">Hello,</p>
+      <p class="message">
+        <strong>${inviterName}</strong> has invited you to join <strong>${organizationName}</strong> as a <strong>${roleDisplay}</strong> on ${APP_NAME}.
+      </p>
+      ${customMessage ? `
+      <div class="highlight-box">
+        <h3 style="margin: 0 0 15px 0; color: ${PRIMARY_COLOR};">📝 Personal Message</h3>
+        <p style="margin: 0; color: #555; font-style: italic;">"${customMessage}"</p>
+      </div>
+      ` : ''}
+      <div class="highlight-box">
+        <h3 style="margin: 0 0 15px 0; color: ${PRIMARY_COLOR};">💼 Position Details</h3>
+        <table class="details-table">
+          <tr>
+            <td>Organization</td>
+            <td>${organizationName}</td>
+          </tr>
+          <tr>
+            <td>Position</td>
+            <td>${roleDisplay}</td>
+          </tr>
+          <tr>
+            <td>Invited By</td>
+            <td>${inviterName}</td>
+          </tr>
+        </table>
+      </div>
+      <p class="message">
+        To accept this invitation, please sign up or log in to ${APP_NAME} with this email address. The invitation will be automatically linked to your account.
+      </p>
+      <p style="text-align: center;">
+        <a href="${process.env.FRONTEND_URL || 'https://coopmanager.app'}/login" class="button">Accept Invitation</a>
+      </p>
+      <p class="small-text">
+        This invitation will expire in 7 days. If you have any questions, please contact ${inviterName} or the organization administrator.
+      </p>
+    </div>
+  `;
+  return getBaseTemplate(content, `Join ${organizationName} Team`);
+}
+
 export function generateMemberRoleChangeEmailTemplate(
   userName: string,
   cooperativeName: string,

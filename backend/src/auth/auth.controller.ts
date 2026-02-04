@@ -38,11 +38,16 @@ export class AuthController {
           HttpStatus.UNAUTHORIZED,
         );
       }
-      const tokens = await this.auth.login(user);
+      const result = await this.auth.login(user);
       return {
         success: true,
         message: 'Login successful',
-        data: { user, token: tokens.accessToken, refreshToken: tokens.refreshToken },
+        data: { 
+          user, 
+          token: result.accessToken, 
+          refreshToken: result.refreshToken,
+          organization: result.organization 
+        },
       };
     } catch (error: any) {
       if (error instanceof HttpException) throw error;

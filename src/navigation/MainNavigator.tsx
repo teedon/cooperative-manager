@@ -91,11 +91,15 @@ import OrganizationListScreen from '../screens/organizations/OrganizationListScr
 import CreateOrganizationScreen from '../screens/organizations/CreateOrganizationScreen';
 import OrganizationDetailScreen from '../screens/organizations/OrganizationDetailScreen';
 import StaffListScreen from '../screens/organizations/StaffListScreen';
+import CreateStaffScreen from '../screens/organizations/CreateStaffScreen';
+import StaffDetailScreen from '../screens/organizations/StaffDetailScreen';
+import ManageStaffCooperativesScreen from '../screens/organizations/ManageStaffCooperativesScreen';
 
 export type MainTabParamList = {
   HomeTab: undefined;
   CoopsTab: undefined;
   ProfileTab: undefined;
+  OrganizationTab?: undefined;
 };
 
 
@@ -210,6 +214,7 @@ export type HomeStackParamList = {
   StaffList: { organizationId: string };
   CreateStaff: { organizationId: string };
   StaffDetail: { organizationId: string; staffId: string };
+  ManageStaffCooperatives: { organizationId: string; staffId: string; staffName: string };
 };
 
 const HomeStackNavigator: React.FC = () => {
@@ -598,6 +603,21 @@ const HomeStackNavigator: React.FC = () => {
         name="StaffList"
         component={StaffListScreen}
         options={{ title: 'Staff Members' }}
+      />
+      <HomeStack.Screen
+        name="CreateStaff"
+        component={CreateStaffScreen}
+        options={{ title: 'Add Staff Member' }}
+      />
+      <HomeStack.Screen
+        name="StaffDetail"
+        component={StaffDetailScreen}
+        options={{ title: 'Staff Details' }}
+      />
+      <HomeStack.Screen
+        name="ManageStaffCooperatives"
+        component={ManageStaffCooperativesScreen}
+        options={{ title: 'Manage Cooperative Assignments' }}
       />
     </HomeStack.Navigator>
   );
@@ -1029,7 +1049,91 @@ const ProfileStackNavigator: React.FC = () => {
   );
 };
 
+// Organization tab stack
+const OrganizationStack = createNativeStackNavigator<HomeStackParamList>();
+const OrganizationStackNavigator: React.FC = () => {
+  const { organization } = useAppSelector((state) => state.auth);
+  
+  if (!organization) {
+    return null; // Safety check
+  }
+  
+  return (
+    <OrganizationStack.Navigator
+      screenOptions={{
+        headerStyle: {
+          backgroundColor: colors.primary.main,
+        },
+        headerTintColor: colors.primary.contrast,
+        headerTitleStyle: {
+          fontWeight: 'bold',
+        },
+      }}
+      initialRouteName="OrganizationDetail"
+    >
+      <OrganizationStack.Screen
+        name="OrganizationDetail"
+        component={OrganizationDetailScreen}
+        options={{ title: 'My Organization' }}
+        initialParams={{ organizationId: organization.id }}
+      />
+      <OrganizationStack.Screen
+        name="StaffList"
+        component={StaffListScreen}
+        options={{ title: 'Staff Management' }}
+      />
+      <OrganizationStack.Screen
+        name="CreateStaff"
+        component={CreateStaffScreen}
+        options={{ title: 'Add Staff Member' }}
+      />
+      <OrganizationStack.Screen
+        name="StaffDetail"
+        component={StaffDetailScreen}
+        options={{ title: 'Staff Details' }}
+      />
+      <OrganizationStack.Screen
+        name="ManageStaffCooperatives"
+        component={ManageStaffCooperativesScreen}
+        options={{ title: 'Manage Cooperative Assignments' }}
+      />
+      <OrganizationStack.Screen
+        name="CollectionsList"
+        component={CollectionsListScreen}
+        options={{ title: 'Daily Collections' }}
+      />
+      <OrganizationStack.Screen
+        name="CreateCollection"
+        component={CreateCollectionScreen}
+        options={{ title: 'Create Collection' }}
+      />
+      <OrganizationStack.Screen
+        name="CollectionDetails"
+        component={CollectionDetailsScreen}
+        options={{ title: 'Collection Details' }}
+      />
+      <OrganizationStack.Screen
+        name="AddTransaction"
+        component={AddTransactionScreen}
+        options={{ title: 'Add Transaction' }}
+      />
+      <OrganizationStack.Screen
+        name="PendingCollectionApprovals"
+        component={PendingApprovalsScreen}
+        options={{ title: 'Pending Approvals' }}
+      />
+      <OrganizationStack.Screen
+        name="CollectionsStatistics"
+        component={CollectionsStatisticsScreen}
+        options={{ title: 'Statistics' }}
+      />
+    </OrganizationStack.Navigator>
+  );
+};
+
 const MainNavigator: React.FC = () => {
+  const { organization } = useAppSelector((state) => state.auth);
+
   return (
     <Tab.Navigator
       tabBar={(props) => <CustomTabBar {...props} />}
@@ -1045,6 +1149,12 @@ const MainNavigator: React.FC = () => {
         name="CoopsTab"
         component={CoopsStackNavigator}
       />
+      {organization && (
+        <Tab.Screen
+          name="OrganizationTab"
+          component={OrganizationStackNavigator}
+        />
+      )}
       <Tab.Screen
         name="ProfileTab"
         component={ProfileStackNavigator}

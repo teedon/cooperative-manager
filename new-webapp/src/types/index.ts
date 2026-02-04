@@ -49,6 +49,7 @@ export interface Cooperative {
   updatedAt: string
   memberRole?: MemberRole
   userTotalContributions?: number
+  accessType?: 'member' | 'staff_assignment' // How the user accesses this cooperative
 }
 
 export interface CooperativeMember {

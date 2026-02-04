@@ -363,23 +363,7 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             </View>
           )}
 
-          <Text style={styles.sectionTitle}>Admin Actions</Text>
-          
-          {/* Create Contribution - requires canCreateContributionPlan */}
-          {canCreateContributionPlan && (
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => navigation.navigate('CreateContribution', { cooperativeId })}
-            >
-              <Icon name="Plus" size={24} color={colors.primary.main} style={styles.actionIcon} />
-              <View style={styles.actionContent}>
-                <Text style={styles.actionTitle}>Create Contribution</Text>
-                <Text style={styles.actionSubtitle}>Set up a new contribution plan</Text>
-              </View>
-              <Icon name="ChevronRight" size={20} color={colors.text.disabled} style={styles.actionArrow} />
-            </TouchableOpacity>
-          )}
-          
+          <Text style={styles.sectionTitle}>Admin Actions</Text>          
           {/* Verify Payments - Hidden for now
           {canApprovePayments && (
             <TouchableOpacity
@@ -395,36 +379,6 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             </TouchableOpacity>
           )}
           */}
-          
-          {/* Approve Subscription Payments - requires canApprovePayments */}
-          {canApprovePayments && (
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => navigation.navigate('PaymentApproval', { cooperativeId })}
-            >
-              <Icon name="CreditCard" size={24} color={colors.primary.main} style={styles.actionIcon} />
-              <View style={styles.actionContent}>
-                <Text style={styles.actionTitle}>Approve Subscription Payments</Text>
-                <Text style={styles.actionSubtitle}>Review member subscription payments</Text>
-              </View>
-              <Icon name="ChevronRight" size={20} color={colors.text.disabled} style={styles.actionArrow} />
-            </TouchableOpacity>
-          )}
-          
-          {/* Bulk Approve - requires canBulkApprove */}
-          {canBulkApprove && (
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => navigation.navigate('BulkApproval', { cooperativeId })}
-            >
-              <Icon name="CheckCheck" size={24} color={colors.success.main} style={styles.actionIcon} />
-              <View style={styles.actionContent}>
-                <Text style={styles.actionTitle}>Bulk Approve Schedules</Text>
-                <Text style={styles.actionSubtitle}>Approve all payments for a month</Text>
-              </View>
-              <Icon name="ChevronRight" size={20} color={colors.text.disabled} style={styles.actionArrow} />
-            </TouchableOpacity>
-          )}
           
           {/* View Ledger - requires canViewLedger */}
           {canViewLedger && (
@@ -512,42 +466,6 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
               <View style={styles.actionContent}>
                 <Text style={styles.actionTitle}>Manage Admins</Text>
                 <Text style={styles.actionSubtitle}>Add and configure admin permissions</Text>
-              </View>
-              <Icon name="ChevronRight" size={20} color={colors.text.disabled} style={styles.actionArrow} />
-            </TouchableOpacity>
-          )}
-
-          {/* Manage Offline Members - requires canApproveMembers */}
-          {canApproveMembers && (
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => navigation.navigate('OfflineMembers', { 
-                cooperativeId, 
-                cooperativeName: currentCooperative?.name || 'Cooperative'
-              })}
-            >
-              <Icon name="Users" size={24} color={colors.info?.main || '#3B82F6'} style={styles.actionIcon} />
-              <View style={styles.actionContent}>
-                <Text style={styles.actionTitle}>Offline Members</Text>
-                <Text style={styles.actionSubtitle}>Manage members without mobile devices</Text>
-              </View>
-              <Icon name="ChevronRight" size={20} color={colors.text.disabled} style={styles.actionArrow} />
-            </TouchableOpacity>
-          )}
-
-          {/* Invite Members - requires canApproveMembers */}
-          {canApproveMembers && (
-            <TouchableOpacity
-              style={styles.actionButton}
-              onPress={() => navigation.navigate('InviteMembers', { 
-                cooperativeId, 
-                cooperativeName: currentCooperative?.name || 'Cooperative'
-              })}
-            >
-              <Icon name="Mail" size={24} color={colors.accent?.main || '#26A69A'} style={styles.actionIcon} />
-              <View style={styles.actionContent}>
-                <Text style={styles.actionTitle}>Invite Members</Text>
-                <Text style={styles.actionSubtitle}>Send invitations via email or WhatsApp</Text>
               </View>
               <Icon name="ChevronRight" size={20} color={colors.text.disabled} style={styles.actionArrow} />
             </TouchableOpacity>
@@ -788,11 +706,50 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           </Text>
         </View>
       )}
+      
+      {/* Member Management Admin Actions */}
+      {canApproveMembers && (
+        <View style={styles.adminActionsSection}>
+          <Text style={styles.adminActionsTitle}>Member Management</Text>
+          
+          {/* Manage Offline Members - requires canApproveMembers */}
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => navigation.navigate('OfflineMembers', { 
+              cooperativeId, 
+              cooperativeName: currentCooperative?.name || 'Cooperative'
+            })}
+          >
+            <Icon name="Users" size={24} color={colors.info?.main || '#3B82F6'} style={styles.actionIcon} />
+            <View style={styles.actionContent}>
+              <Text style={styles.actionTitle}>Offline Members</Text>
+              <Text style={styles.actionSubtitle}>Manage members without mobile devices</Text>
+            </View>
+            <Icon name="ChevronRight" size={20} color={colors.text.disabled} style={styles.actionArrow} />
+          </TouchableOpacity>
+
+          {/* Invite Members - requires canApproveMembers */}
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={() => navigation.navigate('InviteMembers', { 
+              cooperativeId, 
+              cooperativeName: currentCooperative?.name || 'Cooperative'
+            })}
+          >
+            <Icon name="Mail" size={24} color={colors.accent?.main || '#26A69A'} style={styles.actionIcon} />
+            <View style={styles.actionContent}>
+              <Text style={styles.actionTitle}>Invite Members</Text>
+              <Text style={styles.actionSubtitle}>Send invitations via email or WhatsApp</Text>
+            </View>
+            <Icon name="ChevronRight" size={20} color={colors.text.disabled} style={styles.actionArrow} />
+          </TouchableOpacity>
+        </View>
+      )}
     </View>
   );
-  };
+};
 
-  const getCategoryBadgeStyle = (category: string) => {
+const getCategoryBadgeStyle = (category: string) => {
     return category === 'compulsory' 
       ? { backgroundColor: colors.error.light } 
       : { backgroundColor: colors.success.light };
@@ -951,6 +908,43 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             )}
           </TouchableOpacity>
         ))
+      )}
+      
+      {/* Contribution Admin Actions */}
+      {(canApprovePayments || canBulkApprove) && (
+        <View style={styles.adminActionsSection}>
+          <Text style={styles.adminActionsTitle}>Payment Management</Text>
+          
+          {/* Approve Subscription Payments - requires canApprovePayments */}
+          {canApprovePayments && (
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => navigation.navigate('PaymentApproval', { cooperativeId })}
+            >
+              <Icon name="CreditCard" size={24} color={colors.primary.main} style={styles.actionIcon} />
+              <View style={styles.actionContent}>
+                <Text style={styles.actionTitle}>Approve Subscription Payments</Text>
+                <Text style={styles.actionSubtitle}>Review member subscription payments</Text>
+              </View>
+              <Icon name="ChevronRight" size={20} color={colors.text.disabled} style={styles.actionArrow} />
+            </TouchableOpacity>
+          )}
+          
+          {/* Bulk Approve - requires canBulkApprove */}
+          {canBulkApprove && (
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => navigation.navigate('BulkApproval', { cooperativeId })}
+            >
+              <Icon name="CheckCheck" size={24} color={colors.success.main} style={styles.actionIcon} />
+              <View style={styles.actionContent}>
+                <Text style={styles.actionTitle}>Bulk Approve Schedules</Text>
+                <Text style={styles.actionSubtitle}>Approve all payments for a month</Text>
+              </View>
+              <Icon name="ChevronRight" size={20} color={colors.text.disabled} style={styles.actionArrow} />
+            </TouchableOpacity>
+          )}
+        </View>
       )}
     </View>
   );
@@ -2654,6 +2648,18 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     color: colors.primary.contrast,
+  },
+  adminActionsSection: {
+    marginTop: spacing.lg,
+    paddingTop: spacing.lg,
+    borderTopWidth: 1,
+    borderTopColor: colors.border.light,
+  },
+  adminActionsTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.text.primary,
+    marginBottom: spacing.md,
   },
 });
 

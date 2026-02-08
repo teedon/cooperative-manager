@@ -251,7 +251,7 @@ export function generateWelcomeEmailTemplate(
         If you have any questions, our support team is always here to help.
       </p>
       <p style="text-align: center;">
-        <a href="#" class="button">Open ${APP_NAME}</a>
+        <a href="https://coopmanager.app" class="button">Open ${APP_NAME}</a>
       </p>
     </div>
   `;
@@ -353,7 +353,7 @@ export function generateCooperativeInviteEmailTemplate(
         Use the code above to join the cooperative in the ${APP_NAME} app.
       </p>
       <p style="text-align: center;">
-        <a href="#" class="button">Join Cooperative</a>
+        <a href="https://coopmanager.app" class="button">Join Cooperative</a>
       </p>
     </div>
   `;
@@ -875,7 +875,7 @@ export function generateLoanRepaymentReminderEmailTemplate(
         Please ensure your payment is made on time to avoid late fees.
       </p>
       <p style="text-align: center;">
-        <a href="#" class="button">Make Payment</a>
+        <a href="https://coopmanager.app" class="button">Make Payment</a>
       </p>
     </div>
   `;
@@ -1062,7 +1062,7 @@ export function generateNewLoanRequestNotificationEmailTemplate(
         </table>
       </div>
       <p style="text-align: center;">
-        <a href="#" class="button">Review Request</a>
+        <a href="https://coopmanager.app" class="button">Review Request</a>
       </p>
     </div>
   `;
@@ -1111,7 +1111,7 @@ export function generateNewContributionNotificationEmailTemplate(
         </table>
       </div>
       <p style="text-align: center;">
-        <a href="#" class="button">Review Contribution</a>
+        <a href="https://coopmanager.app" class="button">Review Contribution</a>
       </p>
     </div>
   `;
@@ -1160,7 +1160,7 @@ export function generateNewExpenseNotificationEmailTemplate(
         </table>
       </div>
       <p style="text-align: center;">
-        <a href="#" class="button">Review Expense</a>
+        <a href="https://coopmanager.app" class="button">Review Expense</a>
       </p>
     </div>
   `;

@@ -11,7 +11,7 @@ import {
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useFocusEffect } from '@react-navigation/native';
 import { HomeStackParamList } from '../../navigation/MainNavigator';
-import { organizationsApi, Organization } from '../../api/organizationsApi';
+import { organizationsApi, Organization, Staff, STAFF_PERMISSIONS } from '../../api/organizationsApi';
 import Icon from '../../components/common/Icon';
 import { colors, spacing, borderRadius, shadows } from '../../theme';
 import { getErrorMessage } from '../../utils/errorHandler';
@@ -21,12 +21,14 @@ type Props = NativeStackScreenProps<HomeStackParamList, 'OrganizationDetail'>;
 const OrganizationDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const { organizationId } = route.params;
   const [organization, setOrganization] = useState<Organization | null>(null);
+  const [staffProfile, setStaffProfile] = useState<Staff | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useFocusEffect(
     useCallback(() => {
       loadOrganization();
+      // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [organizationId])
   );
 
@@ -36,6 +38,17 @@ const OrganizationDetailScreen: React.FC<Props> = ({ route, navigation }) => {
       setError(null);
       const response = await organizationsApi.getById(organizationId);
       setOrganization(response.data);
+      
+      // Fetch staff profile to check permissions
+      try {
+        const staffResponse = await organizationsApi.getMyStaffProfile(organizationId);
+        if (staffResponse.success) {
+          setStaffProfile(staffResponse.data);
+        }
+      } catch (staffErr) {
+        // User might not be a staff member, that's okay
+        console.log('Not a staff member or no permissions');
+      }
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -54,6 +67,15 @@ const OrganizationDetailScreen: React.FC<Props> = ({ route, navigation }) => {
   const handleViewStatistics = () => {
     navigation.navigate('CollectionsStatistics', { organizationId });
   };
+
+  const handleApproveCollections = () => {
+    navigation.navigate('PendingCollectionApprovals', { organizationId });
+  };
+
+  // Check if user can approve collections
+  const canApproveCollections = staffProfile && 
+    (staffProfile.role === 'admin' || 
+     (staffProfile.role === 'supervisor' && staffProfile.permissions?.includes(STAFF_PERMISSIONS.APPROVE_COLLECTIONS)));
 
   if (loading) {
     return (
@@ -145,6 +167,21 @@ const OrganizationDetailScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
           <Icon name="chevron-forward" size={20} color={colors.text.secondary} />
         </TouchableOpacity>
+
+        {canApproveCollections && (
+          <TouchableOpacity style={styles.actionCard} onPress={handleApproveCollections}>
+            <View style={styles.actionIcon}>
+              <Icon name="checkmark-circle" size={24} color="#f59e0b" />
+            </View>
+            <View style={styles.actionContent}>
+              <Text style={styles.actionTitle}>Approve Collections</Text>
+              <Text style={styles.actionDescription}>
+                Review and approve agent collections
+              </Text>
+            </View>
+            <Icon name="chevron-forward" size={20} color={colors.text.secondary} />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Organization Info */}

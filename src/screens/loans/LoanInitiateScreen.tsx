@@ -189,6 +189,25 @@ const LoanInitiateScreen: React.FC<Props> = ({ route, navigation }) => {
     );
   }
 
+  // Check if no active loan types are configured
+  if (activeLoanTypes.length === 0) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <Text style={styles.noLoanTypesTitle}>No Loan Types Available</Text>
+        <Text style={styles.noLoanTypesMessage}>
+          No loan types have been configured for this cooperative yet. 
+          Please configure loan types before initiating loans for members.
+        </Text>
+        <TouchableOpacity 
+          style={styles.goBackButton} 
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.goBackButtonText}>Go Back</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
     <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
       <View style={styles.header}>
@@ -467,6 +486,32 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     color: '#64748b',
+  },
+  noLoanTypesTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#dc2626',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  noLoanTypesMessage: {
+    fontSize: 16,
+    color: '#64748b',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginHorizontal: 32,
+    marginBottom: 32,
+  },
+  goBackButton: {
+    backgroundColor: '#22c55e',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  goBackButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
   header: {
     backgroundColor: '#22c55e',

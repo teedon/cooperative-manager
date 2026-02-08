@@ -722,6 +722,18 @@ app.post(
       return res.status(403).json({ success: false, error: 'Not a member of this cooperative' });
     }
 
+    // Check if any active loan types are configured for the cooperative
+    const activeLoanTypes = data.loanTypes?.filter(
+      (lt: any) => lt.cooperativeId === cooperativeId && lt.isActive
+    ) || [];
+
+    if (activeLoanTypes.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No loan types are configured for this cooperative. Please contact your cooperative administrator to set up loan types before applying for a loan.'
+      });
+    }
+
     const interestRate = 5; // Default 5%
     const totalRepayment = amount * (1 + interestRate / 100);
     const monthlyRepayment = totalRepayment / duration;

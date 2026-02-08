@@ -129,12 +129,6 @@ const MemberDashboardScreen: React.FC<Props> = ({ route }) => {
               -{formatCurrency(virtualBalance?.totalLoanDisbursements || 0)}
             </Text>
           </View>
-          <View style={[styles.breakdownItem, styles.debitItem]}>
-            <Text style={styles.breakdownLabel}>Group Buy Outlays</Text>
-            <Text style={[styles.breakdownValue, styles.debitValue]}>
-              -{formatCurrency(virtualBalance?.totalGroupBuyOutlays || 0)}
-            </Text>
-          </View>
           <View style={styles.breakdownItem}>
             <Text style={styles.breakdownLabel}>Adjustments</Text>
             <Text style={styles.breakdownValue}>

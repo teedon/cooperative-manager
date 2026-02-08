@@ -301,7 +301,6 @@ const CreateContributionScreen: React.FC<Props> = ({ route, navigation }) => {
             value={startDate}
             onChange={setStartDate}
             placeholder="Select start date (optional)"
-            minimumDate={new Date()}
           />
 
           {contributionType === 'period' && (

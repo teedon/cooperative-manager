@@ -428,29 +428,16 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
             </TouchableOpacity>
           )}
           
-          {/* Daily Collections - For field agents and managers */}
-          <TouchableOpacity
-            style={styles.actionButton}
-            onPress={() => navigation.navigate('CollectionsList', { organizationId: cooperativeId })}
-          >
-            <Icon name="Wallet" size={24} color="#10b981" style={styles.actionIcon} />
-            <View style={styles.actionContent}>
-              <Text style={styles.actionTitle}>Daily Collections</Text>
-              <Text style={styles.actionSubtitle}>Manage field agent collections</Text>
-            </View>
-            <Icon name="ChevronRight" size={20} color={colors.text.disabled} style={styles.actionArrow} />
-          </TouchableOpacity>
-
-          {/* Pending Collection Approvals - For supervisors */}
-          {canApprovePayments && (
+          {/* Daily Collections - For field agents and managers with organization */}
+          {(user as any)?.staffProfile?.organizationId && (
             <TouchableOpacity
               style={styles.actionButton}
-              onPress={() => navigation.navigate('PendingCollectionApprovals', { organizationId: cooperativeId })}
+              onPress={() => navigation.navigate('CollectionsList', { organizationId: (user as any).staffProfile.organizationId })}
             >
-              <Icon name="CheckCircle" size={24} color="#f59e0b" style={styles.actionIcon} />
+              <Icon name="Wallet" size={24} color="#10b981" style={styles.actionIcon} />
               <View style={styles.actionContent}>
-                <Text style={styles.actionTitle}>Approve Collections</Text>
-                <Text style={styles.actionSubtitle}>Review and approve agent collections</Text>
+                <Text style={styles.actionTitle}>Daily Collections</Text>
+                <Text style={styles.actionSubtitle}>Manage field agent collections</Text>
               </View>
               <Icon name="ChevronRight" size={20} color={colors.text.disabled} style={styles.actionArrow} />
             </TouchableOpacity>

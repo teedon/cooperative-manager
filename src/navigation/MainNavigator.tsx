@@ -992,6 +992,37 @@ const CoopsStackNavigator: React.FC = () => {
         component={SetEsusuOrderScreen}
         options={{ title: 'Set Collection Order' }}
       />
+      {/* Daily Collection Screens */}
+      <CoopsStack.Screen
+        name="CollectionsList"
+        component={CollectionsListScreen}
+        options={{ title: 'Daily Collections' }}
+      />
+      <CoopsStack.Screen
+        name="CreateCollection"
+        component={CreateCollectionScreen}
+        options={{ title: 'New Collection' }}
+      />
+      <CoopsStack.Screen
+        name="CollectionDetails"
+        component={CollectionDetailsScreen}
+        options={{ title: 'Collection Details' }}
+      />
+      <CoopsStack.Screen
+        name="AddTransaction"
+        component={AddTransactionScreen}
+        options={{ title: 'Add Transaction' }}
+      />
+      <CoopsStack.Screen
+        name="PendingCollectionApprovals"
+        component={PendingApprovalsScreen}
+        options={{ title: 'Pending Approvals' }}
+      />
+      <CoopsStack.Screen
+        name="CollectionsStatistics"
+        component={CollectionsStatisticsScreen}
+        options={{ title: 'Statistics & Reports' }}
+      />
     </CoopsStack.Navigator>
   );
 };

@@ -10,8 +10,11 @@ import {
   ActivityIndicator,
   Modal,
   FlatList,
+  Image,
+  Dimensions,
 } from 'react-native';
 import DocumentPicker from 'react-native-document-picker';
+import Pdf from 'react-native-pdf';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { HomeStackParamList } from '../../navigation/MainNavigator';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
@@ -22,6 +25,7 @@ import { formatCurrency } from '../../utils';
 import { validateRequired, validateMinLength } from '../../utils/validation';
 import { getErrorMessage } from '../../utils/errorHandler';
 import { uploadMultipleDocuments, validateDocument } from '../../utils/uploadDocument';
+import { isImageFile, isPdfFile, getDocumentDisplayName as getDocDisplayName, validateDocumentForPreview, formatFileSize } from '../../utils/documentPreview';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'LoanRequest'>;
 
@@ -30,6 +34,7 @@ interface KycDocument {
   uri: string;
   name: string;
   mimeType?: string;
+  size?: number;
 }
 
 interface LoanFormData {
@@ -70,11 +75,25 @@ const LoanRequestScreen: React.FC<Props> = ({ route, navigation }) => {
   const [showDurationPicker, setShowDurationPicker] = useState(false);
   const [showGuarantorPicker, setShowGuarantorPicker] = useState(false);
   const [showKycPicker, setShowKycPicker] = useState(false);
+  const [showPreviewModal, setShowPreviewModal] = useState(false);
+  const [previewDocument, setPreviewDocument] = useState<KycDocument | null>(null);
 
   useEffect(() => {
     dispatch(fetchLoanTypes(cooperativeId));
     dispatch(fetchMembers(cooperativeId));
   }, [cooperativeId]);
+
+  // Function to open document preview
+  const openPreview = (document: KycDocument) => {
+    setPreviewDocument(document);
+    setShowPreviewModal(true);
+  };
+
+  // Function to close preview modal
+  const closePreview = () => {
+    setShowPreviewModal(false);
+    setPreviewDocument(null);
+  };
 
   // Filter only active loan types that require approval (member-requested)
   const availableLoanTypes = useMemo(() => {
@@ -306,16 +325,30 @@ const LoanRequestScreen: React.FC<Props> = ({ route, navigation }) => {
   const pickDocument = async (docType: string) => {
     try {
       const result = await DocumentPicker.pick({
-        type: [DocumentPicker.types.pdf, DocumentPicker.types.images],
+        type: [
+          DocumentPicker.types.pdf, 
+          DocumentPicker.types.images,
+          DocumentPicker.types.doc,
+          DocumentPicker.types.docx,
+        ],
       });
 
       if (result && result.length > 0) {
         const doc = result[0];
+        
+        // Validate the selected document
+        const validation = validateDocumentForPreview(doc.name || '', doc.size);
+        if (!validation.valid) {
+          Alert.alert('Invalid Document', validation.error);
+          return;
+        }
+        
         const newDoc: KycDocument = {
           type: docType,
           uri: doc.uri,
           name: doc.name || 'document',
           mimeType: doc.type,
+          size: doc.size,
         };
 
         // Replace existing document of same type or add new
@@ -324,10 +357,14 @@ const LoanRequestScreen: React.FC<Props> = ({ route, navigation }) => {
 
         setFormData({ ...formData, kycDocuments: updatedDocs });
         setErrors({ ...errors, kycDocuments: undefined });
+        
+        // Show success message
+        Alert.alert('Document Selected', `${newDoc.name} has been selected for ${getDocDisplayName(docType)}`);
       }
     } catch (err) {
       if (!DocumentPicker.isCancel(err)) {
-        Alert.alert('Error', 'Failed to pick document');
+        console.error('Document picker error:', err);
+        Alert.alert('Error', 'Failed to pick document. Please try again.');
       }
     }
   };
@@ -335,10 +372,6 @@ const LoanRequestScreen: React.FC<Props> = ({ route, navigation }) => {
   const removeDocument = (docType: string) => {
     const updatedDocs = formData.kycDocuments.filter(d => d.type !== docType);
     setFormData({ ...formData, kycDocuments: updatedDocs });
-  };
-
-  const getDocumentDisplayName = (type: string): string => {
-    return type.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
   };
 
   // Generate duration options - show first 5 as buttons, rest in dropdown
@@ -376,6 +409,25 @@ const LoanRequestScreen: React.FC<Props> = ({ route, navigation }) => {
       <View style={[styles.container, styles.centerContent]}>
         <ActivityIndicator size="large" color="#8b5cf6" />
         <Text style={styles.loadingText}>Loading loan options...</Text>
+      </View>
+    );
+  }
+
+  // Check if no active loan types are configured
+  if (availableLoanTypes.length === 0) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <Text style={styles.noLoanTypesTitle}>No Loan Types Available</Text>
+        <Text style={styles.noLoanTypesMessage}>
+          No loan types have been configured for this cooperative yet. 
+          Please contact your cooperative administrator to set up loan types before applying for a loan.
+        </Text>
+        <TouchableOpacity 
+          style={styles.goBackButton} 
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={styles.goBackButtonText}>Go Back</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -614,13 +666,67 @@ const LoanRequestScreen: React.FC<Props> = ({ route, navigation }) => {
               const uploaded = formData.kycDocuments.find(d => d.type === docType);
               return (
                 <View key={docType} style={styles.kycDocItem}>
-                  <Text style={styles.kycDocLabel}>{getDocumentDisplayName(docType)}</Text>
+                  <Text style={styles.kycDocLabel}>{getDocDisplayName(docType)}</Text>
                   {uploaded ? (
                     <View style={styles.kycDocUploaded}>
-                      <Text style={styles.kycDocName} numberOfLines={1}>{uploaded.name}</Text>
-                      <TouchableOpacity onPress={() => removeDocument(docType)}>
-                        <Text style={styles.kycDocRemove}>✕</Text>
-                      </TouchableOpacity>
+                      <View style={styles.documentPreviewContainer}>
+                        {/* Preview thumbnail */}
+                        {isImageFile(uploaded.mimeType, uploaded.name) ? (
+                          <TouchableOpacity 
+                            style={styles.previewThumbnail}
+                            onPress={() => openPreview(uploaded)}
+                          >
+                            <Image 
+                              source={{ uri: uploaded.uri }} 
+                              style={styles.thumbnailImage} 
+                              resizeMode="cover"
+                            />
+                            <View style={styles.previewOverlay}>
+                              <Text style={styles.previewText}>👁️</Text>
+                            </View>
+                          </TouchableOpacity>
+                        ) : isPdfFile(uploaded.mimeType, uploaded.name) ? (
+                          <TouchableOpacity 
+                            style={styles.previewThumbnail}
+                            onPress={() => openPreview(uploaded)}
+                          >
+                            <View style={styles.pdfThumbnail}>
+                              <Text style={styles.pdfIcon}>📄</Text>
+                              <Text style={styles.pdfLabel}>PDF</Text>
+                            </View>
+                            <View style={styles.previewOverlay}>
+                              <Text style={styles.previewText}>👁️</Text>
+                            </View>
+                          </TouchableOpacity>
+                        ) : (
+                          <TouchableOpacity 
+                            style={styles.previewThumbnail}
+                            onPress={() => openPreview(uploaded)}
+                          >
+                            <View style={styles.docThumbnail}>
+                              <Text style={styles.docIcon}>📋</Text>
+                              <Text style={styles.docLabel}>DOC</Text>
+                            </View>
+                            <View style={styles.previewOverlay}>
+                              <Text style={styles.previewText}>👁️</Text>
+                            </View>
+                          </TouchableOpacity>
+                        )}
+                        
+                        {/* Document info and remove button */}
+                        <View style={styles.documentInfo}>
+                          <Text style={styles.kycDocName} numberOfLines={2}>{uploaded.name}</Text>
+                          {uploaded.size && (
+                            <Text style={styles.documentSize}>{formatFileSize(uploaded.size)}</Text>
+                          )}
+                          <TouchableOpacity 
+                            style={styles.removeDocButton}
+                            onPress={() => removeDocument(docType)}
+                          >
+                            <Text style={styles.kycDocRemove}>✕</Text>
+                          </TouchableOpacity>
+                        </View>
+                      </View>
                     </View>
                   ) : (
                     <TouchableOpacity
@@ -784,6 +890,68 @@ const LoanRequestScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
         </View>
       </Modal>
+
+      {/* Document Preview Modal */}
+      <Modal
+        visible={showPreviewModal}
+        animationType="slide"
+        presentationStyle="formSheet"
+        onRequestClose={closePreview}
+      >
+        <View style={styles.previewModalContainer}>
+          <View style={styles.previewHeader}>
+            <TouchableOpacity onPress={closePreview} style={styles.closeButton}>
+              <Text style={styles.closeButtonText}>Close</Text>
+            </TouchableOpacity>
+            <Text style={styles.previewTitle} numberOfLines={1}>
+              {previewDocument?.name}
+            </Text>
+            <View style={styles.placeholder} />
+          </View>
+
+          <View style={styles.previewContent}>
+            {previewDocument && isImageFile(previewDocument.mimeType, previewDocument.name) ? (
+              <ScrollView 
+                style={styles.imagePreviewContainer}
+                contentContainerStyle={styles.imagePreviewContent}
+                maximumZoomScale={3}
+                minimumZoomScale={1}
+                showsHorizontalScrollIndicator={false}
+                showsVerticalScrollIndicator={false}
+              >
+                <Image
+                  source={{ uri: previewDocument.uri }}
+                  style={styles.previewImage}
+                  resizeMode="contain"
+                  onError={() => Alert.alert('Error', 'Failed to load image')}
+                />
+              </ScrollView>
+            ) : previewDocument && isPdfFile(previewDocument.mimeType, previewDocument.name) ? (
+              <Pdf
+                source={{ uri: previewDocument.uri, cache: true }}
+                onLoadComplete={(numberOfPages) => {
+                  console.log(`PDF loaded: ${numberOfPages} pages`);
+                }}
+                onError={(error) => {
+                  console.error('PDF Error:', error);
+                  Alert.alert('Error', 'Unable to load PDF document');
+                }}
+                style={styles.pdfPreview}
+              />
+            ) : (
+              <View style={styles.unsupportedPreview}>
+                <Text style={styles.unsupportedIcon}>📄</Text>
+                <Text style={styles.unsupportedText}>
+                  This file type cannot be previewed
+                </Text>
+                <Text style={styles.unsupportedSubtext}>
+                  File: {previewDocument?.name}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 };
@@ -800,6 +968,32 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     color: '#64748b',
+  },
+  noLoanTypesTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#dc2626',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  noLoanTypesMessage: {
+    fontSize: 16,
+    color: '#64748b',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginHorizontal: 32,
+    marginBottom: 32,
+  },
+  goBackButton: {
+    backgroundColor: '#8b5cf6',
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  goBackButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
   },
   header: {
     backgroundColor: '#8b5cf6',
@@ -1271,19 +1465,19 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   kycDocUploaded: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f0fdf4',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    maxWidth: '60%',
+    flex: 1,
+    marginTop: 8,
   },
   kycDocName: {
-    fontSize: 13,
-    color: '#166534',
-    marginRight: 8,
+    fontSize: 12,
+    color: '#374151',
+    marginBottom: 4,
     flex: 1,
+  },
+  documentSize: {
+    fontSize: 11,
+    color: '#6b7280',
+    marginBottom: 8,
   },
   kycDocRemove: {
     fontSize: 16,
@@ -1310,6 +1504,164 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#1e40af',
     lineHeight: 20,
+  },
+  // Document preview styles
+  documentPreviewContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f9fafb',
+    borderRadius: 8,
+    padding: 8,
+  },
+  previewThumbnail: {
+    width: 60,
+    height: 60,
+    borderRadius: 6,
+    backgroundColor: '#e5e7eb',
+    marginRight: 12,
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  thumbnailImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 6,
+  },
+  pdfThumbnail: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#dc2626',
+  },
+  pdfIcon: {
+    fontSize: 20,
+    color: 'white',
+  },
+  pdfLabel: {
+    fontSize: 10,
+    color: 'white',
+    fontWeight: 'bold',
+    marginTop: 2,
+  },
+  docThumbnail: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#6b7280',
+  },
+  docIcon: {
+    fontSize: 20,
+    color: 'white',
+  },
+  docLabel: {
+    fontSize: 10,
+    color: 'white',
+    fontWeight: 'bold',
+    marginTop: 2,
+  },
+  previewOverlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  previewText: {
+    color: 'white',
+    fontSize: 12,
+  },
+  documentInfo: {
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  removeDocButton: {
+    alignSelf: 'flex-end',
+    padding: 4,
+  },
+  // Preview Modal styles
+  previewModalContainer: {
+    flex: 1,
+    backgroundColor: 'white',
+  },
+  previewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+    backgroundColor: 'white',
+  },
+  closeButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#8b5cf6',
+    borderRadius: 6,
+  },
+  closeButtonText: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  previewTitle: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
+    marginHorizontal: 12,
+  },
+  placeholder: {
+    width: 60,
+  },
+  previewContent: {
+    flex: 1,
+    backgroundColor: '#f9fafb',
+  },
+  imagePreviewContainer: {
+    flex: 1,
+  },
+  imagePreviewContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  previewImage: {
+    width: Dimensions.get('window').width - 32,
+    height: Dimensions.get('window').height - 150,
+  },
+  pdfPreview: {
+    flex: 1,
+    backgroundColor: 'white',
+  },
+  unsupportedPreview: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  unsupportedIcon: {
+    fontSize: 64,
+    marginBottom: 16,
+  },
+  unsupportedText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  unsupportedSubtext: {
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
   },
 });
 

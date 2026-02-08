@@ -193,6 +193,17 @@ export class LoansService {
   async requestLoan(cooperativeId: string, dto: RequestLoanDto, requestingUserId: string) {
     const member = await this.validateMembership(cooperativeId, requestingUserId);
 
+    // Check if any active loan types are configured for the cooperative
+    const activeLoanTypes = await this.prisma.loanType.findMany({
+      where: { cooperativeId, isActive: true },
+    });
+
+    if (activeLoanTypes.length === 0) {
+      throw new BadRequestException(
+        'No loan types are configured for this cooperative. Please contact your cooperative administrator to set up loan types before applying for a loan.'
+      );
+    }
+
     let interestRate = dto.interestRate ?? 0;
     let loanType: any = null;
 
@@ -392,6 +403,17 @@ export class LoansService {
     });
     if (!targetMember) {
       throw new BadRequestException('Member not found or not active');
+    }
+
+    // Check if any active loan types are configured for the cooperative
+    const activeLoanTypes = await this.prisma.loanType.findMany({
+      where: { cooperativeId, isActive: true },
+    });
+
+    if (activeLoanTypes.length === 0) {
+      throw new BadRequestException(
+        'No loan types are configured for this cooperative. Please configure loan types before initiating loans for members.'
+      );
     }
 
     let interestRate = dto.interestRate ?? 0;

@@ -20,6 +20,10 @@ model User {
   // Password reset
   passwordResetToken   String?
   passwordResetExpires DateTime?
+  
+  // OTP for password reset verification
+  passwordResetOtp      String?
+  passwordResetOtpExpires DateTime?
 
   createdAt               DateTime                @default(now())
   updatedAt               DateTime                @updatedAt

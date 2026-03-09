@@ -148,6 +148,19 @@ export class AuthController {
     }
   }
 
+  @Post('verify-otp')
+  async verifyOTP(@Body() dto: { email: string; otp: string }) {
+    try {
+      const result = await this.auth.verifyOTP(dto.email, dto.otp);
+      return { success: true, message: result.message, data: { valid: result.valid } };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to verify OTP', data: null },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
   @Post('verify-reset-token')
   async verifyResetToken(@Body() dto: VerifyResetTokenDto) {
     try {

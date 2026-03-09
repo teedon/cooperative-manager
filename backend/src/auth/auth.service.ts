@@ -522,7 +522,7 @@ export class AuthService {
   }
 
   /**
-   * Initiate forgot password flow - generates a reset token
+   * Initiate forgot password flow - generates reset token and OTP
    */
   async forgotPassword(email: string) {
     const user = await this.users.findByEmail(email);
@@ -539,12 +539,21 @@ export class AuthService {
     // Set token expiry to 1 hour from now
     const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
 
-    // Save the hashed token and expiry
+    // Generate a 6-digit OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const hashedOtp = await bcrypt.hash(otp, 10);
+    
+    // OTP valid for 15 minutes
+    const otpExpiresAt = new Date(Date.now() + 15 * 60 * 1000);
+
+    // Save the hashed token, hashed OTP and their expiries
     await this.prisma.user.update({
       where: { id: user.id },
       data: {
         passwordResetToken: hashedToken,
         passwordResetExpires: expiresAt,
+        passwordResetOtp: hashedOtp,
+        passwordResetOtpExpires: otpExpiresAt,
       },
     });
 
@@ -557,28 +566,68 @@ export class AuthService {
       { email: user.email },
     );
 
-    // Generate a 6-digit OTP for the email
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    
-    // Send password reset email with OTP (showing the reset token as OTP for simplicity)
+    // Send password reset email with OTP
     sendEmail(
       user.email,
       'Password Reset Request - CoopManager',
       generatePasswordResetEmailTemplate(
         `${user.firstName} ${user.lastName}`,
-        resetToken.substring(0, 6).toUpperCase(), // Use first 6 chars as OTP display
+        otp, // Send the actual 6-digit OTP
       ),
     ).catch(err => console.error('Failed to send password reset email:', err));
 
-    // In production, you would send an email here with the reset link
-    // For now, we return the token (in production, never return the token directly!)
-    // The token should be sent via email with a link like: /reset-password?token=xxx
-    
+    // Return reset token for mobile app flow
     return { 
       message: 'If an account with this email exists, a password reset link has been sent.',
       // Remove this in production - only for development/testing
       resetToken: process.env.NODE_ENV === 'development' ? resetToken : undefined,
     };
+  }
+
+  /**
+   * Verify OTP code for password reset
+   */
+  async verifyOTP(email: string, otp: string) {
+    const user = await this.users.findByEmail(email);
+    
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
+
+    // Check if OTP exists and hasn't expired
+    if (!user.passwordResetOtp || !user.passwordResetOtpExpires) {
+      throw new BadRequestException('OTP not requested or expired');
+    }
+
+    if (new Date() > user.passwordResetOtpExpires) {
+      throw new BadRequestException('OTP has expired');
+    }
+
+    // Verify OTP
+    const isValidOtp = await bcrypt.compare(otp, user.passwordResetOtp);
+    if (!isValidOtp) {
+      throw new BadRequestException('Invalid OTP code');
+    }
+
+    // Clear the OTP after successful verification
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordResetOtp: null,
+        passwordResetOtpExpires: null,
+      },
+    });
+
+    // Log activity
+    await this.activitiesService.log(
+      user.id,
+      'auth.otp_verified',
+      'OTP verified for password reset',
+      undefined,
+      { email: user.email },
+    );
+
+    return { valid: true, message: 'OTP verified successfully' };
   }
 
   /**
@@ -631,13 +680,15 @@ export class AuthService {
     // Hash the new password
     const hashedPassword = await bcrypt.hash(newPassword, 10);
 
-    // Update password and clear reset token
+    // Update password and clear reset token and OTP
     await this.prisma.user.update({
       where: { id: matchedUser.id },
       data: {
         password: hashedPassword,
         passwordResetToken: null,
         passwordResetExpires: null,
+        passwordResetOtp: null,
+        passwordResetOtpExpires: null,
         refreshToken: null, // Invalidate all sessions
       },
     });

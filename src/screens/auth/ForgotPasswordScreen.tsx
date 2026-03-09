@@ -54,9 +54,12 @@ const ForgotPasswordScreen: React.FC<Props> = ({ navigation }) => {
       const response = await authApi.forgotPassword(email);
       if (response.success) {
         setSubmitted(true);
-        // In development, if we get a reset token, navigate directly to reset password
+        // Navigate to OTP verification screen
         if (response.data?.resetToken) {
-          navigation.navigate('ResetPassword', { token: response.data.resetToken, email });
+          // In development, show the email confirmation first
+          setTimeout(() => {
+            navigation.replace('OTPVerification', { email, resetToken: response.data!.resetToken! });
+          }, 2000);
         }
       } else {
         setError(response.message || 'Failed to process request');

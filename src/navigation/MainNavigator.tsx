@@ -42,11 +42,14 @@ import PendingLiquidationsScreen from '../screens/loans/PendingLiquidationsScree
 import LedgerScreen from '../screens/ledger/LedgerScreen';
 import MemberDashboardScreen from '../screens/cooperative/MemberDashboardScreen';
 import AdminManagementScreen from '../screens/cooperative/AdminManagementScreen';
+import EditPermissionsScreen from '../screens/cooperative/EditPermissionsScreen';
+import PromoteMemberScreen from '../screens/cooperative/PromoteMemberScreen';
 import OfflineMembersScreen from '../screens/cooperative/OfflineMembersScreen';
 import InviteMembersScreen from '../screens/cooperative/InviteMembersScreen';
 import ProfileScreen from '../screens/home/ProfileScreen';
 import NotificationsScreen from '../screens/notifications/NotificationsScreen';
 import NotificationSettingsScreen from '../screens/notifications/NotificationSettingsScreen';
+import NotificationPermissionScreen from '../screens/notifications/NotificationPermissionScreen';
 import {
   SubscriptionPlansScreen,
   SubscriptionManagementScreen,
@@ -159,10 +162,22 @@ export type HomeStackParamList = {
   Ledger: { cooperativeId: string; memberId?: string };
   MemberDashboard: { cooperativeId: string; memberId: string };
   AdminManagement: { cooperativeId: string };
+  AdminEditPermissions: {
+    cooperativeId: string;
+    memberId: string;
+    memberName: string;
+    currentPermissions: string[];
+  };
+  AdminPromoteMember: {
+    cooperativeId: string;
+    memberId: string;
+    memberName: string;
+  };
   OfflineMembers: { cooperativeId: string; cooperativeName: string };
   InviteMembers: { cooperativeId: string; cooperativeName: string };
   Notifications: undefined;
   NotificationSettings: undefined;
+  NotificationPermission: undefined;
   SubscriptionPlans: { cooperativeId: string; currentPlanId?: string };
   SubscriptionManagement: { cooperativeId: string };
   PaymentWebView: { authorizationUrl: string; reference: string; cooperativeId: string };
@@ -381,6 +396,16 @@ const HomeStackNavigator: React.FC = () => {
         options={{ title: 'Admin Management' }}
       />
       <HomeStack.Screen
+        name="AdminEditPermissions"
+        component={EditPermissionsScreen}
+        options={{ title: 'Edit Permissions' }}
+      />
+      <HomeStack.Screen
+        name="AdminPromoteMember"
+        component={PromoteMemberScreen}
+        options={{ title: 'Assign Role' }}
+      />
+      <HomeStack.Screen
         name="OfflineMembers"
         component={OfflineMembersScreen}
         options={{ title: 'Offline Members', headerShown: false }}
@@ -399,6 +424,11 @@ const HomeStackNavigator: React.FC = () => {
         name="NotificationSettings"
         component={NotificationSettingsScreen}
         options={{ title: 'Notification Settings' }}
+      />
+      <HomeStack.Screen
+        name="NotificationPermission"
+        component={NotificationPermissionScreen}
+        options={{ title: 'Enable Notifications' }}
       />
       <HomeStack.Screen
         name="SubscriptionPlans"

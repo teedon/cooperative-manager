@@ -6,10 +6,7 @@ import {
   ScrollView,
   Switch,
   ActivityIndicator,
-  Alert,
   TouchableOpacity,
-  Linking,
-  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
@@ -116,27 +113,8 @@ const NotificationSettingsScreen: React.FC<Props> = ({ navigation }) => {
   const handleToggle = async (key: keyof NotificationPreferences, value: boolean) => {
     // Handle push enabled toggle specially
     if (key === 'pushEnabled' && value && permissionStatus !== 'granted') {
-      const granted = await notificationService.requestPermission();
-      if (!granted) {
-        Alert.alert(
-          'Permission Required',
-          'Please enable notifications in your device settings to receive push notifications.',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Open Settings',
-              onPress: () => {
-                if (Platform.OS === 'ios') {
-                  Linking.openURL('app-settings:');
-                } else {
-                  Linking.openSettings();
-                }
-              },
-            },
-          ]
-        );
-        return;
-      }
+      navigation.navigate('NotificationPermission');
+      return;
     }
 
     const updatedPreferences = { ...preferences, [key]: value };
@@ -160,22 +138,13 @@ const NotificationSettingsScreen: React.FC<Props> = ({ navigation }) => {
     return (
       <TouchableOpacity
         style={styles.permissionBanner}
-        onPress={async () => {
-          const granted = await notificationService.requestPermission();
-          if (!granted) {
-            if (Platform.OS === 'ios') {
-              Linking.openURL('app-settings:');
-            } else {
-              Linking.openSettings();
-            }
-          }
-        }}
+        onPress={() => navigation.navigate('NotificationPermission')}
       >
         <Icon name="AlertTriangle" size={20} color={colors.warning.dark} />
         <View style={styles.permissionContent}>
           <Text style={styles.permissionTitle}>Notifications Disabled</Text>
           <Text style={styles.permissionText}>
-            Tap here to enable notifications in your device settings
+            Tap here to enable notifications
           </Text>
         </View>
         <Icon name="ChevronRight" size={20} color={colors.warning.dark} />

@@ -46,3 +46,5 @@ mock-server/dist/
 # Coverage
 coverage/
 backend/.env
+
+/mobile-flutter

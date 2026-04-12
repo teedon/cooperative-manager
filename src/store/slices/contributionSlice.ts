@@ -367,6 +367,21 @@ export const extendSchedules = createAsyncThunk(
   }
 );
 
+export const restartPlan = createAsyncThunk(
+  'contribution/restartPlan',
+  async (
+    { planId, data }: { planId: string; data: { newStartDate?: string; newEndDate?: string } },
+    { rejectWithValue }
+  ) => {
+    try {
+      const response = await contributionApi.restartPlan(planId, data);
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(getThunkErrorMessage(error));
+    }
+  }
+);
+
 const contributionSlice = createSlice({
   name: 'contribution',
   initialState,
@@ -564,6 +579,18 @@ const contributionSlice = createSlice({
         }
         // Add to my payments
         state.myPayments.unshift(action.payload);
+      })
+      // Restart plan
+      .addCase(restartPlan.pending, (state) => {
+        state.isLoading = true;
+        state.error = null;
+      })
+      .addCase(restartPlan.fulfilled, (state) => {
+        state.isLoading = false;
+      })
+      .addCase(restartPlan.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
       });
   },
 });

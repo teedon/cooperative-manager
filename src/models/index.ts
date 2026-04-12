@@ -357,7 +357,7 @@ export type ContributionAmountType = 'fixed' | 'notional';
 export type ContributionType = 'continuous' | 'period';
 export type ContributionPeriodStatus = 'upcoming' | 'active' | 'completed' | 'overdue';
 export type ContributionRecordStatus = 'pending' | 'verified' | 'rejected';
-export type SubscriptionStatus = 'active' | 'paused' | 'cancelled';
+export type SubscriptionStatus = 'active' | 'paused' | 'cancelled' | 'archived';
 
 export interface ContributionPlan {
   id: string;
@@ -402,6 +402,7 @@ export interface ContributionSubscription {
   subscribedAt: string;
   pausedAt?: string;
   cancelledAt?: string;
+  archivedAt?: string;
   createdAt: string;
   updatedAt: string;
   

@@ -3,9 +3,10 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ActivitiesService } from '../activities/activities.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CreateContributionPlanDto } from './dto/create-contribution-plan.dto';
-import { SubscribeToContributionDto, UpdateSubscriptionDto } from './dto/subscription.dto';
+import { SubscribeToContributionDto, UpdateSubscriptionDto, RestartPlanDto } from './dto/subscription.dto';
 import { RecordPaymentDto, ApprovePaymentDto } from './dto/payment.dto';
 import { PERMISSIONS, Permission, hasPermission, parsePermissions } from '../common/permissions';
+import { getNextScheduleDate } from '../common/date.utils';
 import { sendMailWithZoho, generateContributionApprovedEmailTemplate, generateContributionRejectedEmailTemplate, generateContributionRecordedEmailTemplate } from '../services/mailer';
 
 @Injectable()
@@ -304,13 +305,12 @@ export class ContributionsService {
 
     const member = await this.verifyMember(plan.cooperativeId, userId);
 
-    // Check if already subscribed
-    const existingSubscription = await this.prisma.contributionSubscription.findUnique({
+    // Check if already subscribed (non-archived)
+    const existingSubscription = await this.prisma.contributionSubscription.findFirst({
       where: {
-        planId_memberId: {
-          planId,
-          memberId: member.id,
-        },
+        planId,
+        memberId: member.id,
+        status: { not: 'archived' },
       },
     });
 
@@ -476,6 +476,9 @@ export class ContributionsService {
   // Get user's subscriptions for a cooperative
   async getMySubscriptions(cooperativeId: string, userId: string) {
     const member = await this.verifyMember(cooperativeId, userId);
+
+    // Auto-archive expired subscriptions before returning
+    await this.archiveExpiredSubscriptions(member.id);
 
     return this.prisma.contributionSubscription.findMany({
       where: { memberId: member.id },
@@ -1118,6 +1121,7 @@ export class ContributionsService {
       status: string;
     }[] = [];
 
+    const anchorDay = scheduleStart.getDate();
     let currentDate = new Date(scheduleStart);
     let periodNumber = 1;
 
@@ -1133,8 +1137,8 @@ export class ContributionsService {
         status: 'pending',
       });
 
-      // Move to next period based on frequency
-      currentDate = this.getNextDueDate(currentDate, frequency);
+      // Move to next period based on frequency, preserving the anchor day-of-month
+      currentDate = this.getNextDueDate(currentDate, frequency, anchorDay);
       periodNumber++;
 
       // Safety limit to prevent infinite loops
@@ -1152,34 +1156,9 @@ export class ContributionsService {
     return schedules.length;
   }
 
-  // Get the next due date based on frequency
-  private getNextDueDate(currentDate: Date, frequency: string): Date {
-    const nextDate = new Date(currentDate);
-    
-    switch (frequency) {
-      case 'daily':
-        nextDate.setDate(nextDate.getDate() + 1);
-        break;
-      case 'weekly':
-        nextDate.setDate(nextDate.getDate() + 7);
-        break;
-      case 'biweekly':
-        nextDate.setDate(nextDate.getDate() + 14);
-        break;
-      case 'monthly':
-        nextDate.setMonth(nextDate.getMonth() + 1);
-        break;
-      case 'quarterly':
-        nextDate.setMonth(nextDate.getMonth() + 3);
-        break;
-      case 'yearly':
-        nextDate.setFullYear(nextDate.getFullYear() + 1);
-        break;
-      default:
-        nextDate.setMonth(nextDate.getMonth() + 1); // Default to monthly
-    }
-    
-    return nextDate;
+  // Get the next due date based on frequency, preserving the anchor day-of-month
+  private getNextDueDate(currentDate: Date, frequency: string, anchorDay: number): Date {
+    return getNextScheduleDate(currentDate, frequency, anchorDay);
   }
 
   // Generate a human-readable period label
@@ -1422,8 +1401,12 @@ export class ContributionsService {
     if (new Date(latestSchedule.dueDate) < threeMonthsFromNow) {
       // Default to monthly if no frequency specified
       const frequency = subscription.plan.frequency || 'monthly';
+      // Preserve the original anchor day from the plan start date to avoid drift
+      const anchorDay = subscription.plan.startDate
+        ? new Date(subscription.plan.startDate).getDate()
+        : new Date(latestSchedule.dueDate).getDate();
       // Generate more schedules starting from the last one
-      const startDate = this.getNextDueDate(new Date(latestSchedule.dueDate), frequency);
+      const startDate = this.getNextDueDate(new Date(latestSchedule.dueDate), frequency, anchorDay);
       const endDate = new Date();
       endDate.setMonth(endDate.getMonth() + 12);
 
@@ -1441,7 +1424,7 @@ export class ContributionsService {
           status: 'pending',
         });
 
-        currentDate = this.getNextDueDate(currentDate, frequency);
+        currentDate = this.getNextDueDate(currentDate, frequency, anchorDay);
         periodNumber++;
 
         if (periodNumber > latestSchedule.periodNumber + 365) break;
@@ -2451,6 +2434,132 @@ export class ContributionsService {
       totalAmount,
       planName: plan.name,
       dateLabel,
+    };
+  }
+
+  // Archive expired subscriptions for a member
+  private async archiveExpiredSubscriptions(memberId: string) {
+    const now = new Date();
+    await this.prisma.contributionSubscription.updateMany({
+      where: {
+        memberId,
+        status: { in: ['active', 'paused'] },
+        plan: {
+          endDate: { lt: now },
+        },
+      },
+      data: {
+        status: 'archived',
+        archivedAt: now,
+      },
+    });
+  }
+
+  // Restart a contribution plan (admin only)
+  // Archives all non-archived subscriptions and re-subscribes members
+  async restartPlan(planId: string, dto: RestartPlanDto, userId: string) {
+    const plan = await this.prisma.contributionPlan.findUnique({
+      where: { id: planId },
+    });
+
+    if (!plan) {
+      throw new NotFoundException('Contribution plan not found');
+    }
+
+    const member = await this.getMemberWithPermissions(plan.cooperativeId, userId);
+    this.requirePermission(
+      member,
+      PERMISSIONS.CONTRIBUTIONS_EDIT_PLAN,
+      'You do not have permission to restart this plan',
+    );
+
+    // Get all non-archived subscriptions before archiving
+    const previousSubscriptions = await this.prisma.contributionSubscription.findMany({
+      where: {
+        planId,
+        status: { not: 'archived' },
+      },
+    });
+
+    const now = new Date();
+
+    // Archive all current subscriptions
+    await this.prisma.contributionSubscription.updateMany({
+      where: {
+        planId,
+        status: { not: 'archived' },
+      },
+      data: {
+        status: 'archived',
+        archivedAt: now,
+      },
+    });
+
+    // Update plan dates if provided
+    if (dto.newStartDate || dto.newEndDate) {
+      await this.prisma.contributionPlan.update({
+        where: { id: planId },
+        data: {
+          ...(dto.newStartDate ? { startDate: new Date(dto.newStartDate) } : {}),
+          ...(dto.newEndDate ? { endDate: new Date(dto.newEndDate) } : {}),
+          isActive: true,
+        },
+      });
+    } else {
+      // Ensure plan is active
+      await this.prisma.contributionPlan.update({
+        where: { id: planId },
+        data: { isActive: true },
+      });
+    }
+
+    // Reload plan with updated dates
+    const updatedPlan = await this.prisma.contributionPlan.findUnique({
+      where: { id: planId },
+    });
+
+    if (!updatedPlan) {
+      throw new NotFoundException('Contribution plan not found after update');
+    }
+
+    // For compulsory plans: re-subscribe all previous members
+    if (plan.category === 'compulsory' && previousSubscriptions.length > 0) {
+      // Deduplicate by memberId (use latest amount per member)
+      const memberAmountMap = new Map<string, number>();
+      for (const sub of previousSubscriptions) {
+        memberAmountMap.set(sub.memberId, sub.amount);
+      }
+
+      await Promise.all(
+        Array.from(memberAmountMap.entries()).map(async ([memberId, amount]) => {
+          const newSub = await this.prisma.contributionSubscription.create({
+            data: {
+              planId,
+              memberId,
+              amount,
+              status: 'active',
+            },
+          });
+          await this.generatePaymentSchedules(newSub.id, updatedPlan, amount);
+        }),
+      );
+    }
+
+    // Log activity
+    await this.activitiesService.log(
+      userId,
+      'contribution.restart',
+      `Restarted contribution plan "${plan.name}"`,
+      plan.cooperativeId,
+      { planId: plan.id, planName: plan.name },
+    );
+
+    return {
+      success: true,
+      message:
+        plan.category === 'compulsory'
+          ? `Plan restarted. ${previousSubscriptions.length > 0 ? 'All members have been re-subscribed.' : 'No previous members to re-subscribe.'}`
+          : 'Plan restarted. Members can now subscribe again.',
     };
   }
 }

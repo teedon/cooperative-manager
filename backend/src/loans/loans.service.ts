@@ -6,6 +6,7 @@ import { CreateLoanTypeDto, UpdateLoanTypeDto } from './dto/loan-type.dto';
 import { RequestLoanDto, InitiateLoanDto, ApproveLoanDto, RejectLoanDto, RecordRepaymentDto } from './dto/loan.dto';
 import { CreateLiquidationDto, ApproveLiquidationDto, RejectLiquidationDto, CalculateLiquidationDto } from './dto/liquidation.dto';
 import { PERMISSIONS, hasPermission, parsePermissions, Permission } from '../common/permissions';
+import { addMonthsWithAnchor } from '../common/date.utils';
 import {
   sendEmail,
   generateLoanRequestEmailTemplate,
@@ -1699,13 +1700,16 @@ export class LoansService {
   private generateRepaymentSchedule(loan: any) {
     const schedules: any[] = [];
     const startDate = loan.deductionStartDate || loan.disbursedAt || new Date();
+    // Capture the anchor day once so all instalments fall on the same day-of-month.
+    // If the target month has fewer days (e.g. Jan 31 → Feb), we clamp to the
+    // last day of that month and return to the anchor day when possible.
+    const anchorDay = new Date(startDate).getDate();
     
     let remainingPrincipal = loan.amount;
     const monthlyRate = loan.interestRate / 100 / 12;
 
     for (let i = 1; i <= loan.duration; i++) {
-      const dueDate = new Date(startDate);
-      dueDate.setMonth(dueDate.getMonth() + i);
+      const dueDate = addMonthsWithAnchor(new Date(startDate), i, anchorDay);
 
       let principalAmount: number;
       let interestAmount: number;

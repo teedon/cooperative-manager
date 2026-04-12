@@ -1,4 +1,4 @@
-import { IsInt, IsOptional, IsIn, Min } from 'class-validator';
+import { IsInt, IsOptional, IsIn, Min, IsDateString } from 'class-validator';
 
 export class SubscribeToContributionDto {
   @IsInt()
@@ -15,4 +15,14 @@ export class UpdateSubscriptionDto {
   @IsInt()
   @Min(1)
   amount?: number;
+}
+
+export class RestartPlanDto {
+  @IsOptional()
+  @IsDateString()
+  newStartDate?: string;
+
+  @IsOptional()
+  @IsDateString()
+  newEndDate?: string;
 }

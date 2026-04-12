@@ -14,7 +14,7 @@ import {
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { ContributionsService } from './contributions.service';
-import { CreateContributionPlanDto, SubscribeToContributionDto, UpdateSubscriptionDto, RecordPaymentDto, ApprovePaymentDto, BulkApproveSchedulesDto, BulkApproveByDateDto } from './dto';
+import { CreateContributionPlanDto, SubscribeToContributionDto, UpdateSubscriptionDto, RecordPaymentDto, ApprovePaymentDto, BulkApproveSchedulesDto, BulkApproveByDateDto, RestartPlanDto } from './dto';
 
 @Controller('contributions')
 @UseGuards(AuthGuard('jwt'))
@@ -103,6 +103,24 @@ export class ContributionsController {
     } catch (error: any) {
       throw new HttpException(
         { success: false, message: error.message || 'Failed to delete contribution plan', data: null },
+        error.status || HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  // Restart a contribution plan (admin only)
+  @Post('plans/:planId/restart')
+  async restartPlan(
+    @Param('planId') planId: string,
+    @Body() dto: RestartPlanDto,
+    @Request() req: any,
+  ) {
+    try {
+      const data = await this.service.restartPlan(planId, dto, req.user.id);
+      return { success: true, message: data.message, data };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to restart contribution plan', data: null },
         error.status || HttpStatus.BAD_REQUEST,
       );
     }

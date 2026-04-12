@@ -346,18 +346,17 @@ model ContributionSubscription {
   // Balance tracking for this subscription
   totalPaid Int @default(0)
 
-  status       String // 'active' | 'paused' | 'cancelled'
+  status       String    // 'active' | 'paused' | 'cancelled' | 'archived'
   subscribedAt DateTime  @default(now())
   pausedAt     DateTime?
   cancelledAt  DateTime?
+  archivedAt   DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   payments  ContributionPayment[]
   schedules PaymentSchedule[]
-
-  @@unique([planId, memberId])
 }
 
 // Payment schedules - represents expected payment dates for subscriptions

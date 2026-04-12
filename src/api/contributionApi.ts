@@ -210,6 +210,17 @@ export const contributionApi = {
     return response.data;
   },
 
+  restartPlan: async (
+    planId: string,
+    data: { newStartDate?: string; newEndDate?: string }
+  ): Promise<ApiResponse<{ success: boolean; message: string }>> => {
+    const response = await apiClient.post<ApiResponse<{ success: boolean; message: string }>>(
+      `/contributions/plans/${planId}/restart`,
+      data
+    );
+    return response.data;
+  },
+
   updateSubscription: async (
     subscriptionId: string,
     data: UpdateSubscriptionData

@@ -23,6 +23,7 @@ import RecordSubscriptionPaymentScreen from '../screens/contributions/RecordSubs
 import PaymentApprovalScreen from '../screens/contributions/PaymentApprovalScreen';
 import PaymentScheduleScreen from '../screens/contributions/PaymentScheduleScreen';
 import RecordSchedulePaymentScreen from '../screens/contributions/RecordSchedulePaymentScreen';
+import RestartContributionScreen from '../screens/contributions/RestartContributionScreen';
 import BulkApprovalScreen from '../screens/contributions/BulkApprovalScreen';
 import GroupBuyListScreen from '../screens/groupbuys/GroupBuyListScreen';
 import GroupBuyDetailScreen from '../screens/groupbuys/GroupBuyDetailScreen';
@@ -230,6 +231,15 @@ export type HomeStackParamList = {
   CreateStaff: { organizationId: string };
   StaffDetail: { organizationId: string; staffId: string };
   ManageStaffCooperatives: { organizationId: string; staffId: string; staffName: string };
+  RestartContribution: {
+    planId: string;
+    planName: string;
+    previousAmount: number;
+    isFixed: boolean;
+    minAmount?: number;
+    maxAmount?: number;
+    frequency?: string;
+  };
 };
 
 const HomeStackNavigator: React.FC = () => {
@@ -303,6 +313,11 @@ const HomeStackNavigator: React.FC = () => {
         name="RecordSchedulePayment"
         component={RecordSchedulePaymentScreen}
         options={{ title: 'Record Payment' }}
+      />
+      <HomeStack.Screen
+        name="RestartContribution"
+        component={RestartContributionScreen}
+        options={{ title: 'Restart Contribution' }}
       />
       <HomeStack.Screen
         name="BulkApproval"
@@ -759,6 +774,11 @@ const CoopsStackNavigator: React.FC = () => {
         name="RecordSchedulePayment"
         component={RecordSchedulePaymentScreen}
         options={{ title: 'Record Payment' }}
+      />
+      <CoopsStack.Screen
+        name="RestartContribution"
+        component={RestartContributionScreen}
+        options={{ title: 'Restart Contribution' }}
       />
       <CoopsStack.Screen
         name="BulkApproval"

@@ -23,6 +23,7 @@ import {
   setCurrentPlan,
   fetchMyPayments,
   fetchSubscriptionSchedules,
+  restartPlan,
 } from '../../store/slices/contributionSlice';
 import { colors, spacing, borderRadius, shadows } from '../../theme';
 import Icon from '../../components/common/Icon';
@@ -46,8 +47,10 @@ const ContributionPlanScreen: React.FC<Props> = ({ route, navigation }) => {
   const currentMember = members.find((m) => m.userId === user?.id);
   const isAdmin = currentMember?.role === 'admin';
   
-  // Check if user is already subscribed
-  const mySubscription = mySubscriptions.find((s) => s.planId === planId);
+  // Find the most relevant subscription: prefer non-archived, then most recent
+  const mySubscription = 
+    mySubscriptions.find((s) => s.planId === planId && s.status !== 'archived') ||
+    mySubscriptions.find((s) => s.planId === planId);
   
   // Filter payments for this subscription
   const subscriptionPayments = mySubscription 
@@ -192,6 +195,8 @@ const ContributionPlanScreen: React.FC<Props> = ({ route, navigation }) => {
         return colors.warning.main;
       case 'cancelled':
         return colors.error.main;
+      case 'archived':
+        return colors.text.secondary;
       default:
         return colors.text.secondary;
     }
@@ -346,6 +351,11 @@ const ContributionPlanScreen: React.FC<Props> = ({ route, navigation }) => {
               <Text style={styles.subscriptionLabel}>per {plan.frequency}</Text>
             </View>
 
+            <View style={styles.totalContributedRow}>
+              <Text style={styles.subscriptionLabel}>Total Contributed</Text>
+              <Text style={[styles.subscriptionAmount, { fontSize: 16 }]}>₦{(mySubscription.totalPaid || 0).toLocaleString()}</Text>
+            </View>
+
             <Text style={styles.subscribedDate}>
               Subscribed on {new Date(mySubscription.subscribedAt).toLocaleDateString()}
             </Text>
@@ -375,6 +385,38 @@ const ContributionPlanScreen: React.FC<Props> = ({ route, navigation }) => {
                 <Text style={styles.pausedByAdminText}>
                   Contact admin if you need assistance
                 </Text>
+              )}
+              {mySubscription.status === 'archived' && (
+                <>
+                  <View style={styles.archivedInfoRow}>
+                    <Icon name="Archive" size={14} color={colors.text.secondary} />
+                    <Text style={styles.archivedInfoText}>
+                      Contribution period ended
+                      {mySubscription.archivedAt
+                        ? ` on ${new Date(mySubscription.archivedAt).toLocaleDateString()}`
+                        : ''}
+                    </Text>
+                  </View>
+                  {plan.category !== 'compulsory' && (
+                    <TouchableOpacity
+                      style={[styles.actionButton, styles.recordPaymentButton]}
+                      onPress={() =>
+                        navigation.navigate('RestartContribution', {
+                          planId: plan.id,
+                          planName: plan.name,
+                          previousAmount: mySubscription.amount,
+                          isFixed: plan.amountType === 'fixed',
+                          minAmount: plan.minAmount,
+                          maxAmount: plan.maxAmount,
+                          frequency: plan.frequency,
+                        })
+                      }
+                    >
+                      <Icon name="RefreshCw" size={16} color={colors.primary.main} />
+                      <Text style={[styles.actionButtonText, { color: colors.primary.main }]}>Restart Contribution</Text>
+                    </TouchableOpacity>
+                  )}
+                </>
               )}
             </View>
 
@@ -482,6 +524,43 @@ const ContributionPlanScreen: React.FC<Props> = ({ route, navigation }) => {
       {isAdmin && planSubscriptions.length > 0 && (
         <View style={styles.subscribersSection}>
           <Text style={styles.sectionTitle}>All Subscribers ({planSubscriptions.length})</Text>
+
+          {/* Restart Plan button for compulsory plans where all subscriptions are archived */}
+          {plan.category === 'compulsory' &&
+            planSubscriptions.length > 0 &&
+            planSubscriptions.every((s) => s.status === 'archived') && (
+              <TouchableOpacity
+                style={[styles.actionButton, styles.recordPaymentButton, { marginBottom: 12 }]}
+                onPress={() => {
+                  Alert.alert(
+                    'Restart Plan',
+                    'This will archive all current subscriptions and re-subscribe all previous members. Continue?',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Restart',
+                        style: 'default',
+                        onPress: async () => {
+                          try {
+                            await dispatch(restartPlan({ planId: plan.id, data: {} })).unwrap();
+                            Alert.alert('Success', 'Plan restarted and all members re-subscribed.');
+                            dispatch(fetchPlanSubscriptions(plan.id));
+                            if (plan.cooperativeId) {
+                              dispatch(fetchMySubscriptions(plan.cooperativeId));
+                            }
+                          } catch (err: any) {
+                            Alert.alert('Error', err || 'Failed to restart plan');
+                          }
+                        },
+                      },
+                    ],
+                  );
+                }}
+              >
+                <Icon name="RefreshCw" size={16} color={colors.primary.main} />
+                <Text style={[styles.actionButtonText, { color: colors.primary.main }]}>Restart Plan for All Members</Text>
+              </TouchableOpacity>
+            )}
           {planSubscriptions.map((sub) => {
             const member = sub.member as any;
             const memberName = member?.user 
@@ -1085,6 +1164,27 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     marginTop: spacing.sm,
     textAlign: 'center',
+  },
+  totalContributedRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border?.light || '#e0e0e0',
+  },
+  archivedInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  archivedInfoText: {
+    fontSize: 13,
+    color: colors.text.secondary,
+    fontStyle: 'italic',
+    flex: 1,
   },
 });
 

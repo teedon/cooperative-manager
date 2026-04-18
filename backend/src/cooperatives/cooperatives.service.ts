@@ -1275,11 +1275,30 @@ ${webLink}`;
       }
     }
 
-    // Create the offline member
+    // Check if a registered user already has this email or phone — auto-link if so
+    let linkedUser: { id: string } | null = null;
+    if (dto.email) {
+      linkedUser = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    }
+    if (!linkedUser && dto.phone) {
+      linkedUser = await this.prisma.user.findFirst({ where: { phone: dto.phone } });
+    }
+
+    if (linkedUser) {
+      const alreadyMember = await this.prisma.member.findFirst({
+        where: { cooperativeId, userId: linkedUser.id },
+      });
+      if (alreadyMember) {
+        throw new ConflictException('A registered user with this email or phone is already a member of this cooperative');
+      }
+    }
+
+    // Create the member record, linked to an existing user if one was found
     const member = await this.prisma.member.create({
       data: {
         cooperativeId,
-        isOfflineMember: true,
+        userId: linkedUser ? linkedUser.id : null,
+        isOfflineMember: !linkedUser,
         firstName: dto.firstName,
         lastName: dto.lastName,
         email: dto.email,
@@ -1341,8 +1360,10 @@ ${webLink}`;
     await this.activitiesService.create({
       userId: requestingUserId,
       cooperativeId,
-      action: 'offline_member_added',
-      description: `Added offline member: ${dto.firstName} ${dto.lastName}`,
+      action: linkedUser ? 'member_linked_from_offline' : 'offline_member_added',
+      description: linkedUser
+        ? `Added member ${dto.firstName} ${dto.lastName} and linked to their existing account`
+        : `Added offline member: ${dto.firstName} ${dto.lastName}`,
     });
 
     return member;
@@ -1396,10 +1417,33 @@ ${webLink}`;
           }
         }
 
+        // Check if a registered user already has this email or phone — auto-link if so
+        let linkedUser: { id: string } | null = null;
+        if (memberData.email) {
+          linkedUser = await this.prisma.user.findUnique({ where: { email: memberData.email } });
+        }
+        if (!linkedUser && memberData.phone) {
+          linkedUser = await this.prisma.user.findFirst({ where: { phone: memberData.phone } });
+        }
+
+        if (linkedUser) {
+          const alreadyMember = await this.prisma.member.findFirst({
+            where: { cooperativeId, userId: linkedUser.id },
+          });
+          if (alreadyMember) {
+            results.failed.push({
+              member: memberData,
+              error: 'A registered user with this email or phone is already a member of this cooperative',
+            });
+            continue;
+          }
+        }
+
         const member = await this.prisma.member.create({
           data: {
             cooperativeId,
-            isOfflineMember: true,
+            userId: linkedUser ? linkedUser.id : null,
+            isOfflineMember: !linkedUser,
             firstName: memberData.firstName,
             lastName: memberData.lastName,
             email: memberData.email,

@@ -45,6 +45,16 @@ export interface PostsResponse {
 }
 
 export const postsApi = {
+  // Upload post image before creating a post — returns hosted URL
+  uploadImage: async (file: FormData): Promise<ApiResponse<{ url: string }>> => {
+    const response = await apiClient.post<ApiResponse<{ url: string }>>(
+      '/posts/upload-image',
+      file,
+      { headers: { 'Content-Type': 'multipart/form-data' } },
+    );
+    return response.data;
+  },
+
   // Posts
   create: async (data: CreatePostData): Promise<ApiResponse<Post>> => {
     const response = await apiClient.post<ApiResponse<Post>>('/posts', data);

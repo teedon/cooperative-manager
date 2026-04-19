@@ -19,6 +19,7 @@ import * as ImagePicker from 'react-native-image-picker';
 import { CooperativeStackParamList, PostType } from '../../models';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { createPost } from '../../store/slices/postsSlice';
+import { postsApi } from '../../api/postsApi';
 import Button from '../../components/common/Button';
 import colors from '../../theme/colors';
 import { spacing, borderRadius, shadows } from '../../theme/spacing';
@@ -78,13 +79,23 @@ const CreatePostScreen: React.FC<Props> = ({ navigation, route }) => {
     setIsSubmitting(true);
 
     try {
-      // TODO: If imageUri exists, upload to storage first and get URL
-      // For now, we'll just send the post without the image URL
+      let uploadedImageUrl: string | undefined;
+
+      if (imageUri) {
+        const filename = imageUri.split('/').pop() || 'post-image.jpg';
+        const match = /\.(\w+)$/.exec(filename);
+        const mimeType = match ? `image/${match[1].toLowerCase()}` : 'image/jpeg';
+        const formData = new FormData();
+        formData.append('file', { uri: imageUri, name: filename, type: mimeType } as any);
+        const uploadResult = await postsApi.uploadImage(formData as any);
+        uploadedImageUrl = uploadResult.data?.url;
+      }
+
       const postData = {
         cooperativeId,
         title: title.trim() || undefined,
         content: content.trim(),
-        imageUrl: imageUri || undefined, // This should be the uploaded URL
+        imageUrl: uploadedImageUrl,
         postType: isAnnouncement ? 'announcement' as PostType : 'member_post' as PostType,
       };
 

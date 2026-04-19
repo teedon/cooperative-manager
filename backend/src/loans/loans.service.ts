@@ -1477,6 +1477,46 @@ export class LoansService {
       });
     }
 
+    // If guarantor rejected, check if minimum threshold can still be met
+    if (!approved && loan.status === 'pending' && loan.loanType?.requiresGuarantor) {
+      const allGuarantorsAfterRejection = await this.prisma.loanGuarantor.findMany({
+        where: { loanId },
+      });
+
+      // Count guarantors who can still fulfil the guarantee (pending or already approved)
+      const remainingCount = allGuarantorsAfterRejection.filter(g => g.status !== 'rejected').length;
+      const minRequired = loan.loanType.minGuarantors || 1;
+
+      if (remainingCount < minRequired) {
+        const guarantorName = guarantorMember.user
+          ? `${guarantorMember.user.firstName} ${guarantorMember.user.lastName}`
+          : 'A guarantor';
+
+        await this.prisma.loan.update({
+          where: { id: loanId },
+          data: {
+            status: 'rejected',
+            reviewedAt: new Date(),
+            rejectionReason: `Loan automatically declined: ${guarantorName} declined to guarantee the loan and the minimum required guarantors (${minRequired}) can no longer be met.`,
+          },
+        });
+
+        if (loan.member.userId) {
+          await this.notificationsService.createNotification({
+            userId: loan.member.userId,
+            cooperativeId: loan.cooperativeId,
+            type: 'loan_rejected',
+            title: 'Loan Request Declined',
+            body: `Your loan request of ₦${loan.amount.toLocaleString()} was automatically declined because the minimum number of guarantors (${minRequired}) can no longer be met.`,
+            data: { loanId: loan.id },
+            actionType: 'navigate',
+            actionRoute: 'LoanDetail',
+            actionParams: { loanId: loan.id },
+          });
+        }
+      }
+    }
+
     // If all required guarantors have approved and loan is still pending, notify admins
     if (approved && loan.status === 'pending' && loan.loanType?.requiresGuarantor) {
       const allGuarantors = await this.prisma.loanGuarantor.findMany({

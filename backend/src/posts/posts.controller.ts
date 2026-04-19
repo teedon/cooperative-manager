@@ -11,9 +11,14 @@ import {
   Request,
   HttpException,
   HttpStatus,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { PostsService } from './posts.service';
+import { SupabaseService } from '../services/supabase.service';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
 import { CreateCommentDto } from './dto/create-comment.dto';
@@ -21,7 +26,45 @@ import { AddReactionDto } from './dto/add-reaction.dto';
 
 @Controller('posts')
 export class PostsController {
-  constructor(private readonly postsService: PostsService) {}
+  constructor(
+    private readonly postsService: PostsService,
+    private readonly supabaseService: SupabaseService,
+  ) {}
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('upload-image')
+  @UseInterceptors(FileInterceptor('file', {
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+    fileFilter: (_req, file, cb) => {
+      const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+      if (allowed.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new BadRequestException(`Invalid file type: ${file.mimetype}. Allowed: JPEG, PNG, WEBP, GIF`), false);
+      }
+    },
+  }))
+  async uploadImage(@UploadedFile() file: Express.Multer.File, @Request() req: any) {
+    try {
+      if (!file) {
+        throw new HttpException(
+          { success: false, message: 'No file provided', data: null },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+      const timestamp = Date.now();
+      const sanitizedName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const filePath = `post-images/${req.user.id}/${timestamp}-${sanitizedName}`;
+      await this.supabaseService.uploadFile('post-images', filePath, file.buffer, file.mimetype);
+      const publicUrl = this.supabaseService.getPublicUrl('post-images', filePath);
+      return { success: true, message: 'Image uploaded successfully', data: { url: publicUrl } };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to upload image', data: null },
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
 
   @UseGuards(AuthGuard('jwt'))
   @Post()

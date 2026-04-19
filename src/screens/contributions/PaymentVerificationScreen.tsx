@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Modal,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { HomeStackParamList } from '../../navigation/MainNavigator';
@@ -23,6 +24,7 @@ const PaymentVerificationScreen: React.FC<Props> = ({ route }) => {
   const [refreshing, setRefreshing] = React.useState(false);
 
   const { pendingVerifications, isLoading } = useAppSelector((state) => state.contribution);
+  const [receiptPreviewUrl, setReceiptPreviewUrl] = React.useState<string | null>(null);\n
 
   const loadData = useCallback(async () => {
     await dispatch(fetchPendingVerifications(cooperativeId));
@@ -87,6 +89,7 @@ const PaymentVerificationScreen: React.FC<Props> = ({ route }) => {
   }
 
   return (
+    <>
     <ScrollView
       style={styles.container}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
@@ -168,7 +171,10 @@ const PaymentVerificationScreen: React.FC<Props> = ({ route }) => {
               </View>
 
               {record.receiptUrl && (
-                <TouchableOpacity style={styles.receiptButton}>
+                <TouchableOpacity
+                  style={styles.receiptButton}
+                  onPress={() => setReceiptPreviewUrl(record.receiptUrl!)}
+                >
                   <Text style={styles.receiptIcon}>🧾</Text>
                   <Text style={styles.receiptText}>View Receipt</Text>
                 </TouchableOpacity>
@@ -193,6 +199,30 @@ const PaymentVerificationScreen: React.FC<Props> = ({ route }) => {
         </View>
       )}
     </ScrollView>
+
+      {/* Receipt Preview Modal */}
+      <Modal
+        visible={!!receiptPreviewUrl}
+        animationType="slide"
+        onRequestClose={() => setReceiptPreviewUrl(null)}
+      >
+        <View style={{ flex: 1, backgroundColor: '#000' }}>
+          <TouchableOpacity
+            onPress={() => setReceiptPreviewUrl(null)}
+            style={{ padding: 16, paddingTop: 48 }}
+          >
+            <Text style={{ color: '#fff', fontSize: 16 }}>✕ Close</Text>
+          </TouchableOpacity>
+          {receiptPreviewUrl && (
+            <Image
+              source={{ uri: receiptPreviewUrl }}
+              style={{ flex: 1 }}
+              resizeMode="contain"
+            />
+          )}
+        </View>
+      </Modal>
+    </>
   );
 };
 

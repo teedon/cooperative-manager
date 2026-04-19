@@ -33,6 +33,7 @@ const PaymentApprovalScreen: React.FC<Props> = ({ route }) => {
   const [processingId, setProcessingId] = useState<string | null>(null);
 
   const { pendingPayments, isLoading } = useAppSelector((state) => state.contribution);
+  const [receiptPreviewUrl, setReceiptPreviewUrl] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     await dispatch(fetchPendingPayments(cooperativeId));
@@ -187,7 +188,10 @@ const PaymentApprovalScreen: React.FC<Props> = ({ route }) => {
         )}
 
         {payment.receiptUrl && (
-          <TouchableOpacity style={styles.receiptButton}>
+          <TouchableOpacity
+            style={styles.receiptButton}
+            onPress={() => setReceiptPreviewUrl(payment.receiptUrl!)}
+          >
             <Icon name="Image" size={16} color={colors.primary.main} />
             <Text style={styles.receiptButtonText}>View Receipt</Text>
           </TouchableOpacity>
@@ -314,6 +318,29 @@ const PaymentApprovalScreen: React.FC<Props> = ({ route }) => {
               </TouchableOpacity>
             </View>
           </View>
+        </View>
+      </Modal>
+
+      {/* Receipt Preview Modal */}
+      <Modal
+        visible={!!receiptPreviewUrl}
+        animationType="slide"
+        onRequestClose={() => setReceiptPreviewUrl(null)}
+      >
+        <View style={{ flex: 1, backgroundColor: '#000' }}>
+          <TouchableOpacity
+            onPress={() => setReceiptPreviewUrl(null)}
+            style={{ padding: 16, paddingTop: 48 }}
+          >
+            <Icon name="X" size={24} color="#fff" />
+          </TouchableOpacity>
+          {receiptPreviewUrl && (
+            <Image
+              source={{ uri: receiptPreviewUrl }}
+              style={{ flex: 1 }}
+              resizeMode="contain"
+            />
+          )}
         </View>
       </Modal>
     </View>

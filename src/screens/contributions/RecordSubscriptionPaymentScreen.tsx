@@ -18,7 +18,7 @@ import { recordSubscriptionPayment } from '../../store/slices/contributionSlice'
 import { colors, spacing, borderRadius, shadows } from '../../theme';
 import Icon from '../../components/common/Icon';
 import { launchImageLibrary, ImagePickerResponse } from 'react-native-image-picker';
-import { RecordPaymentData } from '../../api/contributionApi';
+import { RecordPaymentData, contributionApi } from '../../api/contributionApi';
 import { getErrorMessage } from '../../utils/errorHandler';
 
 type Props = NativeStackScreenProps<HomeStackParamList, 'RecordSubscriptionPayment'>;
@@ -51,8 +51,9 @@ const RecordSubscriptionPaymentScreen: React.FC<Props> = ({ route, navigation })
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('bank_transfer');
   const [paymentReference, setPaymentReference] = useState('');
   const [notes, setNotes] = useState('');
-  const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
+  const [receiptUri, setReceiptUri] = useState<string | null>(null);
   const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
+  const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
 
   const handleSelectReceipt = async () => {
     try {
@@ -66,9 +67,7 @@ const RecordSubscriptionPaymentScreen: React.FC<Props> = ({ route, navigation })
       if (result.assets && result.assets[0]) {
         const asset = result.assets[0];
         setReceiptPreview(asset.uri || null);
-        // In a real app, you would upload to a server and get a URL
-        // For now, we'll use the local URI as a placeholder
-        setReceiptUrl(asset.uri || null);
+        setReceiptUri(asset.uri || null);
       }
     } catch (error) {
       console.log('Image picker error:', error);
@@ -82,12 +81,32 @@ const RecordSubscriptionPaymentScreen: React.FC<Props> = ({ route, navigation })
       return;
     }
 
+    let uploadedReceiptUrl: string | undefined;
+
+    if (receiptUri) {
+      try {
+        setIsUploadingReceipt(true);
+        const formData = new FormData();
+        const filename = receiptUri.split('/').pop() || 'receipt.jpg';
+        const match = /\.(\w+)$/.exec(filename);
+        const mimeType = match ? `image/${match[1].toLowerCase()}` : 'image/jpeg';
+        formData.append('file', { uri: receiptUri, name: filename, type: mimeType } as any);
+        const uploadResult = await contributionApi.uploadReceipt(formData as any);
+        uploadedReceiptUrl = uploadResult.data?.url;
+      } catch (uploadError) {
+        Alert.alert('Upload Error', 'Failed to upload receipt image. Please try again.');
+        return;
+      } finally {
+        setIsUploadingReceipt(false);
+      }
+    }
+
     const paymentData: RecordPaymentData = {
       amount: parsedAmount,
       paymentMethod,
       paymentReference: paymentReference || undefined,
       notes: notes || undefined,
-      receiptUrl: receiptUrl || undefined,
+      receiptUrl: uploadedReceiptUrl,
       dueDate: dueDate || undefined,
     };
 
@@ -212,11 +231,16 @@ const RecordSubscriptionPaymentScreen: React.FC<Props> = ({ route, navigation })
 
       {/* Submit Button */}
       <TouchableOpacity
-        style={[styles.submitButton, isLoading && styles.submitButtonDisabled]}
+        style={[styles.submitButton, (isLoading || isUploadingReceipt) && styles.submitButtonDisabled]}
         onPress={handleSubmit}
-        disabled={isLoading}
+        disabled={isLoading || isUploadingReceipt}
       >
-        {isLoading ? (
+        {isUploadingReceipt ? (
+          <>
+            <ActivityIndicator color={colors.primary.contrast} />
+            <Text style={styles.submitButtonText}>Uploading receipt...</Text>
+          </>
+        ) : isLoading ? (
           <ActivityIndicator color={colors.primary.contrast} />
         ) : (
           <>

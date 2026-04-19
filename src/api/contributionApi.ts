@@ -301,13 +301,12 @@ export const contributionApi = {
     return response.data;
   },
 
-  // Upload receipt
+  // Upload receipt before submitting a payment — returns the hosted URL
   uploadReceipt: async (
-    recordId: string,
     file: FormData
-  ): Promise<ApiResponse<{ url: string }>> => {
-    const response = await apiClient.post<ApiResponse<{ url: string }>>(
-      `/contribution-records/${recordId}/receipt`,
+  ): Promise<ApiResponse<{ url: string; filePath: string }>> => {
+    const response = await apiClient.post<ApiResponse<{ url: string; filePath: string }>>(
+      `/contributions/upload-receipt`,
       file,
       { headers: { 'Content-Type': 'multipart/form-data' } }
     );

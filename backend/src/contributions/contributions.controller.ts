@@ -11,15 +11,23 @@ import {
   HttpException,
   HttpStatus,
   Query,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ContributionsService } from './contributions.service';
+import { SupabaseService } from '../services/supabase.service';
 import { CreateContributionPlanDto, SubscribeToContributionDto, UpdateSubscriptionDto, RecordPaymentDto, ApprovePaymentDto, BulkApproveSchedulesDto, BulkApproveByDateDto, RestartPlanDto } from './dto';
 
 @Controller('contributions')
 @UseGuards(AuthGuard('jwt'))
 export class ContributionsController {
-  constructor(private readonly service: ContributionsService) {}
+  constructor(
+    private readonly service: ContributionsService,
+    private readonly supabaseService: SupabaseService,
+  ) {}
 
   // Create a contribution plan (admin only)
   @Post('cooperatives/:cooperativeId/plans')
@@ -197,6 +205,47 @@ export class ContributionsController {
   }
 
   // ==================== PAYMENT ENDPOINTS ====================
+
+  // Upload a payment receipt image before submitting a payment
+  @Post('upload-receipt')
+  @UseInterceptors(FileInterceptor('file', {
+    limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB
+    fileFilter: (_req, file, cb) => {
+      const allowed = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'];
+      if (allowed.includes(file.mimetype)) {
+        cb(null, true);
+      } else {
+        cb(new BadRequestException(`Invalid file type: ${file.mimetype}. Allowed: JPEG, PNG, WEBP, PDF`), false);
+      }
+    },
+  }))
+  async uploadReceipt(
+    @UploadedFile() file: Express.Multer.File,
+    @Request() req: any,
+  ) {
+    try {
+      if (!file) {
+        throw new HttpException(
+          { success: false, message: 'No file provided', data: null },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const timestamp = Date.now();
+      const sanitizedName = file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const filePath = `receipts/${req.user.id}/${timestamp}-${sanitizedName}`;
+
+      await this.supabaseService.uploadFile('contribution-receipts', filePath, file.buffer, file.mimetype);
+      const publicUrl = this.supabaseService.getPublicUrl('contribution-receipts', filePath);
+
+      return { success: true, message: 'Receipt uploaded successfully', data: { url: publicUrl, filePath } };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to upload receipt', data: null },
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
 
   // Record a payment for a subscription
   @Post('subscriptions/:subscriptionId/payments')

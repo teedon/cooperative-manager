@@ -571,8 +571,11 @@ export interface GroupBuyRepayment {
 // Loan Types
 export type LoanStatus =
   | 'pending'
+  | 'conditionally_approved'
   | 'approved'
   | 'rejected'
+  | 'counter_offered'
+  | 'cancelled'
   | 'disbursed'
   | 'repaying'
   | 'completed'
@@ -600,6 +603,8 @@ export interface LoanType {
   kycDocumentTypes?: string[]; // Array of required document types
   requiresMultipleApprovals: boolean;
   minApprovers: number;
+  requiresFinalApprover: boolean;
+  finalApproverUserId?: string;
   applicationFee?: number;
   deductInterestUpfront: boolean;
   isActive: boolean;
@@ -636,6 +641,14 @@ export interface LoanRequest {
   initiatedBy: 'member' | 'admin';
   initiatedByUserId?: string;
   deductionStartDate?: string;
+  // Quorum rejection & final approver
+  finalApproverUserId?: string;
+  // Counter-offer
+  counterOfferedAmount?: number;
+  counterOfferedAt?: string;
+  counterOfferNotes?: string;
+  memberCounterOfferResponse?: 'accepted' | 'rejected';
+  memberCounterOfferRespondedAt?: string;
   requestedAt: string;
   reviewedBy?: string;
   reviewedAt?: string;

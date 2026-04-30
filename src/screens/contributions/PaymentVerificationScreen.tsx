@@ -24,7 +24,7 @@ const PaymentVerificationScreen: React.FC<Props> = ({ route }) => {
   const [refreshing, setRefreshing] = React.useState(false);
 
   const { pendingVerifications, isLoading } = useAppSelector((state) => state.contribution);
-  const [receiptPreviewUrl, setReceiptPreviewUrl] = React.useState<string | null>(null);\n
+  const [receiptPreviewUrl, setReceiptPreviewUrl] = React.useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     await dispatch(fetchPendingVerifications(cooperativeId));

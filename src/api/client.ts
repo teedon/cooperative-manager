@@ -6,7 +6,7 @@ import logger from '../utils/logger';
 // Production API URL
 const PRODUCTION_API_URL = 'https://cooperative-manager-production.up.railway.app/api';
 // Development API URL
-const DEVELOPMENT_API_URL = 'http://localhost:3001/api';
+const DEVELOPMENT_API_URL = 'https://cooperative-manager-production.up.railway.app/api'; //'http://localhost:3001/api';
 
 // For Android emulator, localhost on the host machine is accessible at 10.0.2.2
 const getApiBaseUrl = () => {

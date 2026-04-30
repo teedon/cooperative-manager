@@ -301,7 +301,6 @@ const CreatePollScreen: React.FC<Props> = ({ navigation, route }) => {
                 mode={Platform.OS === 'ios' ? 'datetime' : 'date'}
                 display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                 onChange={handleDateChange}
-                minimumDate={new Date()}
               />
             )}
 

@@ -17,6 +17,8 @@ export interface CreateLoanTypeData {
   minGuarantors?: number;
   isActive?: boolean;
   requiresApproval?: boolean;
+  requiresFinalApprover?: boolean;
+  finalApproverUserId?: string;
 }
 
 export interface RequestLoanData {
@@ -159,6 +161,28 @@ export const loanApi = {
       return loanApi.approve(loanId);
     }
     return loanApi.reject(loanId, reason || 'Rejected');
+  },
+
+  finalApprove: async (
+    loanId: string,
+    data?: { adjustedAmount?: number; deductionStartDate?: string; notes?: string }
+  ): Promise<ApiResponse<LoanRequest>> => {
+    const response = await apiClient.post<ApiResponse<LoanRequest>>(
+      `/loans/${loanId}/final-approve`,
+      data || {}
+    );
+    return response.data;
+  },
+
+  respondToCounterOffer: async (
+    loanId: string,
+    response: 'accepted' | 'rejected'
+  ): Promise<ApiResponse<LoanRequest>> => {
+    const res = await apiClient.post<ApiResponse<LoanRequest>>(
+      `/loans/${loanId}/counter-offer-response`,
+      { response }
+    );
+    return res.data;
   },
 
   disburse: async (loanId: string): Promise<ApiResponse<LoanRequest>> => {

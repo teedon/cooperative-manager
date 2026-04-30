@@ -243,7 +243,6 @@ const CreateAjoScreen: React.FC<Props> = ({ navigation, route }) => {
                 value={startDate}
                 onChange={setStartDate}
                 placeholder="Select start date"
-                minimumDate={new Date()}
                 disabled={saving}
               />
 

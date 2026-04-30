@@ -4,7 +4,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { LoansService } from './loans.service';
 import { SupabaseService } from '../services/supabase.service';
 import { CreateLoanTypeDto, UpdateLoanTypeDto } from './dto/loan-type.dto';
-import { RequestLoanDto, InitiateLoanDto, ApproveLoanDto, RejectLoanDto, RecordRepaymentDto } from './dto/loan.dto';
+import { RequestLoanDto, InitiateLoanDto, ApproveLoanDto, RejectLoanDto, RecordRepaymentDto, FinalApproveLoanDto, CounterOfferResponseDto } from './dto/loan.dto';
 
 @Controller()
 export class LoansController {
@@ -223,10 +223,46 @@ export class LoansController {
   ) {
     try {
       const data = await this.loansService.rejectLoan(loanId, dto, req.user.id);
-      return { success: true, message: 'Loan rejected successfully', data };
+      return { success: true, message: 'Rejection vote recorded successfully', data };
     } catch (error: any) {
       throw new HttpException(
         { success: false, message: error.message || 'Failed to reject loan', data: null },
+        error.status || HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('loans/:loanId/final-approve')
+  async finalApproveLoan(
+    @Param('loanId') loanId: string,
+    @Body() dto: FinalApproveLoanDto,
+    @Request() req: any,
+  ) {
+    try {
+      const data = await this.loansService.finalApproveLoan(loanId, dto, req.user.id);
+      return { success: true, message: 'Loan final approval processed successfully', data };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to final-approve loan', data: null },
+        error.status || HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @UseGuards(AuthGuard('jwt'))
+  @Post('loans/:loanId/counter-offer-response')
+  async respondToCounterOffer(
+    @Param('loanId') loanId: string,
+    @Body() dto: CounterOfferResponseDto,
+    @Request() req: any,
+  ) {
+    try {
+      const data = await this.loansService.respondToCounterOffer(loanId, dto, req.user.id);
+      return { success: true, message: 'Counter-offer response recorded successfully', data };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to respond to counter-offer', data: null },
         error.status || HttpStatus.BAD_REQUEST,
       );
     }

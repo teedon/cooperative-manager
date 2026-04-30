@@ -1,4 +1,4 @@
-import { IsString, IsNumber, IsOptional, IsDateString, Min, IsArray } from 'class-validator';
+import { IsString, IsNumber, IsOptional, IsDateString, Min, IsArray, IsIn } from 'class-validator';
 
 // Request a new loan (by member)
 export class RequestLoanDto {
@@ -81,6 +81,28 @@ export class ApproveLoanDto {
 export class RejectLoanDto {
   @IsString()
   reason!: string;
+}
+
+// Final approve a conditionally-approved loan (by designated final approver)
+export class FinalApproveLoanDto {
+  @IsOptional()
+  @IsNumber()
+  @Min(1000)
+  adjustedAmount?: number;
+
+  @IsOptional()
+  @IsDateString()
+  deductionStartDate?: string;
+
+  @IsOptional()
+  @IsString()
+  notes?: string;
+}
+
+// Member responds to a counter-offer
+export class CounterOfferResponseDto {
+  @IsIn(['accepted', 'rejected'])
+  response!: 'accepted' | 'rejected';
 }
 
 // Disburse a loan

@@ -197,6 +197,7 @@ export const esusuApi = {
       paymentMethod: string;
       referenceNumber?: string;
       notes?: string;
+      receiptUrl?: string;
     },
   ): Promise<EsusuContribution> {
     const response = await apiClient.post(`/esusu/${esusuId}/contributions`, data);

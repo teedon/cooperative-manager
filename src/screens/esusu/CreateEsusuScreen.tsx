@@ -334,7 +334,6 @@ const CreateEsusuScreen: React.FC<Props> = ({ navigation, route }) => {
               value={invitationDeadline}
               onChange={setInvitationDeadline}
               placeholder="Select invitation deadline"
-              minimumDate={new Date()}
               disabled={saving}
             />
             <Text style={styles.description}>Members must accept by this date</Text>

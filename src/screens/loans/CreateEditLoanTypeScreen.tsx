@@ -12,14 +12,17 @@ import {
   SafeAreaView,
   Platform,
   StatusBar,
+  Modal,
+  FlatList,
 } from 'react-native';
-import { useAppDispatch } from '../../store/hooks';
+import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import {
   createLoanType,
   updateLoanType,
 } from '../../store/slices/loanSlice';
+import { fetchMembers } from '../../store/slices/cooperativeSlice';
 import { Button } from '../../components/common';
-import { LoanType } from '../../models';
+import { LoanType, CooperativeMember } from '../../models';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { getErrorMessage } from '../../utils/errorHandler';
 import Icon from '../../components/common/Icon';
@@ -32,7 +35,13 @@ const CreateEditLoanTypeScreen: React.FC<Props> = ({ route, navigation }) => {
     loanType?: LoanType;
   };
   const dispatch = useAppDispatch();
+  const members = useAppSelector((state) => state.cooperative.members);
   const [saving, setSaving] = useState(false);
+  const [memberPickerVisible, setMemberPickerVisible] = useState(false);
+
+  useEffect(() => {
+    dispatch(fetchMembers(cooperativeId));
+  }, [cooperativeId]);
 
   const isEditing = !!loanType;
 
@@ -58,6 +67,8 @@ const CreateEditLoanTypeScreen: React.FC<Props> = ({ route, navigation }) => {
     minApprovers: string;
     isActive: boolean;
     requiresApproval: boolean;
+    requiresFinalApprover: boolean;
+    finalApproverUserId: string;
   }>({
     name: '',
     description: '',
@@ -80,6 +91,8 @@ const CreateEditLoanTypeScreen: React.FC<Props> = ({ route, navigation }) => {
     minApprovers: '2',
     isActive: true,
     requiresApproval: true,
+    requiresFinalApprover: false,
+    finalApproverUserId: '',
   });
 
   useEffect(() => {
@@ -106,6 +119,8 @@ const CreateEditLoanTypeScreen: React.FC<Props> = ({ route, navigation }) => {
         minApprovers: loanType.minApprovers?.toString() || '2',
         isActive: loanType.isActive,
         requiresApproval: loanType.requiresApproval,
+        requiresFinalApprover: loanType.requiresFinalApprover ?? false,
+        finalApproverUserId: loanType.finalApproverUserId ?? '',
       });
     }
   }, [loanType]);
@@ -133,6 +148,10 @@ const CreateEditLoanTypeScreen: React.FC<Props> = ({ route, navigation }) => {
     }
     if (parseInt(formData.minDuration) > parseInt(formData.maxDuration)) {
       Alert.alert('Validation Error', 'Minimum duration cannot be greater than maximum duration');
+      return false;
+    }
+    if (formData.requiresFinalApprover && !formData.finalApproverUserId) {
+      Alert.alert('Validation Error', 'Please select a final approver');
       return false;
     }
     return true;
@@ -165,6 +184,8 @@ const CreateEditLoanTypeScreen: React.FC<Props> = ({ route, navigation }) => {
         minApprovers: formData.requiresMultipleApprovals ? parseInt(formData.minApprovers) : 2,
         isActive: formData.isActive,
         requiresApproval: formData.requiresApproval,
+        requiresFinalApprover: formData.requiresFinalApprover,
+        finalApproverUserId: formData.requiresFinalApprover ? formData.finalApproverUserId || undefined : undefined,
       };
 
       if (isEditing) {
@@ -227,6 +248,14 @@ const CreateEditLoanTypeScreen: React.FC<Props> = ({ route, navigation }) => {
       <Switch value={value} onValueChange={onValueChange} />
     </View>
   );
+
+  const eligibleApprovers = members.filter(m =>
+    m.status === 'active' &&
+    (m.role === 'admin' || m.permissions?.includes('loans:approve'))
+  );
+  const selectedApprover = eligibleApprovers.find(m => m.userId === formData.finalApproverUserId);
+  const getApproverName = (m: CooperativeMember) =>
+    m.user ? `${m.user.firstName} ${m.user.lastName}` : 'Unknown';
 
   return (
     <SafeAreaView style={styles.container}>
@@ -393,6 +422,25 @@ const CreateEditLoanTypeScreen: React.FC<Props> = ({ route, navigation }) => {
               (text) => setFormData({ ...formData, minApprovers: text }),
               { keyboardType: 'numeric', placeholder: '2' }
             )}
+
+          {renderSwitch(
+            'Requires Final Approver',
+            formData.requiresFinalApprover,
+            (value) => setFormData({ ...formData, requiresFinalApprover: value, finalApproverUserId: value ? formData.finalApproverUserId : '' }),
+            'A designated member must give final sign-off after initial approvals'
+          )}
+
+          {formData.requiresFinalApprover && (
+            <View style={styles.formField}>
+              <Text style={styles.formLabel}>Final Approver *</Text>
+              <TouchableOpacity style={styles.pickerButton} onPress={() => setMemberPickerVisible(true)}>
+                <Text style={selectedApprover ? styles.pickerButtonText : styles.pickerButtonPlaceholder}>
+                  {selectedApprover ? getApproverName(selectedApprover) : 'Select a member...'}
+                </Text>
+                <Icon name="chevron-down" size={16} color="#6b7280" />
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
 
         <View style={styles.section}>
@@ -477,6 +525,45 @@ const CreateEditLoanTypeScreen: React.FC<Props> = ({ route, navigation }) => {
           />
         </View>
       </ScrollView>
+      <Modal visible={memberPickerVisible} animationType="slide" transparent onRequestClose={() => setMemberPickerVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Final Approver</Text>
+              <TouchableOpacity onPress={() => setMemberPickerVisible(false)}>
+                <Icon name="close" size={24} color="#1f2937" />
+              </TouchableOpacity>
+            </View>
+            {eligibleApprovers.length === 0 ? (
+              <Text style={styles.modalEmptyText}>
+                No eligible members found. Members need the 'loans:approve' permission or admin role.
+              </Text>
+            ) : (
+              <FlatList
+                data={eligibleApprovers}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={[styles.memberItem, formData.finalApproverUserId === item.userId && styles.memberItemSelected]}
+                    onPress={() => {
+                      setFormData({ ...formData, finalApproverUserId: item.userId || '' });
+                      setMemberPickerVisible(false);
+                    }}
+                  >
+                    <View style={styles.memberItemInfo}>
+                      <Text style={styles.memberItemName}>{getApproverName(item)}</Text>
+                      <Text style={styles.memberItemRole}>{item.role}</Text>
+                    </View>
+                    {formData.finalApproverUserId === item.userId && (
+                      <Icon name="checkmark" size={16} color="#3b82f6" />
+                    )}
+                  </TouchableOpacity>
+                )}
+              />
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -646,6 +733,85 @@ const styles = StyleSheet.create({
   },
   saveButton: {
     flex: 1,
+  },
+  pickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#f9fafb',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  pickerButtonText: {
+    fontSize: 14,
+    color: '#1f2937',
+    flex: 1,
+  },
+  pickerButtonPlaceholder: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    flex: 1,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContainer: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    maxHeight: '60%',
+    paddingBottom: 24,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  modalTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
+  },
+  modalEmptyText: {
+    fontSize: 14,
+    color: '#6b7280',
+    textAlign: 'center',
+    padding: 24,
+    lineHeight: 22,
+  },
+  memberItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
+  },
+  memberItemSelected: {
+    backgroundColor: '#eff6ff',
+  },
+  memberItemInfo: {
+    flex: 1,
+  },
+  memberItemName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#1f2937',
+  },
+  memberItemRole: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 2,
+    textTransform: 'capitalize',
   },
 });
 

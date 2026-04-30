@@ -872,6 +872,16 @@ const CoopsStackNavigator: React.FC = () => {
         options={{ title: 'Admin Management' }}
       />
       <CoopsStack.Screen
+        name="AdminEditPermissions"
+        component={EditPermissionsScreen}
+        options={{ title: 'Edit Permissions' }}
+      />
+      <CoopsStack.Screen
+        name="AdminPromoteMember"
+        component={PromoteMemberScreen}
+        options={{ title: 'Assign Role' }}
+      />
+      <CoopsStack.Screen
         name="OfflineMembers"
         component={OfflineMembersScreen}
         options={{ title: 'Offline Members', headerShown: false }}

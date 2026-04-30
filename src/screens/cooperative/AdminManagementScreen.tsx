@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   RefreshControl,
   ActivityIndicator,
   Alert,
+  TextInput,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { HomeStackParamList } from '../../navigation/MainNavigator';
@@ -46,6 +47,7 @@ const AdminManagementScreen: React.FC<Props> = ({ route, navigation }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showAddAdminModal, setShowAddAdminModal] = useState(false);
+  const [memberSearchQuery, setMemberSearchQuery] = useState('');
 
   // Load admins
   const loadAdmins = useCallback(async () => {
@@ -113,6 +115,7 @@ const AdminManagementScreen: React.FC<Props> = ({ route, navigation }) => {
     const firstName = member.user?.firstName || member.firstName || '';
     const lastName = member.user?.lastName || member.lastName || '';
     setShowAddAdminModal(false);
+    setMemberSearchQuery('');
     navigation.navigate('AdminPromoteMember', {
       cooperativeId,
       memberId: member.id,
@@ -337,7 +340,7 @@ const AdminManagementScreen: React.FC<Props> = ({ route, navigation }) => {
       {/* Add Admin Modal */}
       <Modal
         visible={showAddAdminModal}
-        onClose={() => setShowAddAdminModal(false)}
+        onClose={() => { setShowAddAdminModal(false); setMemberSearchQuery(''); }}
         title="Add Administrator"
       >
         <View style={styles.modalContent}>
@@ -346,12 +349,37 @@ const AdminManagementScreen: React.FC<Props> = ({ route, navigation }) => {
               No regular members available to promote
             </Text>
           ) : (
-            <FlatList
-              data={allMembers}
-              renderItem={renderMemberToAdd}
-              keyExtractor={(item) => item.id}
-              style={styles.membersList}
-            />
+            <>
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search members..."
+                placeholderTextColor={colors.text.disabled}
+                value={memberSearchQuery}
+                onChangeText={setMemberSearchQuery}
+                autoCorrect={false}
+                autoCapitalize="none"
+              />
+              <FlatList
+                data={allMembers.filter((m) => {
+                  const q = memberSearchQuery.toLowerCase();
+                  const firstName = m.user?.firstName || m.firstName || '';
+                  const lastName = m.user?.lastName || m.lastName || '';
+                  const email = m.user?.email || m.email || '';
+                  return (
+                    firstName.toLowerCase().includes(q) ||
+                    lastName.toLowerCase().includes(q) ||
+                    email.toLowerCase().includes(q)
+                  );
+                })}
+                renderItem={renderMemberToAdd}
+                keyExtractor={(item) => item.id}
+                style={styles.membersList}
+                keyboardShouldPersistTaps="handled"
+                ListEmptyComponent={
+                  <Text style={styles.noMembersText}>No members match your search</Text>
+                }
+              />
+            </>
           )}
         </View>
       </Modal>
@@ -535,8 +563,19 @@ const styles = StyleSheet.create({
   modalContent: {
     maxHeight: 400,
   },
+  searchInput: {
+    borderWidth: 1,
+    borderColor: colors.border.light,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    fontSize: 14,
+    color: colors.text.primary,
+    backgroundColor: colors.background.default,
+    marginBottom: spacing.sm,
+  },
   membersList: {
-    maxHeight: 350,
+    maxHeight: 320,
   },
   memberItem: {
     flexDirection: 'row',

@@ -9,8 +9,10 @@ import {
   TextInput,
   Alert,
   Switch,
+  Image,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import { HomeStackParamList } from '../../navigation/MainNavigator';
 import { formatCurrency } from '../../utils';
 import { loanApi } from '../../api/loanApi';
@@ -31,6 +33,8 @@ const LoanLiquidationScreen: React.FC<Props> = ({ route, navigation }) => {
   const [paymentMethod, setPaymentMethod] = useState('bank_transfer');
   const [paymentReference, setPaymentReference] = useState('');
   const [notes, setNotes] = useState('');
+  const [receiptUri, setReceiptUri] = useState<string | null>(null);
+  const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
 
   const paymentMethods = [
     { label: 'Bank Transfer', value: 'bank_transfer' },
@@ -101,6 +105,20 @@ const LoanLiquidationScreen: React.FC<Props> = ({ route, navigation }) => {
     calculateLiquidation();
   };
 
+  const handlePickReceipt = async () => {
+    const result = await launchImageLibrary({ mediaType: 'photo', quality: 0.8, selectionLimit: 1 });
+    if (result.assets && result.assets[0]) {
+      setReceiptUri(result.assets[0].uri || null);
+    }
+  };
+
+  const handleTakePhoto = async () => {
+    const result = await launchCamera({ mediaType: 'photo', quality: 0.8, saveToPhotos: true });
+    if (result.assets && result.assets[0]) {
+      setReceiptUri(result.assets[0].uri || null);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!calculation) {
       Alert.alert('Error', 'Please calculate liquidation first');
@@ -112,6 +130,23 @@ const LoanLiquidationScreen: React.FC<Props> = ({ route, navigation }) => {
       return;
     }
 
+    let uploadedReceiptUrl: string | undefined;
+    if (receiptUri) {
+      try {
+        setIsUploadingReceipt(true);
+        const filename = receiptUri.split('/').pop() || 'receipt.jpg';
+        const match = /\.(\.\w+)$/.exec(filename);
+        const mimeType = match ? `image/${match[1].toLowerCase()}` : 'image/jpeg';
+        const uploaded = await loanApi.uploadDocument({ uri: receiptUri, type: mimeType, name: filename });
+        uploadedReceiptUrl = uploaded.documentUrl;
+      } catch {
+        Alert.alert('Upload Error', 'Failed to upload receipt. Please try again.');
+        return;
+      } finally {
+        setIsUploadingReceipt(false);
+      }
+    }
+
     try {
       setSubmitting(true);
       const response = await loanApi.createLiquidation(loanId, {
@@ -119,6 +154,7 @@ const LoanLiquidationScreen: React.FC<Props> = ({ route, navigation }) => {
         requestedAmount: calculation.requestedAmount,
         paymentMethod,
         paymentReference,
+        receiptUrl: uploadedReceiptUrl,
         notes,
       });
 
@@ -362,17 +398,38 @@ const LoanLiquidationScreen: React.FC<Props> = ({ route, navigation }) => {
             multiline
             numberOfLines={3}
           />
+
+          <Text style={styles.inputLabel}>Receipt (Optional)</Text>
+          {receiptUri ? (
+            <View style={styles.receiptPreview}>
+              <Image source={{ uri: receiptUri }} style={styles.receiptImage} resizeMode="cover" />
+              <TouchableOpacity style={styles.removeReceiptButton} onPress={() => setReceiptUri(null)}>
+                <Text style={styles.removeReceiptText}>Remove</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.receiptButtons}>
+              <TouchableOpacity style={styles.receiptButton} onPress={handleTakePhoto}>
+                <Text style={styles.receiptButtonIcon}>📷</Text>
+                <Text style={styles.receiptButtonText}>Take Photo</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.receiptButton} onPress={handlePickReceipt}>
+                <Text style={styles.receiptButtonIcon}>🖼️</Text>
+                <Text style={styles.receiptButtonText}>Choose File</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       )}
 
       {/* Submit Button */}
       {calculation && (
         <TouchableOpacity
-          style={[styles.submitButton, submitting && styles.submitButtonDisabled]}
+          style={[styles.submitButton, (submitting || isUploadingReceipt) && styles.submitButtonDisabled]}
           onPress={handleSubmit}
-          disabled={submitting}
-        >
-          {submitting ? (
+          disabled={submitting || isUploadingReceipt}
+        >        
+          {submitting || isUploadingReceipt ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (
             <Text style={styles.submitButtonText}>Submit Liquidation Request</Text>
@@ -594,6 +651,50 @@ const styles = StyleSheet.create({
   },
   footer: {
     height: 20,
+  },
+  receiptButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 4,
+  },
+  receiptButton: {
+    flex: 1,
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: '#e0e0e0',
+    borderStyle: 'dashed',
+    borderRadius: 12,
+    paddingVertical: 20,
+    alignItems: 'center',
+  },
+  receiptButtonIcon: {
+    fontSize: 28,
+    marginBottom: 6,
+  },
+  receiptButtonText: {
+    fontSize: 13,
+    color: '#666',
+  },
+  receiptPreview: {
+    marginTop: 4,
+    alignItems: 'center',
+  },
+  receiptImage: {
+    width: '100%',
+    height: 180,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  removeReceiptButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: '#fee2e2',
+    borderRadius: 8,
+  },
+  removeReceiptText: {
+    color: '#ef4444',
+    fontWeight: '600',
+    fontSize: 14,
   },
 });
 

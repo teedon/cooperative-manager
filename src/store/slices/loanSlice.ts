@@ -206,6 +206,36 @@ export const fetchPendingLoans = createAsyncThunk(
   }
 );
 
+export const finalApproveLoan = createAsyncThunk(
+  'loan/finalApprove',
+  async (
+    { loanId, data }: { loanId: string; data?: { adjustedAmount?: number; deductionStartDate?: string; notes?: string } },
+    { rejectWithValue }
+  ) => {
+    try {
+      const response = await loanApi.finalApprove(loanId, data);
+      return response.data;
+    } catch (error: any) {
+      return rejectWithValue(getThunkErrorMessage(error));
+    }
+  }
+);
+
+export const respondToCounterOffer = createAsyncThunk(
+  'loan/respondToCounterOffer',
+  async (
+    { loanId, response }: { loanId: string; response: 'accepted' | 'rejected' },
+    { rejectWithValue }
+  ) => {
+    try {
+      const res = await loanApi.respondToCounterOffer(loanId, response);
+      return res.data;
+    } catch (error: any) {
+      return rejectWithValue(getThunkErrorMessage(error));
+    }
+  }
+);
+
 export const fetchMyLoans = createAsyncThunk(
   'loan/fetchMyLoans',
   async (cooperativeId: string, { rejectWithValue }) => {
@@ -380,6 +410,20 @@ const loanSlice = createSlice({
       // Fetch pending loans
       .addCase(fetchPendingLoans.fulfilled, (state, action) => {
         state.pendingLoans = action.payload;
+      })
+      // Final approve loan
+      .addCase(finalApproveLoan.fulfilled, (state, action) => {
+        const loanIndex = state.loans.findIndex((l) => l.id === action.payload.id);
+        if (loanIndex !== -1) state.loans[loanIndex] = action.payload;
+        const pendingIndex = state.pendingLoans.findIndex((l) => l.id === action.payload.id);
+        if (pendingIndex !== -1) state.pendingLoans.splice(pendingIndex, 1);
+        state.currentLoan = action.payload;
+      })
+      // Respond to counter-offer
+      .addCase(respondToCounterOffer.fulfilled, (state, action) => {
+        const loanIndex = state.loans.findIndex((l) => l.id === action.payload.id);
+        if (loanIndex !== -1) state.loans[loanIndex] = action.payload;
+        state.currentLoan = action.payload;
       })
       // Fetch my loans
       .addCase(fetchMyLoans.pending, (state) => {

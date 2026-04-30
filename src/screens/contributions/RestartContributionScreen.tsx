@@ -162,7 +162,6 @@ const RestartContributionScreen: React.FC<Props> = ({ route, navigation }) => {
           value={startDate}
           mode="date"
           display="default"
-          minimumDate={new Date()}
           onChange={handleStartDateChange}
         />
       )}

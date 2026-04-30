@@ -406,7 +406,6 @@ const LoanInitiateScreen: React.FC<Props> = ({ route, navigation }) => {
             <DateTimePicker
               value={formData.deductionStartDate}
               mode="date"
-              minimumDate={new Date()}
               onChange={(event, date) => {
                 setShowDatePicker(false);
                 if (date) {

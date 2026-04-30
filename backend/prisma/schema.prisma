@@ -523,9 +523,19 @@ model Loan {
   netDisbursementAmount  Int @default(0) // Actual amount disbursed after deductions
 
   // Status and workflow
-  status            String // 'pending' | 'approved' | 'rejected' | 'disbursed' | 'repaying' | 'completed' | 'defaulted'
+  status            String // 'pending' | 'conditionally_approved' | 'approved' | 'rejected' | 'counter_offered' | 'cancelled' | 'disbursed' | 'repaying' | 'completed' | 'defaulted'
   initiatedBy       String // 'member' | 'admin'
   initiatedByUserId String? // userId of admin who initiated (for admin-initiated loans)
+
+  // Quorum rejection & final approver workflow
+  finalApproverUserId String? // userId of the designated final approver
+
+  // Counter-offer fields (set by final approver)
+  counterOfferedAmount          Int?
+  counterOfferedAt              DateTime?
+  counterOfferNotes             String?
+  memberCounterOfferResponse    String? // 'accepted' | 'rejected'
+  memberCounterOfferRespondedAt DateTime?
 
   // Repayment settings
   deductionStartDate DateTime? // When deductions should commence
@@ -663,6 +673,10 @@ model LoanType {
   // Multiple approval workflow
   requiresMultipleApprovals Boolean @default(false)
   minApprovers              Int     @default(2) // Minimum number of approvers required
+
+  // Final approver workflow
+  requiresFinalApprover Boolean @default(false)
+  finalApproverUserId   String? // userId of the designated final approver for this loan type
 
   // Fee configuration
   applicationFee        Int?    // Optional application fee amount

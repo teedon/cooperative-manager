@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { fetchPendingLoans, approveLoan, rejectLoan } from '../../store/slices/loanSlice';
+import { fetchPendingLoans, approveLoan, rejectLoan, finalApproveLoan } from '../../store/slices/loanSlice';
 import { Card, Badge, Modal, Button } from '../../components/common';
 import { LoanRequest } from '../../models';
 import { formatCurrency, formatDate } from '../../utils';
@@ -24,6 +24,7 @@ const LoanApprovalListScreen: React.FC<Props> = ({ route, navigation }) => {
   const { cooperativeId } = route.params as { cooperativeId: string };
   const dispatch = useAppDispatch();
   const { pendingLoans, isLoading } = useAppSelector((state) => state.loan);
+  const currentUser = useAppSelector((state) => state.auth?.user);
   const [refreshing, setRefreshing] = useState(false);
   
   // Approval modal state
@@ -36,6 +37,13 @@ const LoanApprovalListScreen: React.FC<Props> = ({ route, navigation }) => {
   // Rejection modal state
   const [rejectModalVisible, setRejectModalVisible] = useState(false);
   const [rejectionReason, setRejectionReason] = useState('');
+
+  // Final approve modal state
+  const [finalApproveModalVisible, setFinalApproveModalVisible] = useState(false);
+  const [finalAdjustedAmount, setFinalAdjustedAmount] = useState('');
+  const [finalNotes, setFinalNotes] = useState('');
+  const [finalDeductionDate, setFinalDeductionDate] = useState(new Date());
+  const [showFinalDatePicker, setShowFinalDatePicker] = useState(false);
 
   useEffect(() => {
     loadPendingLoans();
@@ -61,6 +69,14 @@ const LoanApprovalListScreen: React.FC<Props> = ({ route, navigation }) => {
     setSelectedLoan(loan);
     setRejectionReason('');
     setRejectModalVisible(true);
+  };
+
+  const openFinalApproveModal = (loan: LoanRequest) => {
+    setSelectedLoan(loan);
+    setFinalAdjustedAmount('');
+    setFinalNotes('');
+    setFinalDeductionDate(new Date());
+    setFinalApproveModalVisible(true);
   };
 
   const handleApprove = async () => {
@@ -101,11 +117,46 @@ const LoanApprovalListScreen: React.FC<Props> = ({ route, navigation }) => {
         })
       ).unwrap();
 
-      Alert.alert('Success', 'Loan request has been rejected.');
+      Alert.alert('Success', 'Your rejection vote has been recorded.');
       setRejectModalVisible(false);
       setSelectedLoan(null);
     } catch (error: any) {
       Alert.alert('Error', getErrorMessage(error, 'Failed to reject loan'));
+    }
+  };
+
+  const handleFinalApprove = async () => {
+    if (!selectedLoan) return;
+
+    try {
+      const parsedAmount = finalAdjustedAmount.trim()
+        ? parseFloat(finalAdjustedAmount.replace(/,/g, ''))
+        : undefined;
+
+      if (parsedAmount !== undefined && (isNaN(parsedAmount) || parsedAmount < 1000)) {
+        Alert.alert('Error', 'Adjusted amount must be at least ₦1,000');
+        return;
+      }
+
+      await dispatch(
+        finalApproveLoan({
+          loanId: selectedLoan.id,
+          data: {
+            adjustedAmount: parsedAmount,
+            deductionStartDate: finalDeductionDate.toISOString(),
+            notes: finalNotes || undefined,
+          },
+        })
+      ).unwrap();
+
+      const message = parsedAmount
+        ? `Counter-offer of ₦${parsedAmount.toLocaleString()} sent to member for acceptance.`
+        : 'Loan has been fully approved.';
+      Alert.alert('Success', message);
+      setFinalApproveModalVisible(false);
+      setSelectedLoan(null);
+    } catch (error: any) {
+      Alert.alert('Error', getErrorMessage(error, 'Failed to process final approval'));
     }
   };
 
@@ -140,6 +191,9 @@ const LoanApprovalListScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const renderLoanCard = ({ item }: { item: LoanRequest }) => {
     const guarantorStatus = getGuarantorApprovalStatus(item);
+    const isConditionallyApproved = item.status === 'conditionally_approved';
+    const isFinalApprover = currentUser && item.finalApproverUserId === currentUser.id;
+    const rejectionVotes = item.approvals?.filter(a => a.decision === 'rejected').length ?? 0;
     
     return (
     <Card style={styles.loanCard}>
@@ -151,8 +205,8 @@ const LoanApprovalListScreen: React.FC<Props> = ({ route, navigation }) => {
           </Text>
         </View>
         <Badge
-          variant="warning"
-          text="Pending"
+          variant={isConditionallyApproved ? 'info' : 'warning'}
+          text={isConditionallyApproved ? 'Needs Final Approval' : 'Pending'}
         />
       </View>
 
@@ -205,39 +259,74 @@ const LoanApprovalListScreen: React.FC<Props> = ({ route, navigation }) => {
         <Text style={styles.purposeText}>{item.purpose}</Text>
       </View>
 
-      <View style={styles.actionButtons}>
-        <TouchableOpacity
-          style={[styles.actionButton, styles.rejectButton]}
-          onPress={() => openRejectModal(item)}
-        >
-          <Text style={styles.rejectButtonText}>Reject</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[
-            styles.actionButton,
-            styles.approveButton,
-            !guarantorStatus.canApprove && styles.approveButtonDisabled,
-          ]}
-          onPress={() => {
-            if (guarantorStatus.canApprove) {
-              openApproveModal(item);
-            } else {
-              Alert.alert(
-                'Cannot Approve',
-                `This loan requires at least ${guarantorStatus.requiredCount} guarantor approval(s). Currently ${guarantorStatus.approvedCount} approved.`,
-                [{ text: 'OK' }]
-              );
-            }
-          }}
-          disabled={!guarantorStatus.canApprove}
-        >
-          <Text style={[
-            styles.approveButtonText,
-            !guarantorStatus.canApprove && styles.approveButtonTextDisabled,
-          ]}>
-            Approve
+      {/* Rejection vote tally (only on pending loans that have at least 1 rejection vote) */}
+      {!isConditionallyApproved && rejectionVotes > 0 && (
+        <View style={styles.rejectionVoteSection}>
+          <Text style={styles.rejectionVoteLabel}>Rejection Votes:</Text>
+          <Text style={styles.rejectionVoteCount}>{rejectionVotes} vote(s) to reject</Text>
+        </View>
+      )}
+
+      {/* Approval vote tally (multi-approval loans) */}
+      {!isConditionallyApproved && item.loanType?.requiresMultipleApprovals && (
+        <View style={styles.approvalVoteSection}>
+          <Text style={styles.approvalVoteLabel}>Approval Progress:</Text>
+          <Text style={styles.approvalVoteCount}>
+            {item.approvals?.filter(a => a.decision === 'approved').length ?? 0} / {item.loanType.minApprovers} approvals
           </Text>
-        </TouchableOpacity>
+        </View>
+      )}
+
+      <View style={styles.actionButtons}>
+        {isConditionallyApproved ? (
+          isFinalApprover ? (
+            <TouchableOpacity
+              style={[styles.actionButton, styles.finalApproveButton]}
+              onPress={() => openFinalApproveModal(item)}
+            >
+              <Text style={styles.finalApproveButtonText}>Final Approve</Text>
+            </TouchableOpacity>
+          ) : (
+            <Text style={styles.awaitingFinalApproverText}>
+              Awaiting final approver sign-off
+            </Text>
+          )
+        ) : (
+          <>
+            <TouchableOpacity
+              style={[styles.actionButton, styles.rejectButton]}
+              onPress={() => openRejectModal(item)}
+            >
+              <Text style={styles.rejectButtonText}>Vote to Reject</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.actionButton,
+                styles.approveButton,
+                !guarantorStatus.canApprove && styles.approveButtonDisabled,
+              ]}
+              onPress={() => {
+                if (guarantorStatus.canApprove) {
+                  openApproveModal(item);
+                } else {
+                  Alert.alert(
+                    'Cannot Approve',
+                    `This loan requires at least ${guarantorStatus.requiredCount} guarantor approval(s). Currently ${guarantorStatus.approvedCount} approved.`,
+                    [{ text: 'OK' }]
+                  );
+                }
+              }}
+              disabled={!guarantorStatus.canApprove}
+            >
+              <Text style={[
+                styles.approveButtonText,
+                !guarantorStatus.canApprove && styles.approveButtonTextDisabled,
+              ]}>
+                Approve
+              </Text>
+            </TouchableOpacity>
+          </>
+        )}
       </View>
     </Card>
     );
@@ -300,7 +389,6 @@ const LoanApprovalListScreen: React.FC<Props> = ({ route, navigation }) => {
                 <DateTimePicker
                   value={deductionStartDate}
                   mode="date"
-                  minimumDate={new Date()}
                   onChange={(event, date) => {
                     setShowDatePicker(false);
                     if (date) setDeductionStartDate(date);
@@ -381,9 +469,92 @@ const LoanApprovalListScreen: React.FC<Props> = ({ route, navigation }) => {
                 }}
               />
               <Button
-                title="Reject Loan"
+                title="Vote to Reject"
                 variant="danger"
                 onPress={handleReject}
+              />
+            </View>
+          </View>
+        )}
+      </Modal>
+
+      {/* Final Approve Modal */}
+      <Modal
+        visible={finalApproveModalVisible}
+        onClose={() => {
+          setFinalApproveModalVisible(false);
+          setSelectedLoan(null);
+        }}
+        title="Final Approval"
+      >
+        {selectedLoan && (
+          <View>
+            <Text style={styles.modalSubtitle}>
+              Final approval for loan of {formatCurrency(selectedLoan.amount)} from{' '}
+              {getMemberName(selectedLoan)}
+            </Text>
+
+            <View style={styles.modalField}>
+              <Text style={styles.modalLabel}>Adjusted Amount (Optional)</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={finalAdjustedAmount}
+                onChangeText={setFinalAdjustedAmount}
+                placeholder={`Leave blank to approve ₦${selectedLoan.amount.toLocaleString()} as-is`}
+                keyboardType="numeric"
+              />
+              <Text style={styles.modalHint}>
+                If you enter an amount, the member will be asked to accept or reject the counter-offer.
+              </Text>
+            </View>
+
+            <View style={styles.modalField}>
+              <Text style={styles.modalLabel}>Deduction Start Date</Text>
+              <TouchableOpacity
+                style={styles.dateButton}
+                onPress={() => setShowFinalDatePicker(true)}
+              >
+                <Text style={styles.dateButtonText}>
+                  {finalDeductionDate.toLocaleDateString()}
+                </Text>
+              </TouchableOpacity>
+              {showFinalDatePicker && (
+                <DateTimePicker
+                  value={finalDeductionDate}
+                  mode="date"
+                  onChange={(event, date) => {
+                    setShowFinalDatePicker(false);
+                    if (date) setFinalDeductionDate(date);
+                  }}
+                />
+              )}
+            </View>
+
+            <View style={styles.modalField}>
+              <Text style={styles.modalLabel}>Notes (Optional)</Text>
+              <TextInput
+                style={styles.modalInput}
+                value={finalNotes}
+                onChangeText={setFinalNotes}
+                placeholder="Add notes for this final approval..."
+                multiline
+                numberOfLines={3}
+              />
+            </View>
+
+            <View style={styles.modalActions}>
+              <Button
+                title="Cancel"
+                variant="outline"
+                onPress={() => {
+                  setFinalApproveModalVisible(false);
+                  setSelectedLoan(null);
+                }}
+              />
+              <Button
+                title={finalAdjustedAmount.trim() ? 'Send Counter-Offer' : 'Approve Loan'}
+                variant="primary"
+                onPress={handleFinalApprove}
               />
             </View>
           </View>
@@ -512,6 +683,62 @@ const styles = StyleSheet.create({
   },
   approveButtonTextDisabled: {
     color: '#64748b',
+  },
+  finalApproveButton: {
+    flex: 1,
+    backgroundColor: '#7c3aed',
+  },
+  finalApproveButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  awaitingFinalApproverText: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 13,
+    color: '#64748b',
+    fontStyle: 'italic',
+    paddingVertical: 12,
+  },
+  rejectionVoteSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: '#fef2f2',
+    borderLeftWidth: 3,
+    borderLeftColor: '#ef4444',
+    padding: 10,
+    borderRadius: 6,
+    marginBottom: 12,
+  },
+  rejectionVoteLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#b91c1c',
+  },
+  rejectionVoteCount: {
+    fontSize: 12,
+    color: '#991b1b',
+    fontWeight: '700',
+  },
+  approvalVoteSection: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    backgroundColor: '#f0fdf4',
+    borderLeftWidth: 3,
+    borderLeftColor: '#22c55e',
+    padding: 10,
+    borderRadius: 6,
+    marginBottom: 12,
+  },
+  approvalVoteLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#166534',
+  },
+  approvalVoteCount: {
+    fontSize: 12,
+    color: '#16a34a',
+    fontWeight: '700',
   },
   // Guarantor section styles
   guarantorSection: {

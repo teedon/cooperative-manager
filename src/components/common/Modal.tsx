@@ -5,7 +5,7 @@ import {
   Text,
   StyleSheet,
   TouchableOpacity,
-  TouchableWithoutFeedback,
+  Pressable,
 } from 'react-native';
 import colors from '../../theme/colors';
 import { spacing, borderRadius, shadows } from '../../theme/spacing';
@@ -35,25 +35,21 @@ const Modal: React.FC<ModalProps> = ({
       onRequestClose={onClose}
       testID={testID}
     >
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={styles.overlay}>
-          <TouchableWithoutFeedback>
-            <View style={styles.modal}>
-              {(title || showCloseButton) && (
-                <View style={styles.header}>
-                  {title && <Text style={styles.title}>{title}</Text>}
-                  {showCloseButton && (
-                    <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                      <Text style={styles.closeText}>✕</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
+      <Pressable style={styles.overlay} onPress={onClose}>
+        <Pressable onPress={() => {}} style={styles.modal}>
+          {(title || showCloseButton) && (
+            <View style={styles.header}>
+              {title && <Text style={styles.title}>{title}</Text>}
+              {showCloseButton && (
+                <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                  <Text style={styles.closeText}>✕</Text>
+                </TouchableOpacity>
               )}
-              <View style={styles.content}>{children}</View>
             </View>
-          </TouchableWithoutFeedback>
-        </View>
-      </TouchableWithoutFeedback>
+          )}
+          <View style={styles.content}>{children}</View>
+        </Pressable>
+      </Pressable>
     </RNModal>
   );
 };

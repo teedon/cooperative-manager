@@ -73,6 +73,14 @@ export class CreateLoanTypeDto {
   @IsOptional()
   @IsBoolean()
   requiresApproval?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  requiresFinalApprover?: boolean;
+
+  @IsOptional()
+  @IsString()
+  finalApproverUserId?: string;
 }
 
 export class UpdateLoanTypeDto {
@@ -155,4 +163,12 @@ export class UpdateLoanTypeDto {
   @IsOptional()
   @IsBoolean()
   requiresApproval?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  requiresFinalApprover?: boolean;
+
+  @IsOptional()
+  @IsString()
+  finalApproverUserId?: string;
 }

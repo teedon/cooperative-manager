@@ -8,10 +8,13 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  Image,
 } from 'react-native';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { launchCamera, launchImageLibrary } from 'react-native-image-picker';
 import { HomeStackParamList } from '../../navigation/MainNavigator';
 import { esusuApi, Esusu, EsusuMember, CycleStatus } from '../../api/esusuApi';
+import { contributionApi } from '../../api/contributionApi';
 import Icon from '../../components/common/Icon';
 import { colors, spacing, borderRadius, shadows } from '../../theme';
 import { getErrorMessage } from '../../utils/errorHandler';
@@ -35,10 +38,22 @@ const RecordContributionScreen: React.FC<Props> = ({ navigation, route }) => {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('cash');
   const [referenceNumber, setReferenceNumber] = useState('');
   const [notes, setNotes] = useState('');
+  const [receiptUri, setReceiptUri] = useState<string | null>(null);
+  const [isUploadingReceipt, setIsUploadingReceipt] = useState(false);
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  const handlePickReceipt = async () => {
+    const result = await launchImageLibrary({ mediaType: 'photo', quality: 0.8, selectionLimit: 1 });
+    if (result.assets && result.assets[0]) {
+      setReceiptUri(result.assets[0].uri || null);
+    }
+  };
+
+  const handleTakePhoto = async () => {
+    const result = await launchCamera({ mediaType: 'photo', quality: 0.8, saveToPhotos: true });
+    if (result.assets && result.assets[0]) {
+      setReceiptUri(result.assets[0].uri || null);
+    }
+  };
 
   const loadData = async () => {
     try {
@@ -87,6 +102,25 @@ const RecordContributionScreen: React.FC<Props> = ({ navigation, route }) => {
       return;
     }
 
+    let uploadedReceiptUrl: string | undefined;
+    if (receiptUri) {
+      try {
+        setIsUploadingReceipt(true);
+        const filename = receiptUri.split('/').pop() || 'receipt.jpg';
+        const match = /\.(\.\w+)$/.exec(filename);
+        const mimeType = match ? `image/${match[1].toLowerCase()}` : 'image/jpeg';
+        const formData = new FormData();
+        formData.append('file', { uri: receiptUri, name: filename, type: mimeType } as any);
+        const uploadResult = await contributionApi.uploadReceipt(formData as any);
+        uploadedReceiptUrl = uploadResult.data?.url;
+      } catch {
+        Alert.alert('Upload Error', 'Failed to upload receipt. Please try again.');
+        return;
+      } finally {
+        setIsUploadingReceipt(false);
+      }
+    }
+
     try {
       setSaving(true);
       await esusuApi.recordContribution(esusuId, {
@@ -95,6 +129,7 @@ const RecordContributionScreen: React.FC<Props> = ({ navigation, route }) => {
         paymentMethod,
         referenceNumber: referenceNumber.trim() || undefined,
         notes: notes.trim() || undefined,
+        receiptUrl: uploadedReceiptUrl,
       });
 
       Alert.alert('Success', 'Contribution recorded successfully', [
@@ -267,14 +302,41 @@ const RecordContributionScreen: React.FC<Props> = ({ navigation, route }) => {
               editable={!saving}
             />
           </View>
+
+          <View style={styles.formGroup}>
+            <Text style={styles.label}>Receipt (Optional)</Text>
+            {receiptUri ? (
+              <View style={styles.receiptPreview}>
+                <Image source={{ uri: receiptUri }} style={styles.receiptImage} resizeMode="cover" />
+                <TouchableOpacity
+                  style={styles.removeReceiptButton}
+                  onPress={() => setReceiptUri(null)}
+                  disabled={saving}
+                >
+                  <Text style={styles.removeReceiptText}>Remove</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.receiptButtons}>
+                <TouchableOpacity style={styles.receiptButton} onPress={handleTakePhoto} disabled={saving}>
+                  <Text style={styles.receiptButtonIcon}>📷</Text>
+                  <Text style={styles.receiptButtonText}>Take Photo</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.receiptButton} onPress={handlePickReceipt} disabled={saving}>
+                  <Text style={styles.receiptButtonIcon}>🖼️</Text>
+                  <Text style={styles.receiptButtonText}>Choose File</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
         </View>
 
         <TouchableOpacity
-          style={[styles.submitButton, saving && styles.submitButtonDisabled]}
+          style={[styles.submitButton, (saving || isUploadingReceipt) && styles.submitButtonDisabled]}
           onPress={handleSubmit}
-          disabled={saving || !selectedMemberId}
+          disabled={saving || isUploadingReceipt || !selectedMemberId}
         >
-          {saving ? (
+          {saving || isUploadingReceipt ? (
             <ActivityIndicator size="small" color={colors.primary.contrast} />
           ) : (
             <>
@@ -519,6 +581,48 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.primary.contrast,
     marginLeft: spacing.sm,
+  },
+  receiptButtons: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  receiptButton: {
+    flex: 1,
+    backgroundColor: colors.background.paper,
+    borderWidth: 2,
+    borderColor: colors.border.main,
+    borderStyle: 'dashed',
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.lg,
+    alignItems: 'center',
+  },
+  receiptButtonIcon: {
+    fontSize: 28,
+    marginBottom: spacing.xs,
+  },
+  receiptButtonText: {
+    fontSize: 13,
+    color: colors.text.secondary,
+  },
+  receiptPreview: {
+    alignItems: 'center',
+  },
+  receiptImage: {
+    width: '100%',
+    height: 180,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.sm,
+  },
+  removeReceiptButton: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: '#fee2e2',
+    borderRadius: borderRadius.sm,
+  },
+  removeReceiptText: {
+    color: '#ef4444',
+    fontWeight: '600',
+    fontSize: 14,
   },
 });
 

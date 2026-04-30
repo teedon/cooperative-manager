@@ -133,6 +133,11 @@ const LoanTypesScreen: React.FC<Props> = ({ route, navigation }) => {
             <Text style={styles.warningTagText}>{item.minApprovers} Approvers</Text>
           </View>
         )}
+        {item.requiresFinalApprover && (
+          <View style={[styles.tag, styles.warningTag]}>
+            <Text style={styles.warningTagText}>Final Approver</Text>
+          </View>
+        )}
       </View>
 
       {item._count && (

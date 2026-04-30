@@ -3,7 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ActivitiesService } from '../activities/activities.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CreateLoanTypeDto, UpdateLoanTypeDto } from './dto/loan-type.dto';
-import { RequestLoanDto, InitiateLoanDto, ApproveLoanDto, RejectLoanDto, RecordRepaymentDto } from './dto/loan.dto';
+import { RequestLoanDto, InitiateLoanDto, ApproveLoanDto, RejectLoanDto, RecordRepaymentDto, FinalApproveLoanDto, CounterOfferResponseDto } from './dto/loan.dto';
 import { CreateLiquidationDto, ApproveLiquidationDto, RejectLiquidationDto, CalculateLiquidationDto } from './dto/liquidation.dto';
 import { PERMISSIONS, hasPermission, parsePermissions, Permission } from '../common/permissions';
 import { addMonthsWithAnchor } from '../common/date.utils';
@@ -66,6 +66,8 @@ export class LoansService {
         deductInterestUpfront: dto.deductInterestUpfront ?? false,
         isActive: dto.isActive ?? true,
         requiresApproval: dto.requiresApproval ?? true,
+        requiresFinalApprover: dto.requiresFinalApprover ?? false,
+        finalApproverUserId: dto.finalApproverUserId ?? null,
         createdBy: requestingUserId,
       },
     });
@@ -523,15 +525,40 @@ export class LoansService {
       shouldApproveLoan = currentApprovals >= minApprovers;
     }
 
+    // Determine exact next status: when threshold is met, check for final approver gate
+    const thresholdMet = shouldApproveLoan;
+    let nextStatus: string | null = null;
+    let notifyFinalApprover = false;
+
+    if (thresholdMet) {
+      if (loan.loanType?.requiresFinalApprover) {
+        // Escalate to the designated final approver
+        const finalApproverUserId = loan.loanType.finalApproverUserId;
+        if (!finalApproverUserId) {
+          throw new BadRequestException('Loan type requires a final approver but none is configured');
+        }
+        nextStatus = 'conditionally_approved';
+        notifyFinalApprover = true;
+      } else {
+        nextStatus = 'approved';
+      }
+    }
+
     // Update loan status if all approvals are met
     const updateData: any = {
       reviewedBy: requestingUserId,
       reviewedAt: new Date(),
     };
 
-    if (shouldApproveLoan) {
-      updateData.status = 'approved';
-      updateData.deductionStartDate = dto.deductionStartDate ? new Date(dto.deductionStartDate) : null;
+    if (nextStatus) {
+      updateData.status = nextStatus;
+      if (nextStatus === 'approved') {
+        updateData.deductionStartDate = dto.deductionStartDate ? new Date(dto.deductionStartDate) : null;
+      }
+      if (nextStatus === 'conditionally_approved') {
+        // Store the final approver userId on the loan for easy lookup
+        updateData.finalApproverUserId = loan.loanType!.finalApproverUserId;
+      }
     }
 
     const updated = await this.prisma.loan.update({
@@ -551,15 +578,17 @@ export class LoansService {
     await this.activitiesService.create({
       userId: requestingUserId,
       cooperativeId: loan.cooperativeId,
-      action: shouldApproveLoan ? 'loan_approved' : 'loan_approval_added',
-      description: shouldApproveLoan 
+      action: nextStatus === 'approved' ? 'loan_approved' : nextStatus === 'conditionally_approved' ? 'loan_conditionally_approved' : 'loan_approval_added',
+      description: nextStatus === 'approved'
         ? `Approved loan of ₦${loan.amount.toLocaleString()}`
-        : `Added approval for loan of ₦${loan.amount.toLocaleString()}`,
+        : nextStatus === 'conditionally_approved'
+          ? `Conditionally approved loan of ₦${loan.amount.toLocaleString()} — awaiting final approver`
+          : `Added approval for loan of ₦${loan.amount.toLocaleString()}`,
     });
 
     // Notify the member
     if (loan.member.userId) {
-      if (shouldApproveLoan) {
+      if (nextStatus === 'approved') {
         // Full approval notification
         await this.notificationsService.createNotification({
           userId: loan.member.userId,
@@ -567,6 +596,18 @@ export class LoansService {
           type: 'loan_approved',
           title: 'Loan Approved! 🎉',
           body: `Your loan request of ₦${loan.amount.toLocaleString()} has been approved.`,
+          data: { loanId: loan.id },
+          actionType: 'navigate',
+          actionRoute: 'LoanDetail',
+          actionParams: { loanId: loan.id },
+        });
+      } else if (nextStatus === 'conditionally_approved') {
+        await this.notificationsService.createNotification({
+          userId: loan.member.userId,
+          cooperativeId: loan.cooperativeId,
+          type: 'loan_conditionally_approved',
+          title: 'Loan Pending Final Approval',
+          body: `Your loan request of ₦${loan.amount.toLocaleString()} has passed initial review and is awaiting final approval.`,
           data: { loanId: loan.id },
           actionType: 'navigate',
           actionRoute: 'LoanDetail',
@@ -590,8 +631,23 @@ export class LoansService {
       }
     }
 
+    // Notify the final approver if we just reached conditionally_approved
+    if (notifyFinalApprover && loan.loanType?.finalApproverUserId) {
+      await this.notificationsService.createNotification({
+        userId: loan.loanType.finalApproverUserId,
+        cooperativeId: loan.cooperativeId,
+        type: 'loan_final_approval_needed',
+        title: 'Final Loan Approval Required',
+        body: `A loan of ₦${loan.amount.toLocaleString()} has passed initial review and requires your final approval.`,
+        data: { loanId: loan.id },
+        actionType: 'navigate',
+        actionRoute: 'LoanApprovalList',
+        actionParams: { cooperativeId: loan.cooperativeId },
+      });
+    }
+
     // Send approval email only if fully approved
-    if (shouldApproveLoan && updated.member.user?.email) {
+    if (nextStatus === 'approved' && updated.member.user?.email) {
       const cooperative = await this.prisma.cooperative.findUnique({
         where: { id: loan.cooperativeId },
         select: { name: true },
@@ -617,7 +673,14 @@ export class LoansService {
   }
 
   async rejectLoan(loanId: string, dto: RejectLoanDto, requestingUserId: string) {
-    const loan = await this.prisma.loan.findUnique({ where: { id: loanId } });
+    const loan = await this.prisma.loan.findUnique({
+      where: { id: loanId },
+      include: {
+        member: { include: { user: true } },
+        loanType: true,
+        approvals: true,
+      },
+    });
 
     if (!loan) {
       throw new NotFoundException('Loan not found');
@@ -629,44 +692,104 @@ export class LoansService {
       throw new BadRequestException(`Cannot reject loan with status: ${loan.status}`);
     }
 
-    const updated = await this.prisma.loan.update({
-      where: { id: loanId },
+    // Prevent double-voting: check if this user has already cast any vote
+    const existingVote = loan.approvals.find(a => a.approverUserId === requestingUserId);
+    if (existingVote) {
+      throw new BadRequestException('You have already cast a vote on this loan');
+    }
+
+    // Record the rejection vote
+    await this.prisma.loanApproval.create({
       data: {
-        status: 'rejected',
-        reviewedBy: requestingUserId,
-        reviewedAt: new Date(),
-        rejectionReason: dto.reason,
-      },
-      include: {
-        member: { include: { user: true } },
-        loanType: true,
+        loanId,
+        approverUserId: requestingUserId,
+        decision: 'rejected',
+        comments: dto.reason,
       },
     });
+
+    // Count all cooperative members eligible to vote (hold loans:approve OR loans:reject)
+    const allMembers = await this.prisma.member.findMany({
+      where: { cooperativeId: loan.cooperativeId, status: 'active' },
+    });
+    const eligibleVoters = allMembers.filter(m => {
+      const perms = parsePermissions(m.permissions);
+      return hasPermission(m.role, perms, PERMISSIONS.LOANS_APPROVE) ||
+             hasPermission(m.role, perms, PERMISSIONS.LOANS_REJECT);
+    });
+
+    const totalEligible = eligibleVoters.length;
+    const rejectionThreshold = Math.ceil(totalEligible * 2 / 3);
+    const currentRejections = loan.approvals.filter(a => a.decision === 'rejected').length + 1; // +1 for the new vote
+
+    const shouldReject = currentRejections >= rejectionThreshold;
+
+    let updated;
+    if (shouldReject) {
+      updated = await this.prisma.loan.update({
+        where: { id: loanId },
+        data: {
+          status: 'rejected',
+          reviewedBy: requestingUserId,
+          reviewedAt: new Date(),
+          rejectionReason: dto.reason,
+        },
+        include: {
+          member: { include: { user: true } },
+          loanType: true,
+        },
+      });
+    } else {
+      updated = await this.prisma.loan.findUnique({
+        where: { id: loanId },
+        include: {
+          member: { include: { user: true } },
+          loanType: true,
+        },
+      });
+    }
 
     await this.activitiesService.create({
       userId: requestingUserId,
       cooperativeId: loan.cooperativeId,
-      action: 'loan_rejected',
-      description: `Rejected loan of ₦${loan.amount.toLocaleString()}: ${dto.reason}`,
+      action: shouldReject ? 'loan_rejected' : 'loan_rejection_vote_added',
+      description: shouldReject
+        ? `Rejected loan of ₦${loan.amount.toLocaleString()}: ${dto.reason}`
+        : `Voted to reject loan of ₦${loan.amount.toLocaleString()} (${currentRejections}/${rejectionThreshold} rejection votes)`,
     });
 
-    // Notify the member that their loan was rejected
-    if (updated.member.userId) {
-      await this.notificationsService.createNotification({
-        userId: updated.member.userId,
-        cooperativeId: loan.cooperativeId,
-        type: 'loan_rejected',
-        title: 'Loan Request Declined',
-        body: `Your loan request of ₦${loan.amount.toLocaleString()} was declined. Reason: ${dto.reason}`,
-        data: { loanId: loan.id, reason: dto.reason },
-        actionType: 'navigate',
-        actionRoute: 'LoanDetail',
-        actionParams: { loanId: loan.id },
-      });
+    // Notify the member
+    if (updated?.member?.userId) {
+      if (shouldReject) {
+        await this.notificationsService.createNotification({
+          userId: updated.member.userId,
+          cooperativeId: loan.cooperativeId,
+          type: 'loan_rejected',
+          title: 'Loan Request Declined',
+          body: `Your loan request of ₦${loan.amount.toLocaleString()} was declined. Reason: ${dto.reason}`,
+          data: { loanId: loan.id, reason: dto.reason },
+          actionType: 'navigate',
+          actionRoute: 'LoanDetail',
+          actionParams: { loanId: loan.id },
+        });
+      } else {
+        const remaining = rejectionThreshold - currentRejections;
+        await this.notificationsService.createNotification({
+          userId: updated.member.userId,
+          cooperativeId: loan.cooperativeId,
+          type: 'loan_rejection_vote',
+          title: 'Loan Review Update',
+          body: `An admin voted to reject your loan of ₦${loan.amount.toLocaleString()}. ${remaining} more rejection vote(s) needed to decline.`,
+          data: { loanId: loan.id },
+          actionType: 'navigate',
+          actionRoute: 'LoanDetail',
+          actionParams: { loanId: loan.id },
+        });
+      }
     }
 
-    // Send rejection email to the member
-    if (updated.member.user?.email) {
+    // Send rejection email only if fully rejected
+    if (shouldReject && updated?.member?.user?.email) {
       const cooperative = await this.prisma.cooperative.findUnique({
         where: { id: loan.cooperativeId },
         select: { name: true },
@@ -683,6 +806,280 @@ export class LoansService {
           dto.reason,
         ),
       ).catch(err => console.error('Failed to send loan rejection email:', err));
+    }
+
+    return updated;
+  }
+
+  async finalApproveLoan(loanId: string, dto: FinalApproveLoanDto, requestingUserId: string) {
+    const loan = await this.prisma.loan.findUnique({
+      where: { id: loanId },
+      include: {
+        member: { include: { user: true } },
+        loanType: true,
+      },
+    });
+
+    if (!loan) {
+      throw new NotFoundException('Loan not found');
+    }
+
+    // Must hold loans:approve permission
+    await this.validatePermission(loan.cooperativeId, requestingUserId, PERMISSIONS.LOANS_APPROVE);
+
+    if (loan.status !== 'conditionally_approved') {
+      throw new BadRequestException(`Cannot final-approve loan with status: ${loan.status}`);
+    }
+
+    // Requester must be the designated final approver
+    if (loan.finalApproverUserId !== requestingUserId) {
+      throw new ForbiddenException('You are not the designated final approver for this loan');
+    }
+
+    if (dto.adjustedAmount !== undefined && dto.adjustedAmount !== null) {
+      // Validate adjusted amount against loan type limits
+      if (loan.loanType) {
+        if (dto.adjustedAmount < loan.loanType.minAmount || dto.adjustedAmount > loan.loanType.maxAmount) {
+          throw new BadRequestException(
+            `Adjusted amount must be between ₦${loan.loanType.minAmount.toLocaleString()} and ₦${loan.loanType.maxAmount.toLocaleString()}`
+          );
+        }
+      }
+
+      // Recalculate loan figures with the adjusted amount
+      const { interestAmount, monthlyRepayment, totalRepayment } = this.calculateLoanDetails(
+        dto.adjustedAmount,
+        loan.interestRate,
+        loan.duration,
+        loan.loanType?.interestType || 'flat',
+        loan.loanType?.deductInterestUpfront || false,
+      );
+
+      const updated = await this.prisma.loan.update({
+        where: { id: loanId },
+        data: {
+          status: 'counter_offered',
+          counterOfferedAmount: dto.adjustedAmount,
+          counterOfferedAt: new Date(),
+          counterOfferNotes: dto.notes,
+          // Pre-compute new figures (applied only when member accepts)
+          reviewedBy: requestingUserId,
+          reviewedAt: new Date(),
+        },
+        include: {
+          member: { include: { user: true } },
+          loanType: true,
+        },
+      });
+
+      await this.activitiesService.create({
+        userId: requestingUserId,
+        cooperativeId: loan.cooperativeId,
+        action: 'loan_counter_offered',
+        description: `Counter-offered loan: original ₦${loan.amount.toLocaleString()} → adjusted ₦${dto.adjustedAmount.toLocaleString()}`,
+      });
+
+      // Notify the member of the counter-offer
+      if (updated.member.userId) {
+        await this.notificationsService.createNotification({
+          userId: updated.member.userId,
+          cooperativeId: loan.cooperativeId,
+          type: 'loan_counter_offered',
+          title: 'Loan Counter-Offer',
+          body: `Your loan has been reviewed. A counter-offer of ₦${dto.adjustedAmount.toLocaleString()} (revised from ₦${loan.amount.toLocaleString()}) has been proposed. Please review and respond.`,
+          data: { loanId: loan.id, counterOfferedAmount: dto.adjustedAmount },
+          actionType: 'navigate',
+          actionRoute: 'LoanDetail',
+          actionParams: { loanId: loan.id },
+        });
+      }
+
+      return { ...updated, computedInterestAmount: interestAmount, computedMonthlyRepayment: monthlyRepayment, computedTotalRepayment: totalRepayment };
+    } else {
+      // No adjustment — proceed directly to approved
+      const updated = await this.prisma.loan.update({
+        where: { id: loanId },
+        data: {
+          status: 'approved',
+          reviewedBy: requestingUserId,
+          reviewedAt: new Date(),
+          deductionStartDate: dto.deductionStartDate ? new Date(dto.deductionStartDate) : null,
+        },
+        include: {
+          member: { include: { user: true } },
+          loanType: true,
+        },
+      });
+
+      await this.activitiesService.create({
+        userId: requestingUserId,
+        cooperativeId: loan.cooperativeId,
+        action: 'loan_approved',
+        description: `Final approval granted for loan of ₦${loan.amount.toLocaleString()}`,
+      });
+
+      if (updated.member.userId) {
+        await this.notificationsService.createNotification({
+          userId: updated.member.userId,
+          cooperativeId: loan.cooperativeId,
+          type: 'loan_approved',
+          title: 'Loan Approved! 🎉',
+          body: `Your loan request of ₦${loan.amount.toLocaleString()} has been fully approved.`,
+          data: { loanId: loan.id },
+          actionType: 'navigate',
+          actionRoute: 'LoanDetail',
+          actionParams: { loanId: loan.id },
+        });
+      }
+
+      if (updated.member.user?.email) {
+        const cooperative = await this.prisma.cooperative.findUnique({
+          where: { id: loan.cooperativeId },
+          select: { name: true },
+        });
+        const memberName = `${updated.member.user.firstName} ${updated.member.user.lastName}`;
+        sendEmail(
+          updated.member.user.email,
+          'Loan Approved! - CoopManager',
+          generateLoanApprovedEmailTemplate(
+            memberName,
+            cooperative?.name || 'Your Cooperative',
+            loan.amount,
+            loan.interestRate,
+            loan.duration,
+            loan.monthlyRepayment,
+            loan.totalRepayment,
+          ),
+        ).catch(err => console.error('Failed to send loan approval email:', err));
+      }
+
+      return updated;
+    }
+  }
+
+  async respondToCounterOffer(loanId: string, dto: CounterOfferResponseDto, requestingUserId: string) {
+    const loan = await this.prisma.loan.findUnique({
+      where: { id: loanId },
+      include: {
+        member: { include: { user: true } },
+        loanType: true,
+      },
+    });
+
+    if (!loan) {
+      throw new NotFoundException('Loan not found');
+    }
+
+    if (loan.status !== 'counter_offered') {
+      throw new BadRequestException(`Cannot respond to counter-offer on loan with status: ${loan.status}`);
+    }
+
+    // Only the loan's member can respond
+    const requestingMember = await this.prisma.member.findFirst({
+      where: { cooperativeId: loan.cooperativeId, userId: requestingUserId, status: 'active' },
+    });
+    if (!requestingMember || requestingMember.id !== loan.memberId) {
+      throw new ForbiddenException('Only the loan applicant can respond to a counter-offer');
+    }
+
+    if (!loan.counterOfferedAmount) {
+      throw new BadRequestException('No counter-offer amount found on this loan');
+    }
+
+    const accepted = dto.response === 'accepted';
+
+    let updated;
+    if (accepted) {
+      // Apply the counter-offer: recalculate and set new figures
+      const { interestAmount, monthlyRepayment, totalRepayment } = this.calculateLoanDetails(
+        loan.counterOfferedAmount,
+        loan.interestRate,
+        loan.duration,
+        loan.loanType?.interestType || 'flat',
+        loan.loanType?.deductInterestUpfront || false,
+      );
+
+      updated = await this.prisma.loan.update({
+        where: { id: loanId },
+        data: {
+          status: 'approved',
+          amount: loan.counterOfferedAmount,
+          interestAmount,
+          monthlyRepayment,
+          totalRepayment,
+          outstandingBalance: totalRepayment,
+          memberCounterOfferResponse: 'accepted',
+          memberCounterOfferRespondedAt: new Date(),
+        },
+        include: {
+          member: { include: { user: true } },
+          loanType: true,
+        },
+      });
+
+      await this.activitiesService.create({
+        userId: requestingUserId,
+        cooperativeId: loan.cooperativeId,
+        action: 'loan_counter_offer_accepted',
+        description: `Member accepted counter-offer of ₦${loan.counterOfferedAmount.toLocaleString()}`,
+      });
+
+      if (updated.member.user?.email) {
+        const cooperative = await this.prisma.cooperative.findUnique({
+          where: { id: loan.cooperativeId },
+          select: { name: true },
+        });
+        const memberName = `${updated.member.user.firstName} ${updated.member.user.lastName}`;
+        sendEmail(
+          updated.member.user.email,
+          'Loan Approved! - CoopManager',
+          generateLoanApprovedEmailTemplate(
+            memberName,
+            cooperative?.name || 'Your Cooperative',
+            loan.counterOfferedAmount,
+            loan.interestRate,
+            loan.duration,
+            monthlyRepayment,
+            totalRepayment,
+          ),
+        ).catch(err => console.error('Failed to send loan approval email:', err));
+      }
+    } else {
+      // Member rejected the counter-offer — cancel the loan
+      updated = await this.prisma.loan.update({
+        where: { id: loanId },
+        data: {
+          status: 'cancelled',
+          memberCounterOfferResponse: 'rejected',
+          memberCounterOfferRespondedAt: new Date(),
+        },
+        include: {
+          member: { include: { user: true } },
+          loanType: true,
+        },
+      });
+
+      await this.activitiesService.create({
+        userId: requestingUserId,
+        cooperativeId: loan.cooperativeId,
+        action: 'loan_counter_offer_rejected',
+        description: `Member rejected counter-offer — loan cancelled`,
+      });
+
+      // Notify the final approver that the member declined
+      if (loan.finalApproverUserId) {
+        await this.notificationsService.createNotification({
+          userId: loan.finalApproverUserId,
+          cooperativeId: loan.cooperativeId,
+          type: 'loan_counter_offer_rejected',
+          title: 'Counter-Offer Declined',
+          body: `The member has declined the counter-offer for their loan of ₦${loan.amount.toLocaleString()}. The loan has been cancelled.`,
+          data: { loanId: loan.id },
+          actionType: 'navigate',
+          actionRoute: 'LoanDetail',
+          actionParams: { loanId: loan.id },
+        });
+      }
     }
 
     return updated;
@@ -1564,7 +1961,7 @@ export class LoansService {
     await this.validatePermission(cooperativeId, requestingUserId, PERMISSIONS.LOANS_VIEW);
 
     const loans = await this.prisma.loan.findMany({
-      where: { cooperativeId, status: 'pending' },
+      where: { cooperativeId, status: { in: ['pending', 'conditionally_approved'] } },
       include: {
         member: { include: { user: true } },
         loanType: true,

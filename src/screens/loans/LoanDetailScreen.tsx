@@ -19,7 +19,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 import { HomeStackParamList } from '../../navigation/MainNavigator';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { fetchLoan, fetchRepaymentSchedule, recordRepayment, disburseLoan, reviewLoan } from '../../store/slices/loanSlice';
+import { fetchLoan, fetchRepaymentSchedule, recordRepayment, disburseLoan, reviewLoan, respondToCounterOffer } from '../../store/slices/loanSlice';
 import { formatCurrency, formatDate } from '../../utils';
 import Icon from '../../components/common/Icon';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -70,6 +70,10 @@ const LoanDetailScreen: React.FC<Props> = ({ route }) => {
   
   // Check if user can approve/reject pending loans
   const canApprovePendingLoan = canApproveLoans && currentLoan?.status === 'pending';
+
+  // Check if current user can respond to counter-offer (only the loan member)
+  const canRespondToCounterOffer = isLoanOwner && currentLoan?.status === 'counter_offered';
+  const [isRespondingToOffer, setIsRespondingToOffer] = useState(false);
 
   const paymentMethods = ['bank_transfer', 'cash', 'mobile_money', 'debit_card', 'check'];
 
@@ -305,14 +309,39 @@ const LoanDetailScreen: React.FC<Props> = ({ route }) => {
     setRefreshing(false);
   };
 
+  const handleCounterOfferResponse = async (accepted: boolean) => {
+    if (!currentLoan) return;
+    setIsRespondingToOffer(true);
+    try {
+      await dispatch(
+        respondToCounterOffer({ loanId: currentLoan.id, response: accepted ? 'accepted' : 'rejected' })
+      ).unwrap();
+      Alert.alert(
+        accepted ? 'Counter-Offer Accepted' : 'Counter-Offer Declined',
+        accepted
+          ? `Your loan has been approved for ₦${currentLoan.counterOfferedAmount?.toLocaleString()}.`
+          : 'You have declined the counter-offer. The loan request has been cancelled.'
+      );
+    } catch (error: any) {
+      Alert.alert('Error', getErrorMessage(error, 'Failed to respond to counter-offer'));
+    } finally {
+      setIsRespondingToOffer(false);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending':
         return '#f59e0b';
+      case 'conditionally_approved':
+        return '#a855f7';
       case 'approved':
         return '#22c55e';
       case 'rejected':
+      case 'cancelled':
         return '#ef4444';
+      case 'counter_offered':
+        return '#f97316';
       case 'disbursed':
       case 'repaying':
         return '#0ea5e9';
@@ -357,6 +386,59 @@ const LoanDetailScreen: React.FC<Props> = ({ route }) => {
       {currentLoan.loanType && (
         <View style={styles.loanTypeTag}>
           <Text style={styles.loanTypeText}>{currentLoan.loanType.name}</Text>
+        </View>
+      )}
+
+      {/* Counter-Offer Banner */}
+      {currentLoan.status === 'counter_offered' && currentLoan.counterOfferedAmount && (
+        <View style={styles.counterOfferBanner}>
+          <Text style={styles.counterOfferTitle}>Counter-Offer Received</Text>
+          <Text style={styles.counterOfferBody}>
+            The approver has proposed a revised loan amount of{' '}
+            <Text style={styles.counterOfferAmount}>
+              {formatCurrency(currentLoan.counterOfferedAmount)}
+            </Text>{' '}
+            (original: {formatCurrency(currentLoan.amount)}).
+          </Text>
+          {currentLoan.counterOfferNotes ? (
+            <Text style={styles.counterOfferNotes}>Note: {currentLoan.counterOfferNotes}</Text>
+          ) : null}
+          {canRespondToCounterOffer && (
+            <View style={styles.counterOfferActions}>
+              <TouchableOpacity
+                style={[styles.counterOfferBtn, styles.counterOfferRejectBtn]}
+                onPress={() =>
+                  Alert.alert(
+                    'Decline Counter-Offer',
+                    'Are you sure you want to decline this offer? The loan will be cancelled.',
+                    [
+                      { text: 'No', style: 'cancel' },
+                      { text: 'Yes, Decline', style: 'destructive', onPress: () => handleCounterOfferResponse(false) },
+                    ]
+                  )
+                }
+                disabled={isRespondingToOffer}
+              >
+                <Text style={styles.counterOfferBtnText}>Decline</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.counterOfferBtn, styles.counterOfferAcceptBtn]}
+                onPress={() =>
+                  Alert.alert(
+                    'Accept Counter-Offer',
+                    `Accept the revised amount of ${formatCurrency(currentLoan.counterOfferedAmount!)}?`,
+                    [
+                      { text: 'No', style: 'cancel' },
+                      { text: 'Yes, Accept', onPress: () => handleCounterOfferResponse(true) },
+                    ]
+                  )
+                }
+                disabled={isRespondingToOffer}
+              >
+                <Text style={styles.counterOfferBtnText}>Accept</Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </View>
       )}
 
@@ -1121,6 +1203,59 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',
+  },
+  counterOfferBanner: {
+    margin: 16,
+    marginBottom: 0,
+    backgroundColor: '#fff7ed',
+    borderWidth: 1.5,
+    borderColor: '#fb923c',
+    borderRadius: 12,
+    padding: 16,
+  },
+  counterOfferTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#c2410c',
+    marginBottom: 8,
+  },
+  counterOfferBody: {
+    fontSize: 14,
+    color: '#431407',
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  counterOfferAmount: {
+    fontWeight: '700',
+    color: '#9a3412',
+  },
+  counterOfferNotes: {
+    fontSize: 13,
+    color: '#7c2d12',
+    fontStyle: 'italic',
+    marginBottom: 12,
+  },
+  counterOfferActions: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
+  },
+  counterOfferBtn: {
+    flex: 1,
+    paddingVertical: 11,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  counterOfferAcceptBtn: {
+    backgroundColor: '#22c55e',
+  },
+  counterOfferRejectBtn: {
+    backgroundColor: '#ef4444',
+  },
+  counterOfferBtnText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 14,
   },
   loadingContainer: {
     flex: 1,

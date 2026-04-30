@@ -201,7 +201,7 @@ export class AuthService {
               userId,
               'member.invitation_accepted',
               `Automatically joined cooperative ${invitation.cooperative?.name} via email invitation`,
-              invitation.cooperativeId,
+              invitation.cooperativeId ?? undefined,
               { invitationId: invitation.id },
             );
           }
@@ -454,7 +454,7 @@ export class AuthService {
     }
 
     // Check if user is already a member
-    const existing = await this.prisma.member.findFirst({ where: { cooperativeId: invite.cooperativeId, userId } });
+    const existing = await this.prisma.member.findFirst({ where: { cooperativeId: invite.cooperativeId ?? undefined, userId } });
     if (existing) {
       // mark invitation accepted anyway
       await this.prisma.invitation.update({ where: { id: invitationId }, data: { status: 'accepted', acceptedBy: userId, acceptedAt: new Date() } });
@@ -464,7 +464,7 @@ export class AuthService {
     // Create member as active
     const member = await this.prisma.member.create({
       data: {
-        cooperativeId: invite.cooperativeId,
+        cooperativeId: invite.cooperativeId!,
         userId,
         role: 'member',
         joinedAt: new Date(),
@@ -475,7 +475,7 @@ export class AuthService {
 
     // Update cooperative member count (best-effort)
     try {
-      await this.prisma.cooperative.update({ where: { id: invite.cooperativeId }, data: { memberCount: { increment: 1 } as any } });
+      await this.prisma.cooperative.update({ where: { id: invite.cooperativeId! }, data: { memberCount: { increment: 1 } as any } });
     } catch (err) {
       // ignore errors here
       console.warn('Failed to increment memberCount for cooperative', invite.cooperativeId, err);
@@ -489,7 +489,7 @@ export class AuthService {
       userId,
       'invitation.accepted',
       `Accepted invitation to join cooperative`,
-      invite.cooperativeId,
+      invite.cooperativeId ?? undefined,
       { invitationId: invite.id },
     );
 
@@ -511,7 +511,7 @@ export class AuthService {
     }
     */
 
-    const coop = await this.prisma.cooperative.findUnique({ where: { id: invite.cooperativeId } });
+    const coop = await this.prisma.cooperative.findUnique({ where: { id: invite.cooperativeId! } });
 
     return { cooperative: coop, member };
   }

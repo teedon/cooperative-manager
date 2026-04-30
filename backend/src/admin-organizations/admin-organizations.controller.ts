@@ -286,7 +286,6 @@ export class AdminOrganizationsController {
             requireApproval: true,
             allowPartialPosting: false,
             autoPostAfterHours: 24,
-            defaultTransactionTypes: ['contribution', 'loan_repayment']
           }
         });
       }
@@ -366,7 +365,7 @@ export class AdminOrganizationsController {
       employeeCode: member.employeeCode || undefined,
       isActive: member.isActive,
       hiredAt: member.hiredAt.toISOString(),
-      user: member.user
+      user: { ...member.user, phone: member.user.phone ?? undefined }
     }));
 
     const totalPages = Math.ceil(total / limitNum);

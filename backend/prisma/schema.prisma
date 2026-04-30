@@ -882,6 +882,7 @@ model Invitation {
   role           String?    // For staff invitations: 'admin' | 'supervisor' | 'agent'  
   permissions    String[]   @default([]) // For staff invitations
   employeeCode   String?    // For staff invitations
+  metadata      Json?       // For storing additional invitation data
   
   status        String      @default("pending") // pending | accepted | revoked | expired
   acceptedBy    String?     // userId who accepted

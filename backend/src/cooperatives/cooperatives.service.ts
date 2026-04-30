@@ -741,7 +741,7 @@ ${webLink}`;
     // Check if user has permission to revoke
     const member = await this.prisma.member.findFirst({
       where: {
-        cooperativeId: invitation.cooperativeId,
+        cooperativeId: invitation.cooperativeId ?? undefined,
         userId,
         status: 'active',
       },
@@ -767,7 +767,7 @@ ${webLink}`;
       userId,
       'invitation.revoked',
       `Revoked invitation for ${invitation.email || invitation.phone}`,
-      invitation.cooperativeId,
+      invitation.cooperativeId ?? undefined,
       { invitationId, email: invitation.email, phone: invitation.phone },
     );
 

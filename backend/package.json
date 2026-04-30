@@ -40,7 +40,7 @@
     "zeptomail": "^7.0.0"
   },
   "devDependencies": {
-    "@nestjs/testing": "^11.1.12",
+    "@nestjs/testing": "^10.0.0",
     "@types/bcryptjs": "^2.4.2",
     "@types/jest": "^30.0.0",
     "@types/multer": "^2.0.0",

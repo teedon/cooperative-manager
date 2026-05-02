@@ -6,7 +6,7 @@ import { CreateContributionPlanDto } from './dto/create-contribution-plan.dto';
 import { SubscribeToContributionDto, UpdateSubscriptionDto, RestartPlanDto } from './dto/subscription.dto';
 import { RecordPaymentDto, ApprovePaymentDto } from './dto/payment.dto';
 import { PERMISSIONS, Permission, hasPermission, parsePermissions } from '../common/permissions';
-import { getNextScheduleDate } from '../common/date.utils';
+import { getNextScheduleDate, addMonthsWithAnchor } from '../common/date.utils';
 import { sendMailWithZoho, generateContributionApprovedEmailTemplate, generateContributionRejectedEmailTemplate, generateContributionRecordedEmailTemplate } from '../services/mailer';
 
 @Injectable()
@@ -169,7 +169,9 @@ export class ContributionsService {
         },
         _count: {
           select: {
-            subscriptions: true,
+            subscriptions: {
+              where: { status: { in: ['active', 'paused'] } },
+            },
           },
         },
       },
@@ -202,7 +204,9 @@ export class ContributionsService {
         },
         _count: {
           select: {
-            subscriptions: true,
+            subscriptions: {
+              where: { status: { in: ['active', 'paused'] } },
+            },
           },
         },
       },
@@ -257,7 +261,11 @@ export class ContributionsService {
       where: { id: planId },
       include: {
         _count: {
-          select: { subscriptions: true },
+          select: {
+            subscriptions: {
+              where: { status: { in: ['active', 'paused'] } },
+            },
+          },
         },
       },
     });
@@ -287,6 +295,105 @@ export class ContributionsService {
     );
 
     return { message: 'Contribution plan deleted successfully' };
+  }
+
+  // Admin: subscribe a specific member to a contribution plan
+  async adminSubscribeMember(planId: string, dto: { memberId: string; amount: number }, adminUserId: string) {
+    const plan = await this.prisma.contributionPlan.findUnique({
+      where: { id: planId },
+    });
+
+    if (!plan) {
+      throw new NotFoundException('Contribution plan not found');
+    }
+
+    if (!plan.isActive) {
+      throw new BadRequestException('This contribution plan is not active');
+    }
+
+    // Require admin role
+    const adminMember = await this.prisma.member.findFirst({
+      where: {
+        cooperativeId: plan.cooperativeId,
+        userId: adminUserId,
+        role: 'admin',
+        status: 'active',
+      },
+    });
+
+    if (!adminMember) {
+      throw new ForbiddenException('Only administrators can subscribe members to plans');
+    }
+
+    // Verify the target member belongs to this cooperative
+    const targetMember = await this.prisma.member.findFirst({
+      where: { id: dto.memberId, cooperativeId: plan.cooperativeId, status: 'active' },
+    });
+
+    if (!targetMember) {
+      throw new NotFoundException('Member not found in this cooperative');
+    }
+
+    // Check if already subscribed (non-archived)
+    const existingSubscription = await this.prisma.contributionSubscription.findFirst({
+      where: {
+        planId,
+        memberId: dto.memberId,
+        status: { not: 'archived' },
+      },
+    });
+
+    if (existingSubscription) {
+      throw new ConflictException('This member is already subscribed to this contribution plan');
+    }
+
+    // Validate / resolve amount
+    let amount = dto.amount;
+    if (plan.amountType === 'fixed') {
+      amount = plan.fixedAmount!;
+    } else {
+      if (plan.minAmount && amount < plan.minAmount) {
+        throw new BadRequestException(`Amount cannot be less than ${plan.minAmount}`);
+      }
+      if (plan.maxAmount && amount > plan.maxAmount) {
+        throw new BadRequestException(`Amount cannot be more than ${plan.maxAmount}`);
+      }
+    }
+
+    const subscription = await this.prisma.contributionSubscription.create({
+      data: {
+        planId,
+        memberId: dto.memberId,
+        amount,
+        status: 'active',
+      },
+      include: {
+        plan: true,
+        member: {
+          include: {
+            user: {
+              select: { id: true, firstName: true, lastName: true },
+            },
+          },
+        },
+      },
+    });
+
+    await this.generatePaymentSchedules(subscription.id, plan, amount);
+
+    const memberName = targetMember.isOfflineMember
+      ? `${targetMember.firstName} ${targetMember.lastName}`
+      : `${subscription.member.user?.firstName} ${subscription.member.user?.lastName}`;
+
+    await this.activitiesService.log(
+      adminUserId,
+      'contribution.admin_subscribe',
+      `Admin subscribed ${memberName} to contribution plan "${plan.name}"`,
+      plan.cooperativeId,
+      { planId: plan.id, planName: plan.name, memberId: dto.memberId, amount },
+    );
+
+    return subscription;
   }
 
   // Subscribe to a contribution plan
@@ -460,6 +567,23 @@ export class ContributionsService {
         plan: true,
       },
     });
+
+    // When resuming from a cancelled state: delete stale future schedules and regenerate
+    if (dto.status === 'active' && subscription.status === 'cancelled') {
+      const now = new Date();
+      // Remove all pending/overdue schedules that are in the future
+      await this.prisma.paymentSchedule.deleteMany({
+        where: {
+          subscriptionId,
+          status: { in: ['pending', 'overdue'] },
+          dueDate: { gte: now },
+        },
+      });
+
+      // Regenerate schedules from today with the updated amount
+      const effectiveAmount = updateData.amount ?? subscription.amount;
+      await this.generatePaymentSchedules(subscriptionId, subscription.plan, effectiveAmount);
+    }
 
     // Log activity
     await this.activitiesService.log(
@@ -1096,12 +1220,52 @@ export class ContributionsService {
   ) {
     // Default to monthly if no frequency specified
     const frequency = plan.frequency || 'monthly';
-    const startDate = plan.startDate ? new Date(plan.startDate) : new Date();
     const now = new Date();
-    
-    // Start from subscription date or plan start date, whichever is later
-    const scheduleStart = startDate > now ? startDate : now;
-    
+    now.setHours(0, 0, 0, 0);
+
+    // Determine anchor values from plan.startDate so all members share the same schedule dates
+    const planStart = plan.startDate ? new Date(plan.startDate) : now;
+    const anchorDay = planStart.getDate(); // day-of-month (1–31)
+    const anchorDayOfWeek = planStart.getDay(); // day-of-week (0=Sun … 6=Sat)
+
+    // Find the first future occurrence of the anchor day on or after today
+    let scheduleStart: Date;
+
+    if (plan.startDate && plan.startDate > now) {
+      // Plan hasn't started yet — start from plan.startDate exactly
+      scheduleStart = new Date(plan.startDate);
+      scheduleStart.setHours(0, 0, 0, 0);
+    } else {
+      // Plan has already started — find the next occurrence of the anchor within the period
+      switch (frequency) {
+        case 'weekly':
+        case 'biweekly': {
+          // Advance day-by-day until we hit the correct day-of-week
+          const candidate = new Date(now);
+          while (candidate.getDay() !== anchorDayOfWeek) {
+            candidate.setDate(candidate.getDate() + 1);
+          }
+          scheduleStart = candidate;
+          break;
+        }
+        case 'daily': {
+          scheduleStart = new Date(now);
+          break;
+        }
+        default: {
+          // monthly / quarterly / yearly — find next occurrence of anchorDay
+          const candidateThisMonth = new Date(now.getFullYear(), now.getMonth(), anchorDay);
+          if (candidateThisMonth >= now) {
+            scheduleStart = candidateThisMonth;
+          } else {
+            // This month's anchor has passed — use next month's anchor
+            scheduleStart = addMonthsWithAnchor(candidateThisMonth, 1, anchorDay);
+          }
+          break;
+        }
+      }
+    }
+
     // Determine end date
     let scheduleEnd: Date;
     if (plan.contributionType === 'period' && plan.endDate) {
@@ -1121,7 +1285,6 @@ export class ContributionsService {
       status: string;
     }[] = [];
 
-    const anchorDay = scheduleStart.getDate();
     let currentDate = new Date(scheduleStart);
     let periodNumber = 1;
 

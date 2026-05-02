@@ -19,7 +19,7 @@ import { AuthGuard } from '@nestjs/passport';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ContributionsService } from './contributions.service';
 import { SupabaseService } from '../services/supabase.service';
-import { CreateContributionPlanDto, SubscribeToContributionDto, UpdateSubscriptionDto, RecordPaymentDto, ApprovePaymentDto, BulkApproveSchedulesDto, BulkApproveByDateDto, RestartPlanDto } from './dto';
+import { CreateContributionPlanDto, SubscribeToContributionDto, AdminSubscribeDto, UpdateSubscriptionDto, RecordPaymentDto, ApprovePaymentDto, BulkApproveSchedulesDto, BulkApproveByDateDto, RestartPlanDto } from './dto';
 
 @Controller('contributions')
 @UseGuards(AuthGuard('jwt'))
@@ -147,6 +147,24 @@ export class ContributionsController {
     } catch (error: any) {
       throw new HttpException(
         { success: false, message: error.message || 'Failed to subscribe to contribution plan', data: null },
+        error.status || HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  // Admin: subscribe a specific member to a contribution plan
+  @Post('plans/:planId/admin-subscribe')
+  async adminSubscribeMember(
+    @Param('planId') planId: string,
+    @Body() dto: AdminSubscribeDto,
+    @Request() req: any,
+  ) {
+    try {
+      const data = await this.service.adminSubscribeMember(planId, dto, req.user.id);
+      return { success: true, message: 'Member subscribed to contribution plan successfully', data };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to subscribe member', data: null },
         error.status || HttpStatus.BAD_REQUEST,
       );
     }

@@ -229,6 +229,11 @@ export const contributionApi = {
     return response.data
   },
 
+  adminSubscribeMember: async (planId: string, data: { memberId: string; amount: number }) => {
+    const response = await apiClient.post(`/contributions/plans/${planId}/admin-subscribe`, data)
+    return response.data
+  },
+
   updateSubscription: async (subscriptionId: string, data: UpdateSubscriptionDto) => {
     const response = await apiClient.put(
       `/contributions/subscriptions/${subscriptionId}`,

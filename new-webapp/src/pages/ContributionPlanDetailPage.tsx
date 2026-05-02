@@ -9,6 +9,7 @@ import {
   Pause,
   Play,
   TrendingUp,
+  UserPlus,
 } from 'lucide-react'
 import { Button, Card, Input, useToast } from '../components/ui'
 import {
@@ -17,6 +18,8 @@ import {
   type ContributionSubscription,
   type SubscribeToContributionDto,
 } from '../api/contributionApi'
+import { cooperativeApi } from '../api/cooperativeApi'
+import type { CooperativeMember } from '../types'
 
 export const ContributionPlanDetailPage = () => {
   const { id, planId } = useParams<{ id: string; planId: string }>()
@@ -31,6 +34,16 @@ export const ContributionPlanDetailPage = () => {
   const [subscribeAmount, setSubscribeAmount] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showCancelModal, setShowCancelModal] = useState(false)
+
+  // Resume from cancelled
+  const [showResumeModal, setShowResumeModal] = useState(false)
+  const [resumeAmount, setResumeAmount] = useState('')
+
+  // Admin subscribe
+  const [showAdminSubscribeModal, setShowAdminSubscribeModal] = useState(false)
+  const [cooperativeMembers, setCooperativeMembers] = useState<CooperativeMember[]>([])
+  const [selectedMemberId, setSelectedMemberId] = useState('')
+  const [adminSubscribeAmount, setAdminSubscribeAmount] = useState('')
 
   useEffect(() => {
     if (planId) {
@@ -143,6 +156,93 @@ export const ContributionPlanDetailPage = () => {
     } catch (error: any) {
       console.error('Error updating subscription:', error)
       toast.error(error.response?.data?.message || 'Failed to update subscription')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const handleResumeFromCancelled = async () => {
+    if (!mySubscription || !plan) return
+
+    if (plan.amountType === 'notional') {
+      // Open modal so member can adjust amount
+      setResumeAmount(String(mySubscription.amount))
+      setShowResumeModal(true)
+    } else {
+      // Fixed plan — resume directly
+      await doResume(mySubscription.amount)
+    }
+  }
+
+  const doResume = async (amount: number) => {
+    if (!mySubscription) return
+    try {
+      setIsSubmitting(true)
+      const response = await contributionApi.updateSubscription(mySubscription.id, {
+        status: 'active',
+        amount: plan?.amountType === 'notional' ? amount : undefined,
+      })
+      if (response.success) {
+        toast.success('Subscription resumed successfully')
+        setShowResumeModal(false)
+        loadData()
+      } else {
+        toast.error(response.message || 'Failed to resume subscription')
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to resume subscription')
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+  const openAdminSubscribeModal = async () => {
+    if (!id) return
+    try {
+      const res = await cooperativeApi.getMembers(id)
+      if (res.success) {
+        // Filter out members already actively/pausedly subscribed
+        const subscribedMemberIds = new Set(
+          allSubscriptions
+            .filter((s) => s.status === 'active' || s.status === 'paused')
+            .map((s) => s.memberId)
+        )
+        const available = res.data.filter(
+          (m: CooperativeMember) => m.status === 'active' && !subscribedMemberIds.has(m.id)
+        )
+        setCooperativeMembers(available)
+      }
+    } catch {
+      toast.error('Failed to load members')
+      return
+    }
+    setSelectedMemberId('')
+    setAdminSubscribeAmount(plan?.amountType === 'fixed' ? String(plan.fixedAmount ?? '') : '')
+    setShowAdminSubscribeModal(true)
+  }
+
+  const handleAdminSubscribe = async () => {
+    if (!planId || !selectedMemberId) {
+      toast.error('Please select a member')
+      return
+    }
+    const amount = plan?.amountType === 'fixed' ? (plan.fixedAmount ?? 0) : parseFloat(adminSubscribeAmount)
+    if (!amount || amount <= 0) {
+      toast.error('Please enter a valid amount')
+      return
+    }
+    try {
+      setIsSubmitting(true)
+      const response = await contributionApi.adminSubscribeMember(planId, { memberId: selectedMemberId, amount })
+      if (response.success) {
+        toast.success('Member subscribed successfully')
+        setShowAdminSubscribeModal(false)
+        loadData()
+      } else {
+        toast.error(response.message || 'Failed to subscribe member')
+      }
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to subscribe member')
     } finally {
       setIsSubmitting(false)
     }
@@ -327,7 +427,16 @@ export const ContributionPlanDetailPage = () => {
             {/* Statistics (if admin) */}
             {allSubscriptions.length > 0 && (
               <Card className="p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">Statistics</h2>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-lg font-semibold text-gray-900">Statistics</h2>
+                  <Button
+                    variant="outline"
+                    leftIcon={<UserPlus className="w-4 h-4" />}
+                    onClick={openAdminSubscribeModal}
+                  >
+                    Subscribe Member
+                  </Button>
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="p-4 bg-indigo-50 rounded-lg">
                     <div className="flex items-center gap-2 text-indigo-600 mb-1">
@@ -434,6 +543,18 @@ export const ContributionPlanDetailPage = () => {
                         Cancel Subscription
                       </Button>
                     </>
+                  )}
+
+                  {mySubscription.status === 'cancelled' && (
+                    <Button
+                      variant="primary"
+                      fullWidth
+                      leftIcon={<Play className="w-4 h-4" />}
+                      onClick={handleResumeFromCancelled}
+                      disabled={isSubmitting}
+                    >
+                      Resume Subscription
+                    </Button>
                   )}
                 </div>
 
@@ -545,6 +666,139 @@ export const ContributionPlanDetailPage = () => {
                   className="flex-1 bg-red-600 hover:bg-red-700"
                 >
                   {isSubmitting ? 'Cancelling...' : 'Yes, Cancel'}
+                </Button>
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {/* Resume from Cancelled Modal (notional plans only — lets member adjust amount) */}
+        {showResumeModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <Card className="w-full max-w-md p-6">
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">Resume Subscription</h3>
+              <p className="text-gray-600 mb-4">
+                You can adjust your contribution amount before resuming.
+              </p>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Contribution Amount (₦)
+                </label>
+                <Input
+                  type="number"
+                  value={resumeAmount}
+                  onChange={(e) => setResumeAmount(e.target.value)}
+                  placeholder="Enter amount"
+                  min={plan?.minAmount || 1}
+                  max={plan?.maxAmount}
+                  autoFocus
+                />
+                {plan?.minAmount && (
+                  <p className="text-xs text-gray-500 mt-1">Minimum: ₦{plan.minAmount.toLocaleString()}</p>
+                )}
+                {plan?.maxAmount && (
+                  <p className="text-xs text-gray-500">Maximum: ₦{plan.maxAmount.toLocaleString()}</p>
+                )}
+              </div>
+
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowResumeModal(false)}
+                  disabled={isSubmitting}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={() => doResume(parseFloat(resumeAmount))}
+                  disabled={isSubmitting || !resumeAmount}
+                  className="flex-1"
+                >
+                  {isSubmitting ? 'Resuming...' : 'Resume'}
+                </Button>
+              </div>
+            </Card>
+          </div>
+        )}
+
+        {/* Admin Subscribe Member Modal */}
+        {showAdminSubscribeModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <Card className="w-full max-w-md p-6">
+              <h3 className="text-xl font-semibold text-gray-900 mb-4">Subscribe a Member</h3>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Member</label>
+                {cooperativeMembers.length === 0 ? (
+                  <p className="text-sm text-gray-500 italic">All active members are already subscribed to this plan.</p>
+                ) : (
+                  <select
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    value={selectedMemberId}
+                    onChange={(e) => setSelectedMemberId(e.target.value)}
+                  >
+                    <option value="">-- Select a member --</option>
+                    {cooperativeMembers.map((m) => {
+                      const name = m.isOfflineMember
+                        ? `${m.firstName ?? ''} ${m.lastName ?? ''}`.trim()
+                        : `${m.user?.firstName ?? ''} ${m.user?.lastName ?? ''}`.trim()
+                      return (
+                        <option key={m.id} value={m.id}>
+                          {name || m.email || m.id}
+                        </option>
+                      )
+                    })}
+                  </select>
+                )}
+              </div>
+
+              {plan?.amountType === 'notional' && (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Contribution Amount (₦)
+                  </label>
+                  <Input
+                    type="number"
+                    value={adminSubscribeAmount}
+                    onChange={(e) => setAdminSubscribeAmount(e.target.value)}
+                    placeholder="Enter amount"
+                    min={plan.minAmount || 1}
+                    max={plan.maxAmount}
+                  />
+                  {plan.minAmount && (
+                    <p className="text-xs text-gray-500 mt-1">Minimum: ₦{plan.minAmount.toLocaleString()}</p>
+                  )}
+                  {plan.maxAmount && (
+                    <p className="text-xs text-gray-500">Maximum: ₦{plan.maxAmount.toLocaleString()}</p>
+                  )}
+                </div>
+              )}
+
+              {plan?.amountType === 'fixed' && (
+                <div className="mb-4 p-3 bg-indigo-50 rounded-lg">
+                  <p className="text-sm text-indigo-700">
+                    Fixed amount: <span className="font-semibold">₦{plan.fixedAmount?.toLocaleString()}</span>
+                  </p>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowAdminSubscribeModal(false)}
+                  disabled={isSubmitting}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={handleAdminSubscribe}
+                  disabled={isSubmitting || !selectedMemberId || cooperativeMembers.length === 0}
+                  className="flex-1"
+                >
+                  {isSubmitting ? 'Subscribing...' : 'Subscribe Member'}
                 </Button>
               </div>
             </Card>

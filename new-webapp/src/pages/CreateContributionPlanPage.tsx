@@ -1,13 +1,14 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Save, Calendar, DollarSign } from 'lucide-react'
 import { Button, Input, Card, useToast } from '../components/ui'
 import { contributionApi, type CreateContributionPlanDto } from '../api/contributionApi'
 
 export const CreateContributionPlanPage = () => {
-  const { id } = useParams<{ id: string }>()
+  const { id, planId } = useParams<{ id: string; planId?: string }>()
   const navigate = useNavigate()
   const toast = useToast()
+  const isEditMode = Boolean(planId)
 
   const [formData, setFormData] = useState<CreateContributionPlanDto>({
     name: '',
@@ -25,6 +26,30 @@ export const CreateContributionPlanPage = () => {
   })
 
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  useEffect(() => {
+    if (isEditMode && planId) {
+      contributionApi.getPlan(planId).then((res) => {
+        if (res.success) {
+          const p = res.data
+          setFormData({
+            name: p.name,
+            description: p.description || '',
+            category: p.category,
+            amountType: p.amountType,
+            fixedAmount: p.fixedAmount,
+            minAmount: p.minAmount,
+            maxAmount: p.maxAmount,
+            contributionType: p.contributionType,
+            frequency: p.frequency || 'monthly',
+            startDate: p.startDate ? p.startDate.slice(0, 10) : '',
+            endDate: p.endDate ? p.endDate.slice(0, 10) : '',
+            isActive: p.isActive,
+          })
+        }
+      }).catch(() => toast.error('Failed to load plan'))
+    }
+  }, [planId, isEditMode])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -82,35 +107,46 @@ export const CreateContributionPlanPage = () => {
         data.maxAmount = formData.maxAmount
       }
 
-      // Add frequency and dates for continuous plans
-      if (formData.contributionType === 'continuous') {
-        data.frequency = formData.frequency
-        if (formData.startDate) {
-          data.startDate = new Date(formData.startDate).toISOString()
-        }
-        if (formData.endDate) {
-          data.endDate = new Date(formData.endDate).toISOString()
-        }
+      // Add frequency and dates
+      data.frequency = formData.frequency
+      if (formData.startDate) {
+        data.startDate = new Date(formData.startDate).toISOString()
+      }
+      if (formData.endDate) {
+        data.endDate = new Date(formData.endDate).toISOString()
       }
 
-      const response = await contributionApi.createPlan(id, data)
-
-      if (response.success) {
-        toast.success('Contribution plan created successfully')
-        navigate(`/cooperatives/${id}/contributions/${response.data.id}`)
+      if (isEditMode && planId) {
+        const response = await contributionApi.updatePlan(planId, data)
+        if (response.success) {
+          toast.success('Contribution plan updated successfully')
+          navigate(`/cooperatives/${id}/contributions/${planId}`)
+        } else {
+          toast.error(response.message || 'Failed to update contribution plan')
+        }
       } else {
-        toast.error(response.message || 'Failed to create contribution plan')
+        const response = await contributionApi.createPlan(id!, data)
+        if (response.success) {
+          toast.success('Contribution plan created successfully')
+          navigate(`/cooperatives/${id}/contributions/${response.data.id}`)
+        } else {
+          toast.error(response.message || 'Failed to create contribution plan')
+        }
       }
     } catch (error: any) {
-      console.error('Error creating contribution plan:', error)
-      toast.error(error.response?.data?.message || 'Failed to create contribution plan')
+      console.error('Error saving contribution plan:', error)
+      toast.error(error.response?.data?.message || 'Failed to save contribution plan')
     } finally {
       setIsSubmitting(false)
     }
   }
 
   const handleCancel = () => {
-    navigate(`/cooperatives/${id}/contributions`)
+    if (isEditMode && planId) {
+      navigate(`/cooperatives/${id}/contributions/${planId}`)
+    } else {
+      navigate(`/cooperatives/${id}/contributions`)
+    }
   }
 
   return (
@@ -126,8 +162,8 @@ export const CreateContributionPlanPage = () => {
             <span>Back to Contribution Plans</span>
           </button>
 
-          <h1 className="text-3xl font-bold text-gray-900">Create Contribution Plan</h1>
-          <p className="text-gray-600 mt-1">Set up a new contribution plan for your cooperative</p>
+          <h1 className="text-3xl font-bold text-gray-900">{isEditMode ? 'Edit Contribution Plan' : 'Create Contribution Plan'}</h1>
+          <p className="text-gray-600 mt-1">{isEditMode ? 'Update this contribution plan' : 'Set up a new contribution plan for your cooperative'}</p>
         </div>
 
         {/* Form */}
@@ -424,7 +460,7 @@ export const CreateContributionPlanPage = () => {
                 leftIcon={<Save className="w-4 h-4" />}
                 disabled={isSubmitting}
               >
-                {isSubmitting ? 'Creating...' : 'Create Contribution Plan'}
+                {isSubmitting ? (isEditMode ? 'Saving...' : 'Creating...') : (isEditMode ? 'Save Changes' : 'Create Contribution Plan')}
               </Button>
             </div>
           </div>

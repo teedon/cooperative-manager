@@ -10,6 +10,7 @@ import {
   Play,
   TrendingUp,
   UserPlus,
+  Pencil,
 } from 'lucide-react'
 import { Button, Card, Input, useToast } from '../components/ui'
 import {
@@ -324,7 +325,15 @@ export const ContributionPlanDetailPage = () => {
               <h1 className="text-3xl font-bold text-gray-900">{plan.name}</h1>
               <p className="text-gray-600 mt-1">{plan.description}</p>
             </div>
-            {/* Admin actions could go here */}
+            {allSubscriptions.length > 0 && (
+              <Button
+                variant="outline"
+                leftIcon={<Pencil className="w-4 h-4" />}
+                onClick={() => navigate(`/cooperatives/${id}/contributions/${planId}/edit`)}
+              >
+                Edit Plan
+              </Button>
+            )}
           </div>
         </div>
 

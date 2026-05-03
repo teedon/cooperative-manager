@@ -183,6 +183,14 @@ const AppRoutes: React.FC = () => {
         } 
       />
       <Route 
+        path="/cooperatives/:id/contributions/:planId/edit" 
+        element={
+          <ProtectedRoute>
+            <CreateContributionPlanPage />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
         path="/cooperatives/:id/contributions/:planId" 
         element={
           <ProtectedRoute>

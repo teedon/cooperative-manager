@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -13,7 +13,7 @@ import {
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { HomeStackParamList } from '../../navigation/MainNavigator';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
-import { createPlan } from '../../store/slices/contributionSlice';
+import { createPlan, updatePlan, fetchPlan } from '../../store/slices/contributionSlice';
 import { colors, spacing, borderRadius, shadows } from '../../theme';
 import Icon from '../../components/common/Icon';
 import DatePicker from '../../components/common/DatePicker';
@@ -28,9 +28,10 @@ type ContributionType = 'continuous' | 'period';
 type Frequency = 'daily' | 'weekly' | 'monthly' | 'yearly';
 
 const CreateContributionScreen: React.FC<Props> = ({ route, navigation }) => {
-  const { cooperativeId } = route.params;
+  const { cooperativeId, planId } = route.params;
+  const isEditMode = Boolean(planId);
   const dispatch = useAppDispatch();
-  const { isLoading } = useAppSelector((state) => state.contribution);
+  const { isLoading, currentPlan } = useAppSelector((state) => state.contribution);
 
   // Form state
   const [name, setName] = useState('');
@@ -45,6 +46,29 @@ const CreateContributionScreen: React.FC<Props> = ({ route, navigation }) => {
   const [startDate, setStartDate] = useState<Date | null>(null);
   const [endDate, setEndDate] = useState<Date | null>(null);
   const [isActive, setIsActive] = useState(true);
+
+  useEffect(() => {
+    if (isEditMode && planId) {
+      dispatch(fetchPlan(planId));
+    }
+  }, [planId, isEditMode]);
+
+  useEffect(() => {
+    if (isEditMode && currentPlan && currentPlan.id === planId) {
+      setName(currentPlan.name);
+      setDescription(currentPlan.description || '');
+      setCategory(currentPlan.category as Category);
+      setAmountType(currentPlan.amountType as AmountType);
+      setFixedAmount(currentPlan.fixedAmount ? String(currentPlan.fixedAmount) : '');
+      setMinAmount(currentPlan.minAmount ? String(currentPlan.minAmount) : '');
+      setMaxAmount(currentPlan.maxAmount ? String(currentPlan.maxAmount) : '');
+      setContributionType(currentPlan.contributionType as ContributionType);
+      setFrequency((currentPlan.frequency || 'monthly') as Frequency);
+      setStartDate(currentPlan.startDate ? new Date(currentPlan.startDate) : null);
+      setEndDate(currentPlan.endDate ? new Date(currentPlan.endDate) : null);
+      setIsActive(currentPlan.isActive);
+    }
+  }, [currentPlan, isEditMode, planId]);
 
   const validateForm = (): string | null => {
     if (!name.trim()) {
@@ -91,12 +115,19 @@ const CreateContributionScreen: React.FC<Props> = ({ route, navigation }) => {
     };
 
     try {
-      await dispatch(createPlan({ cooperativeId, plan: planData })).unwrap();
-      Alert.alert('Success', 'Contribution plan created successfully', [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ]);
+      if (isEditMode && planId) {
+        await dispatch(updatePlan({ planId, plan: planData })).unwrap();
+        Alert.alert('Success', 'Contribution plan updated successfully', [
+          { text: 'OK', onPress: () => navigation.navigate('ContributionPlan', { planId }) },
+        ]);
+      } else {
+        await dispatch(createPlan({ cooperativeId, plan: planData })).unwrap();
+        Alert.alert('Success', 'Contribution plan created successfully', [
+          { text: 'OK', onPress: () => navigation.goBack() },
+        ]);
+      }
     } catch (err: any) {
-      Alert.alert('Error', err || 'Failed to create contribution plan');
+      Alert.alert('Error', err || 'Failed to save contribution plan');
     }
   };
 
@@ -140,9 +171,9 @@ const CreateContributionScreen: React.FC<Props> = ({ route, navigation }) => {
           <View style={styles.iconContainer}>
             <Icon name="Wallet" size={32} color={colors.primary.main} />
           </View>
-          <Text style={styles.headerTitle}>Create Contribution Plan</Text>
+          <Text style={styles.headerTitle}>{isEditMode ? 'Edit Contribution Plan' : 'Create Contribution Plan'}</Text>
           <Text style={styles.headerSubtitle}>
-            Set up a new contribution plan for your cooperative members
+            {isEditMode ? 'Update this contribution plan' : 'Set up a new contribution plan for your cooperative members'}
           </Text>
         </View>
 
@@ -342,8 +373,8 @@ const CreateContributionScreen: React.FC<Props> = ({ route, navigation }) => {
             <ActivityIndicator color={colors.primary.contrast} />
           ) : (
             <>
-              <Icon name="Plus" size={20} color={colors.primary.contrast} />
-              <Text style={styles.submitButtonText}>Create Contribution Plan</Text>
+              <Icon name={isEditMode ? 'Save' : 'Plus'} size={20} color={colors.primary.contrast} />
+              <Text style={styles.submitButtonText}>{isEditMode ? 'Save Changes' : 'Create Contribution Plan'}</Text>
             </>
           )}
         </TouchableOpacity>

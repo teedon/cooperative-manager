@@ -240,6 +240,15 @@ const ContributionPlanScreen: React.FC<Props> = ({ route, navigation }) => {
         </View>
         <Text style={styles.planName}>{plan.name}</Text>
         {plan.description && <Text style={styles.planDescription}>{plan.description}</Text>}
+        {isAdmin && (
+          <TouchableOpacity
+            style={styles.editPlanButton}
+            onPress={() => navigation.navigate('CreateContribution', { cooperativeId: plan.cooperativeId!, planId: plan.id })}
+          >
+            <Icon name="Edit" size={14} color={colors.primary.contrast} />
+            <Text style={styles.editPlanButtonText}>Edit Plan</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Details Card */}
@@ -746,6 +755,22 @@ const styles = StyleSheet.create({
   planDescription: {
     fontSize: 14,
     color: 'rgba(255,255,255,0.8)',
+  },
+  editPlanButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    alignSelf: 'flex-start',
+    marginTop: spacing.sm,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderRadius: borderRadius.md,
+  },
+  editPlanButtonText: {
+    fontSize: 13,
+    color: colors.primary.contrast,
+    fontWeight: '600',
   },
   detailsCard: {
     backgroundColor: colors.background.paper,

@@ -120,7 +120,7 @@ export type HomeStackParamList = {
   CooperativeRedirect: undefined;
   CooperativeDetail: { cooperativeId: string };
   PendingApproval: { cooperativeId?: string } | undefined;
-  CreateContribution: { cooperativeId: string };
+  CreateContribution: { cooperativeId: string; planId?: string };
   ContributionPlan: { planId: string };
   ContributionPeriod: { periodId: string };
   RecordPayment: { periodId: string };

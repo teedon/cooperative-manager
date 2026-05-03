@@ -124,7 +124,14 @@ export const organizationApi = {
       return { 
         success: false, 
         message: error.response?.data?.message || 'Failed to fetch organization statistics',
-        data: null,
+        data: {
+          totalOrganizations: 0,
+          cooperativeOrganizations: 0,
+          managerOrganizations: 0,
+          averageCooperativesPerManager: 0,
+          totalStaff: 0,
+          organizationGrowth: 0,
+        },
       }
     }
   },
@@ -139,7 +146,17 @@ export const organizationApi = {
       return { 
         success: false, 
         message: error.response?.data?.message || 'Failed to create organization',
-        data: null,
+        data: {
+          id: '',
+          name: '',
+          type: 'cooperative',
+          cooperativesCount: 0,
+          staffCount: 0,
+          status: 'inactive',
+          totalRevenue: 0,
+          createdAt: new Date(0).toISOString(),
+          contactInfo: {},
+        },
       }
     }
   },
@@ -154,7 +171,17 @@ export const organizationApi = {
       return { 
         success: false, 
         message: error.response?.data?.message || 'Failed to fetch organization',
-        data: null,
+        data: {
+          id: '',
+          name: '',
+          type: 'cooperative',
+          cooperativesCount: 0,
+          staffCount: 0,
+          status: 'inactive',
+          totalRevenue: 0,
+          createdAt: new Date(0).toISOString(),
+          contactInfo: {},
+        },
       }
     }
   },
@@ -189,7 +216,12 @@ export const organizationApi = {
       return { 
         success: false, 
         message: error.response?.data?.message || 'Failed to fetch organization staff',
-        data: null,
+        data: {
+          staff: [],
+          total: 0,
+          totalPages: 0,
+          currentPage: page,
+        },
       }
     }
   },
@@ -204,7 +236,20 @@ export const organizationApi = {
       return { 
         success: false, 
         message: error.response?.data?.message || 'Failed to add staff to organization',
-        data: null,
+        data: {
+          id: '',
+          userId: '',
+          organizationId: '',
+          role: 'field_agent',
+          permissions: [],
+          hiredAt: new Date(0).toISOString(),
+          user: {
+            id: '',
+            firstName: '',
+            lastName: '',
+            email: '',
+          },
+        },
       }
     }
   },
@@ -213,13 +258,13 @@ export const organizationApi = {
   async removeStaff(organizationId: string, staffId: string): Promise<ApiResponse<void>> {
     try {
       await apiClient.delete(`/organizations/${organizationId}/staff/${staffId}`)
-      return { success: true, data: null }
+      return { success: true, data: undefined }
     } catch (error: any) {
       console.error('Failed to remove staff from organization:', error)
       return { 
         success: false, 
         message: error.response?.data?.message || 'Failed to remove staff from organization',
-        data: null,
+        data: undefined,
       }
     }
   },

@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit'
-import { ExtendedUser, mockExtendUser } from '../types/UserProfile'
+import type { ExtendedUser } from '../types/UserProfile'
+import { mockExtendUser } from '../types/UserProfile'
 
 export interface User {
   id: string

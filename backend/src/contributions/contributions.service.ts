@@ -680,7 +680,24 @@ export class ContributionsService {
       throw new BadRequestException('Cannot record payment for inactive subscription');
     }
 
-    // Check for duplicate pending payment with same amount in the last 5 minutes
+    // Enforce one payment per period — block if a pending or approved payment
+    // already exists for this subscription within the same frequency window.
+    // Rejected payments do NOT block re-recording.
+    const frequency = subscription.plan.frequency || 'monthly';
+    const targetDate = dto.dueDate ? new Date(dto.dueDate) : new Date();
+    const duplicatePeriodPayment = await this.findDuplicatePaymentForPeriod(
+      subscriptionId,
+      targetDate,
+      frequency,
+    );
+    if (duplicatePeriodPayment) {
+      const periodLabel = this.getPeriodLabel(targetDate, frequency);
+      throw new BadRequestException(
+        `A payment has already been recorded for the ${periodLabel} period. Only one payment is allowed per period.`,
+      );
+    }
+
+    // Legacy guard: reject rapid-fire duplicates within 5 min (kept for extra safety)
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
     const existingPendingPayment = await this.prisma.contributionPayment.findFirst({
       where: {
@@ -1357,6 +1374,86 @@ export class ContributionsService {
     return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
   }
 
+  /**
+   * Returns the [periodStart, periodEnd] window that contains `date` for the
+   * given plan frequency.  Used to enforce one-payment-per-period uniqueness.
+   */
+  private getPeriodWindow(date: Date, frequency: string): { start: Date; end: Date } {
+    const d = new Date(date);
+    switch (frequency) {
+      case 'daily': {
+        const start = new Date(d);
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(d);
+        end.setHours(23, 59, 59, 999);
+        return { start, end };
+      }
+      case 'weekly': {
+        // Monday-to-Sunday ISO week
+        const day = d.getDay() === 0 ? 7 : d.getDay(); // 1=Mon … 7=Sun
+        const start = new Date(d);
+        start.setDate(d.getDate() - (day - 1));
+        start.setHours(0, 0, 0, 0);
+        const end = new Date(start);
+        end.setDate(start.getDate() + 6);
+        end.setHours(23, 59, 59, 999);
+        return { start, end };
+      }
+      case 'biweekly': {
+        // Treat same ISO week pair (2-week block from the same week-start)
+        const day = d.getDay() === 0 ? 7 : d.getDay();
+        const weekStart = new Date(d);
+        weekStart.setDate(d.getDate() - (day - 1));
+        weekStart.setHours(0, 0, 0, 0);
+        // align to even 2-week blocks from week 1 of the year
+        const weekNum = this.getWeekNumber(weekStart);
+        const blockStart = new Date(weekStart);
+        if (weekNum % 2 !== 1) blockStart.setDate(weekStart.getDate() - 7);
+        const blockEnd = new Date(blockStart);
+        blockEnd.setDate(blockStart.getDate() + 13);
+        blockEnd.setHours(23, 59, 59, 999);
+        return { start: blockStart, end: blockEnd };
+      }
+      case 'yearly': {
+        const start = new Date(d.getFullYear(), 0, 1, 0, 0, 0, 0);
+        const end = new Date(d.getFullYear(), 11, 31, 23, 59, 59, 999);
+        return { start, end };
+      }
+      case 'quarterly': {
+        const q = Math.floor(d.getMonth() / 3);
+        const start = new Date(d.getFullYear(), q * 3, 1, 0, 0, 0, 0);
+        const end = new Date(d.getFullYear(), q * 3 + 3, 0, 23, 59, 59, 999);
+        return { start, end };
+      }
+      default: // monthly
+      {
+        const start = new Date(d.getFullYear(), d.getMonth(), 1, 0, 0, 0, 0);
+        const end = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
+        return { start, end };
+      }
+    }
+  }
+
+  /**
+   * Returns an existing pending or approved payment for `subscriptionId` that
+   * falls within the period window of `targetDate` according to `frequency`.
+   * Rejected payments are excluded so re-recording is allowed after rejection.
+   */
+  private async findDuplicatePaymentForPeriod(
+    subscriptionId: string,
+    targetDate: Date,
+    frequency: string,
+  ) {
+    const { start, end } = this.getPeriodWindow(targetDate, frequency);
+    return this.prisma.contributionPayment.findFirst({
+      where: {
+        subscriptionId,
+        status: { in: ['pending', 'approved'] },
+        paymentDate: { gte: start, lte: end },
+      },
+    });
+  }
+
   // Get payment schedules for a subscription
   async getSubscriptionSchedules(subscriptionId: string, userId: string) {
     const subscription = await this.prisma.contributionSubscription.findUnique({
@@ -1639,6 +1736,22 @@ export class ContributionsService {
 
     if (schedule.status === 'paid') {
       throw new BadRequestException('This schedule has already been paid');
+    }
+
+    // Enforce one payment per period — also catch the case where a pending or
+    // approved payment for the same period already exists (e.g. this schedule
+    // was previously submitted and is awaiting approval).
+    const frequency = schedule.subscription.plan.frequency || 'monthly';
+    const duplicatePeriodPayment = await this.findDuplicatePaymentForPeriod(
+      schedule.subscriptionId,
+      schedule.dueDate,
+      frequency,
+    );
+    if (duplicatePeriodPayment) {
+      const periodLabel = schedule.periodLabel || this.getPeriodLabel(schedule.dueDate, frequency);
+      throw new BadRequestException(
+        `A payment has already been recorded for the ${periodLabel} period. Only one payment is allowed per period.`,
+      );
     }
 
     // Create payment linked to this schedule
@@ -2187,19 +2300,40 @@ export class ContributionsService {
         });
       } else {
         // Member has active subscription but no schedule for this date
-        // Use subscription amount or plan's fixed amount
+        // Check if there is already a pending/approved payment for this period
+        const existingPeriodPayment = await this.findDuplicatePaymentForPeriod(
+          subscription.id,
+          scheduleDate,
+          plan.frequency || 'monthly',
+        );
+
         const amount = subscription.amount || plan.fixedAmount || 0;
-        membersWithoutSchedules.push({
-          scheduleId: null,
-          subscriptionId: subscription.id,
-          memberId: subscription.memberId,
-          member: memberInfo,
-          amount: amount,
-          status: 'missing', // Special status for missing schedules
-          paidAmount: 0,
-          paidAt: null,
-          hasSchedule: false,
-        });
+        if (existingPeriodPayment) {
+          // Period already paid — surface as paid so this member is non-actionable
+          membersWithSchedules.push({
+            scheduleId: null,
+            subscriptionId: subscription.id,
+            memberId: subscription.memberId,
+            member: memberInfo,
+            amount: amount,
+            status: 'paid',
+            paidAmount: existingPeriodPayment.amount,
+            paidAt: existingPeriodPayment.paymentDate,
+            hasSchedule: false,
+          });
+        } else {
+          membersWithoutSchedules.push({
+            scheduleId: null,
+            subscriptionId: subscription.id,
+            memberId: subscription.memberId,
+            member: memberInfo,
+            amount: amount,
+            status: 'missing', // Special status for missing schedules
+            paidAmount: 0,
+            paidAt: null,
+            hasSchedule: false,
+          });
+        }
       }
     }
 
@@ -2383,6 +2517,17 @@ export class ContributionsService {
     // Process existing schedules
     for (const schedule of existingSchedules) {
       try {
+        // Skip if a pending/approved payment already exists for this period
+        const existingPeriodPayment = await this.findDuplicatePaymentForPeriod(
+          schedule.subscriptionId,
+          schedule.dueDate,
+          schedule.subscription.plan.frequency || 'monthly',
+        );
+        if (existingPeriodPayment) {
+          console.warn(`Skipping schedule ${schedule.id}: period already has a pending/approved payment`);
+          continue;
+        }
+
         await this.prisma.$transaction(async (tx) => {
           // Create payment record
           const payment = await tx.contributionPayment.create({
@@ -2473,6 +2618,17 @@ export class ContributionsService {
     // Process members with missing schedules - create schedule and approve
     for (const subscription of membersWithMissingSchedules) {
       try {
+        // Skip if a pending/approved payment already exists for this period
+        const existingPeriodPayment = await this.findDuplicatePaymentForPeriod(
+          subscription.id,
+          scheduleDate,
+          plan.frequency || 'monthly',
+        );
+        if (existingPeriodPayment) {
+          console.warn(`Skipping subscription ${subscription.id}: period already has a pending/approved payment`);
+          continue;
+        }
+
         const amount = subscription.amount || plan.fixedAmount || 0;
         
         await this.prisma.$transaction(async (tx) => {

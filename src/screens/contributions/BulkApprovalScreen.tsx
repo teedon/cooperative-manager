@@ -64,11 +64,9 @@ const BulkApprovalScreen: React.FC<Props> = ({ route, navigation }) => {
       try {
         const response = await contributionApi.getPlans(cooperativeId);
         if (response.success) {
-          // Filter plans that have continuous frequency (scheduled contributions)
-          const continuousPlans = response.data.filter(
-            plan => plan.contributionType === 'continuous' && plan.frequency && plan.isActive
-          );
-          setPlans(continuousPlans);
+          // Show all active plans and hide only inactive plans
+          const activePlans = response.data.filter(plan => plan.isActive);
+          setPlans(activePlans);
         }
       } catch (error) {
         console.error('Error loading plans:', error);
@@ -562,9 +560,9 @@ const BulkApprovalScreen: React.FC<Props> = ({ route, navigation }) => {
         ) : plans.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Icon name="file-text" size={64} color={colors.border.main} />
-            <Text style={styles.emptyText}>No contribution plans with schedules found</Text>
+            <Text style={styles.emptyText}>No active contribution plans found</Text>
             <Text style={styles.emptySubtext}>
-              Create a continuous contribution plan with a frequency to use bulk approval
+              Create or activate a contribution plan to use bulk approval
             </Text>
           </View>
         ) : (

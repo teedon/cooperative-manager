@@ -51,11 +51,9 @@ export const BulkApproveSchedulesPage = () => {
       try {
         const response = await contributionApi.getPlans(id)
         if (response.success) {
-          // Filter plans that have continuous frequency (scheduled contributions)
-          const continuousPlans = response.data.filter(
-            (plan: ContributionPlan) => plan.contributionType === 'continuous' && plan.frequency && plan.isActive
-          )
-          setPlans(continuousPlans)
+          // Show all active plans and hide only inactive plans
+          const activePlans = response.data.filter((plan: ContributionPlan) => plan.isActive)
+          setPlans(activePlans)
         }
       } catch (error) {
         console.error('Error loading plans:', error)
@@ -345,9 +343,9 @@ export const BulkApproveSchedulesPage = () => {
           ) : plans.length === 0 ? (
             <Card className="p-8 text-center">
               <Wallet className="w-12 h-12 text-gray-400 mx-auto mb-3" />
-              <p className="text-gray-600">No scheduled contribution plans available</p>
+              <p className="text-gray-600">No active contribution plans found</p>
               <p className="text-sm text-gray-500 mt-1">
-                Only continuous plans with schedules are shown here
+                Create or activate a contribution plan to use bulk approval
               </p>
             </Card>
           ) : (

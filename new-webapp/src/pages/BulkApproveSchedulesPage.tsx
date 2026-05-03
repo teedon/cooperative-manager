@@ -29,6 +29,8 @@ export const BulkApproveSchedulesPage = () => {
   const [scheduleDates, setScheduleDates] = useState<ScheduleDateInfo[]>([])
   const [selectedDate, setSelectedDate] = useState<ScheduleDateInfo | null>(null)
   const [loadingDates, setLoadingDates] = useState(false)
+  const [showCustomDate, setShowCustomDate] = useState(false)
+  const [customDateValue, setCustomDateValue] = useState('')
 
   // Member selection state
   const [members, setMembers] = useState<ScheduleDateMember[]>([])
@@ -175,14 +177,46 @@ export const BulkApproveSchedulesPage = () => {
     setCurrentStep('select-date')
     setSelectedDate(null)
     setScheduleDates([])
+    setShowCustomDate(false)
+    setCustomDateValue('')
   }
 
   const handleSelectDate = (dateInfo: ScheduleDateInfo) => {
-    if (dateInfo.pendingCount === 0) {
-      toast.error('All members have already paid for this date')
+    setSelectedDate(dateInfo)
+    setCurrentStep('select-members')
+    setMembers([])
+    setSearchQuery('')
+  }
+
+  const handleCustomDateSubmit = () => {
+    if (!customDateValue) {
+      toast.error('Please select a date')
       return
     }
-    setSelectedDate(dateInfo)
+
+    // Check this custom date isn't already in the list
+    const existing = scheduleDates.find(
+      (d) => new Date(d.date).toDateString() === new Date(customDateValue).toDateString()
+    )
+    if (existing) {
+      // Just navigate to that existing date entry
+      handleSelectDate(existing)
+      return
+    }
+
+    // Build a synthetic ScheduleDateInfo — counts are unknown until members load
+    const now = new Date()
+    const parsed = new Date(customDateValue)
+    const syntheticDate: ScheduleDateInfo = {
+      date: parsed.toISOString(),
+      totalMembers: 0,
+      pendingCount: 1, // non-zero so the guard doesn't block navigation
+      paidCount: 0,
+      pendingAmount: 0,
+      isPast: parsed < now,
+      isToday: parsed.toDateString() === now.toDateString(),
+    }
+    setSelectedDate(syntheticDate)
     setCurrentStep('select-members')
     setMembers([])
     setSearchQuery('')
@@ -192,6 +226,8 @@ export const BulkApproveSchedulesPage = () => {
     if (currentStep === 'select-date') {
       setCurrentStep('select-plan')
       setSelectedPlan(null)
+      setShowCustomDate(false)
+      setCustomDateValue('')
     } else if (currentStep === 'select-members') {
       setCurrentStep('select-date')
       setSelectedDate(null)
@@ -448,6 +484,43 @@ export const BulkApproveSchedulesPage = () => {
               })}
             </div>
           )}
+
+          {/* Custom / backlog date entry */}
+          <div className="border-t border-gray-200 pt-4">
+            {!showCustomDate ? (
+              <button
+                onClick={() => setShowCustomDate(true)}
+                className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 font-medium"
+              >
+                <Calendar className="w-4 h-4" />
+                Record payment for a different / backlog date
+              </button>
+            ) : (
+              <Card className="p-4 border-blue-300 bg-blue-50">
+                <h3 className="text-sm font-semibold text-gray-900 mb-1 flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-blue-600" />
+                  Enter Backlog Date
+                </h3>
+                <p className="text-xs text-gray-600 mb-3">
+                  Schedules will be created automatically for members who don't have one on this date.
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    type="date"
+                    value={customDateValue}
+                    onChange={(e) => setCustomDateValue(e.target.value)}
+                    className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <Button variant="primary" onClick={handleCustomDateSubmit} disabled={!customDateValue}>
+                    Continue
+                  </Button>
+                  <Button variant="outline" onClick={() => { setShowCustomDate(false); setCustomDateValue('') }}>
+                    Cancel
+                  </Button>
+                </div>
+              </Card>
+            )}
+          </div>
         </div>
       )
     }

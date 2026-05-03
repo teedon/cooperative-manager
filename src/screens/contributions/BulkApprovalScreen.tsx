@@ -14,6 +14,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { HomeStackParamList } from '../../navigation/MainNavigator';
 import { colors, spacing, borderRadius, shadows } from '../../theme';
 import Icon from '../../components/common/Icon';
+import DatePicker from '../../components/common/DatePicker';
 import { 
   contributionApi, 
   ScheduleDateInfo, 
@@ -42,6 +43,8 @@ const BulkApprovalScreen: React.FC<Props> = ({ route, navigation }) => {
   const [scheduleDates, setScheduleDates] = useState<ScheduleDateInfo[]>([]);
   const [selectedDate, setSelectedDate] = useState<ScheduleDateInfo | null>(null);
   const [loadingDates, setLoadingDates] = useState(false);
+  const [showCustomDate, setShowCustomDate] = useState(false);
+  const [customDateValue, setCustomDateValue] = useState<Date | null>(null);
   
   // Member selection state
   const [members, setMembers] = useState<ScheduleDateMember[]>([]);
@@ -203,14 +206,44 @@ const BulkApprovalScreen: React.FC<Props> = ({ route, navigation }) => {
     setCurrentStep('select-date');
     setSelectedDate(null);
     setScheduleDates([]);
+    setShowCustomDate(false);
+    setCustomDateValue(null);
   };
 
   const handleSelectDate = (dateInfo: ScheduleDateInfo) => {
-    if (dateInfo.pendingCount === 0) {
-      Alert.alert('No Pending Payments', 'All members have already paid for this date.');
+    setSelectedDate(dateInfo);
+    setCurrentStep('select-members');
+    setMembers([]);
+    setSearchQuery('');
+  };
+
+  const handleCustomDateSubmit = () => {
+    if (!customDateValue) {
+      Alert.alert('Date Required', 'Please select a backlog date.');
       return;
     }
-    setSelectedDate(dateInfo);
+
+    const existing = scheduleDates.find(
+      d => new Date(d.date).toDateString() === customDateValue.toDateString()
+    );
+
+    if (existing) {
+      handleSelectDate(existing);
+      return;
+    }
+
+    const now = new Date();
+    const syntheticDate: ScheduleDateInfo = {
+      date: customDateValue.toISOString(),
+      totalMembers: 0,
+      pendingCount: 1,
+      paidCount: 0,
+      pendingAmount: 0,
+      isPast: customDateValue < now,
+      isToday: customDateValue.toDateString() === now.toDateString(),
+    };
+
+    setSelectedDate(syntheticDate);
     setCurrentStep('select-members');
     setMembers([]);
     setSearchQuery('');
@@ -220,6 +253,8 @@ const BulkApprovalScreen: React.FC<Props> = ({ route, navigation }) => {
     if (currentStep === 'select-date') {
       setCurrentStep('select-plan');
       setSelectedPlan(null);
+      setShowCustomDate(false);
+      setCustomDateValue(null);
     } else if (currentStep === 'select-members') {
       setCurrentStep('select-date');
       setSelectedDate(null);
@@ -551,24 +586,76 @@ const BulkApprovalScreen: React.FC<Props> = ({ route, navigation }) => {
             <ActivityIndicator size="large" color={colors.primary.main} />
             <Text style={styles.loadingText}>Loading schedule dates...</Text>
           </View>
-        ) : scheduleDates.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Icon name="calendar" size={64} color={colors.border.main} />
-            <Text style={styles.emptyText}>No scheduled dates found</Text>
-            <Text style={styles.emptySubtext}>
-              Members need to subscribe to this plan for schedules to be generated
-            </Text>
-          </View>
         ) : (
-          <FlatList
-            data={scheduleDates}
-            renderItem={renderDateItem}
-            keyExtractor={item => item.date}
-            contentContainerStyle={styles.listContent}
-            refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-            }
-          />
+          <View style={styles.selectDateContainer}>
+            <FlatList
+              data={scheduleDates}
+              renderItem={renderDateItem}
+              keyExtractor={item => item.date}
+              contentContainerStyle={styles.listContent}
+              ListEmptyComponent={
+                <View style={styles.emptyInlineContainer}>
+                  <Icon name="calendar" size={48} color={colors.border.main} />
+                  <Text style={styles.emptyText}>No scheduled dates found</Text>
+                  <Text style={styles.emptySubtext}>
+                    You can still record a payment for a backlog date below.
+                  </Text>
+                </View>
+              }
+              refreshControl={
+                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+              }
+            />
+
+            <View style={styles.customDateContainer}>
+              {!showCustomDate ? (
+                <TouchableOpacity
+                  style={styles.customDateToggle}
+                  onPress={() => setShowCustomDate(true)}
+                  activeOpacity={0.7}
+                >
+                  <Icon name="calendar-plus" size={18} color={colors.primary.main} />
+                  <Text style={styles.customDateToggleText}>
+                    Record payment for a different / backlog date
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <View style={styles.customDateCard}>
+                  <Text style={styles.customDateTitle}>Enter Backlog Date</Text>
+                  <Text style={styles.customDateHint}>
+                    Schedules will be created automatically for subscribed members who do not have one on this date.
+                  </Text>
+                  <DatePicker
+                    value={customDateValue}
+                    onChange={setCustomDateValue}
+                    placeholder="Select backlog date"
+                    maximumDate={new Date()}
+                  />
+                  <View style={styles.customDateActions}>
+                    <TouchableOpacity
+                      style={styles.customDateCancelButton}
+                      onPress={() => {
+                        setShowCustomDate(false);
+                        setCustomDateValue(null);
+                      }}
+                    >
+                      <Text style={styles.customDateCancelText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[
+                        styles.customDateContinueButton,
+                        !customDateValue && styles.customDateContinueButtonDisabled,
+                      ]}
+                      onPress={handleCustomDateSubmit}
+                      disabled={!customDateValue}
+                    >
+                      <Text style={styles.customDateContinueText}>Continue</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+            </View>
+          </View>
         )
       )}
 
@@ -626,7 +713,7 @@ const BulkApprovalScreen: React.FC<Props> = ({ route, navigation }) => {
               <Icon
                 name={
                   filteredMembers
-                    .filter(m => m.status === 'pending' || m.status === 'overdue')
+                    .filter(m => m.status === 'pending' || m.status === 'overdue' || m.status === 'missing')
                     .every(m => excludedMemberIds.has(m.memberId))
                     ? 'square'
                     : 'check-square'
@@ -636,7 +723,7 @@ const BulkApprovalScreen: React.FC<Props> = ({ route, navigation }) => {
               />
               <Text style={styles.selectAllText}>
                 {filteredMembers
-                  .filter(m => m.status === 'pending' || m.status === 'overdue')
+                  .filter(m => m.status === 'pending' || m.status === 'overdue' || m.status === 'missing')
                   .every(m => excludedMemberIds.has(m.memberId))
                   ? 'Select All'
                   : 'Deselect All'}
@@ -770,6 +857,14 @@ const styles = StyleSheet.create({
   listContent: {
     padding: spacing.md,
     paddingBottom: spacing['3xl'],
+  },
+  selectDateContainer: {
+    flex: 1,
+  },
+  emptyInlineContainer: {
+    alignItems: 'center',
+    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.md,
   },
   loadingContainer: {
     flex: 1,
@@ -922,6 +1017,72 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.text.primary,
     marginTop: spacing.xs,
+  },
+  customDateContainer: {
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border.light,
+    backgroundColor: colors.background.paper,
+  },
+  customDateToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.md,
+  },
+  customDateToggleText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary.main,
+  },
+  customDateCard: {
+    marginTop: spacing.sm,
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.primary.light,
+    backgroundColor: colors.primary.light + '10',
+  },
+  customDateTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: colors.text.primary,
+    marginBottom: spacing.xs,
+  },
+  customDateHint: {
+    fontSize: 12,
+    color: colors.text.secondary,
+    marginBottom: spacing.sm,
+    lineHeight: 18,
+  },
+  customDateActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: spacing.sm,
+  },
+  customDateCancelButton: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  customDateCancelText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.text.secondary,
+  },
+  customDateContinueButton: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.sm,
+    backgroundColor: colors.primary.main,
+  },
+  customDateContinueButtonDisabled: {
+    backgroundColor: colors.border.main,
+  },
+  customDateContinueText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary.contrast,
   },
   // Search
   searchContainer: {

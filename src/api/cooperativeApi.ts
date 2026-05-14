@@ -60,6 +60,27 @@ export const cooperativeApi = {
     return response.data;
   },
 
+  uploadLogo: async (file: {
+    uri: string;
+    type?: string;
+    name?: string;
+  }): Promise<ApiResponse<{ url: string }>> => {
+    const formData = new FormData();
+    formData.append('file', {
+      uri: file.uri,
+      type: file.type || 'image/jpeg',
+      name: file.name || `logo-${Date.now()}.jpg`,
+    } as any);
+
+    const response = await apiClient.post<ApiResponse<{ url: string }>>(
+      '/posts/upload-image',
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    );
+
+    return response.data;
+  },
+
   delete: async (id: string): Promise<ApiResponse<void>> => {
     const response = await apiClient.delete<ApiResponse<void>>(`/cooperatives/${id}`);
     return response.data;

@@ -132,6 +132,9 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     canApproveExpenses,
     canViewReports,
     canApproveLoans,
+    canViewFees,
+    canCreateFees,
+    canApproveFeePayments,
   } = usePermissions(cooperativeId);
 
   const loadData = useCallback(async () => {
@@ -927,6 +930,49 @@ const getCategoryBadgeStyle = (category: string) => {
               <View style={styles.actionContent}>
                 <Text style={styles.actionTitle}>Bulk Approve Schedules</Text>
                 <Text style={styles.actionSubtitle}>Approve all payments for a month</Text>
+              </View>
+              <Icon name="ChevronRight" size={20} color={colors.text.disabled} style={styles.actionArrow} />
+            </TouchableOpacity>
+          )}
+
+          {/* Fee Management */}
+          {canViewFees && (
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => navigation.navigate('FeesList', { cooperativeId })}
+            >
+              <Icon name="Tags" size={24} color={colors.warning.main} style={styles.actionIcon} />
+              <View style={styles.actionContent}>
+                <Text style={styles.actionTitle}>Fees</Text>
+                <Text style={styles.actionSubtitle}>Registration, ID card, and one-time fees</Text>
+              </View>
+              <Icon name="ChevronRight" size={20} color={colors.text.disabled} style={styles.actionArrow} />
+            </TouchableOpacity>
+          )}
+
+          {canCreateFees && (
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => navigation.navigate('CreateFee', { cooperativeId })}
+            >
+              <Icon name="PlusCircle" size={24} color={colors.primary.main} style={styles.actionIcon} />
+              <View style={styles.actionContent}>
+                <Text style={styles.actionTitle}>Create Fee</Text>
+                <Text style={styles.actionSubtitle}>Add a new fee template</Text>
+              </View>
+              <Icon name="ChevronRight" size={20} color={colors.text.disabled} style={styles.actionArrow} />
+            </TouchableOpacity>
+          )}
+
+          {canApproveFeePayments && (
+            <TouchableOpacity
+              style={styles.actionButton}
+              onPress={() => navigation.navigate('FeePaymentApproval', { cooperativeId })}
+            >
+              <Icon name="BadgeCheck" size={24} color={colors.success.main} style={styles.actionIcon} />
+              <View style={styles.actionContent}>
+                <Text style={styles.actionTitle}>Approve Fee Payments</Text>
+                <Text style={styles.actionSubtitle}>Review and approve pending fee payments</Text>
               </View>
               <Icon name="ChevronRight" size={20} color={colors.text.disabled} style={styles.actionArrow} />
             </TouchableOpacity>

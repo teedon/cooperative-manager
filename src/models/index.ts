@@ -205,6 +205,13 @@ export const PERMISSIONS = {
   ADMINS_ADD: 'admins:add',
   ADMINS_REMOVE: 'admins:remove',
   ADMINS_EDIT_PERMISSIONS: 'admins:edit_permissions',
+
+  // Fee Management
+  FEES_VIEW: 'fees:view',
+  FEES_CREATE: 'fees:create',
+  FEES_EDIT: 'fees:edit',
+  FEES_RECORD_FOR_OTHERS: 'fees:record_for_others',
+  FEES_APPROVE_PAYMENTS: 'fees:approve_payments',
 } as const;
 
 export type Permission = typeof PERMISSIONS[keyof typeof PERMISSIONS];
@@ -517,6 +524,48 @@ export interface ContributionRecord {
   rejectionReason?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+// Group Buy Types
+// Fee Types
+export interface CooperativeFee {
+  id: string;
+  cooperativeId: string;
+  name: string;
+  description?: string;
+  amount: number;
+  isActive: boolean;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  totalPaid?: number;
+  myPaid?: number;
+  _count?: { payments: number };
+}
+
+export interface CooperativeFeePayment {
+  id: string;
+  feeId: string;
+  memberId: string;
+  amount: number;
+  paymentDate?: string;
+  paymentMethod?: 'bank_transfer' | 'cash' | 'mobile_money' | 'card';
+  paymentReference?: string;
+  receiptUrl?: string;
+  notes?: string;
+  status: 'pending' | 'approved' | 'rejected';
+  rejectionReason?: string;
+  recordedBy?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  fee?: CooperativeFee;
+  member?: {
+    id: string;
+    userId: string;
+    user: { id: string; firstName: string; lastName: string; email: string };
+  };
 }
 
 // Group Buy Types

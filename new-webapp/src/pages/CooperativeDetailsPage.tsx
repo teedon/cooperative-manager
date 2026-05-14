@@ -27,6 +27,7 @@ import {
   CheckCheck,
   ChevronRight,
   Mail,
+  Tag,
 } from 'lucide-react'
 import { cooperativeApi } from '../api/cooperativeApi'
 import { loanApi, type Loan } from '../api/loanApi'
@@ -584,6 +585,21 @@ export const CooperativeDetailsPage: React.FC = () => {
                       <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-green-600 transition-colors" />
                     </button>
                   )}
+
+                  {/* Fees */}
+                  <button 
+                    onClick={() => navigate(`/cooperatives/${id}/fees`)}
+                    className="w-full p-4 bg-white border-2 border-gray-200 rounded-xl hover:border-amber-500 hover:bg-amber-50 transition-all duration-300 flex items-center gap-4 group"
+                  >
+                    <div className="p-3 bg-amber-100 rounded-lg group-hover:bg-amber-200 transition-colors">
+                      <Tag className="w-6 h-6 text-amber-600" />
+                    </div>
+                    <div className="flex-1 text-left">
+                      <h4 className="font-semibold text-gray-900">Fees</h4>
+                      <p className="text-sm text-gray-600">Registration fees, ID card fees, and more</p>
+                    </div>
+                    <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-amber-600 transition-colors" />
+                  </button>
 
                   {/* Invite Members */}
                   {isAdminOrModerator && (

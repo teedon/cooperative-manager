@@ -25,6 +25,9 @@ import { ContributionPlanDetailPage } from './pages/ContributionPlanDetailPage'
 import { AdminManagementPage } from './pages/AdminManagementPage'
 import { CooperativeSettingsPage } from './pages/CooperativeSettingsPage'
 import { BulkApproveSchedulesPage } from './pages/BulkApproveSchedulesPage'
+import { FeesPage } from './pages/FeesPage'
+import { CreateFeePage } from './pages/CreateFeePage'
+import { FeePaymentsPage } from './pages/FeePaymentsPage'
 import { ReportsPage } from './pages/ReportsPage'
 import { OrganizationsPage } from './pages/OrganizationsPage'
 import { OrganizationDetailPage } from './pages/OrganizationDetailPage'
@@ -211,6 +214,38 @@ const AppRoutes: React.FC = () => {
         element={
           <ProtectedRoute>
             <BulkApproveSchedulesPage />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/cooperatives/:id/fees" 
+        element={
+          <ProtectedRoute>
+            <FeesPage />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/cooperatives/:id/fees/create" 
+        element={
+          <ProtectedRoute>
+            <CreateFeePage />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/cooperatives/:id/fees/:feeId/edit" 
+        element={
+          <ProtectedRoute>
+            <CreateFeePage />
+          </ProtectedRoute>
+        } 
+      />
+      <Route 
+        path="/cooperatives/:id/fees/:feeId" 
+        element={
+          <ProtectedRoute>
+            <FeePaymentsPage />
           </ProtectedRoute>
         } 
       />

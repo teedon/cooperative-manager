@@ -99,6 +99,13 @@ export function usePermissions(cooperativeId?: string) {
     canDeleteExpenses: can(PERMISSIONS.EXPENSES_DELETE),
     canApproveExpenses: can(PERMISSIONS.EXPENSES_APPROVE),
     canManageExpenseCategories: can(PERMISSIONS.EXPENSES_MANAGE_CATEGORIES),
+
+    // Fee permissions
+    canViewFees: can(PERMISSIONS.FEES_VIEW),
+    canCreateFees: can(PERMISSIONS.FEES_CREATE),
+    canEditFees: can(PERMISSIONS.FEES_EDIT),
+    canRecordFeePaymentsForOthers: can(PERMISSIONS.FEES_RECORD_FOR_OTHERS),
+    canApproveFeePayments: can(PERMISSIONS.FEES_APPROVE_PAYMENTS),
   }), [can, currentMember?.role]);
 
   return {

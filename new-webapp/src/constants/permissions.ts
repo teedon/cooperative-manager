@@ -52,6 +52,13 @@ export const PERMISSIONS = {
   ADMINS_ADD: 'admins:add',
   ADMINS_REMOVE: 'admins:remove',
   ADMINS_EDIT_PERMISSIONS: 'admins:edit_permissions',
+
+  // Fee Management
+  FEES_VIEW: 'fees:view',
+  FEES_CREATE: 'fees:create',
+  FEES_EDIT: 'fees:edit',
+  FEES_RECORD_FOR_OTHERS: 'fees:record_for_others',
+  FEES_APPROVE_PAYMENTS: 'fees:approve_payments',
 } as const
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS]
@@ -128,6 +135,16 @@ export const PERMISSION_GROUPS = {
       PERMISSIONS.ADMINS_EDIT_PERMISSIONS,
     ],
   },
+  FEE_MANAGEMENT: {
+    label: 'Fee Management',
+    permissions: [
+      PERMISSIONS.FEES_VIEW,
+      PERMISSIONS.FEES_CREATE,
+      PERMISSIONS.FEES_EDIT,
+      PERMISSIONS.FEES_RECORD_FOR_OTHERS,
+      PERMISSIONS.FEES_APPROVE_PAYMENTS,
+    ],
+  },
 }
 
 // Permission labels for display
@@ -169,4 +186,9 @@ export const PERMISSION_LABELS: Record<Permission, string> = {
   [PERMISSIONS.ADMINS_ADD]: 'Add Admins',
   [PERMISSIONS.ADMINS_REMOVE]: 'Remove Admins',
   [PERMISSIONS.ADMINS_EDIT_PERMISSIONS]: 'Edit Permissions',
+  [PERMISSIONS.FEES_VIEW]: 'View Fees',
+  [PERMISSIONS.FEES_CREATE]: 'Create Fees',
+  [PERMISSIONS.FEES_EDIT]: 'Edit Fees',
+  [PERMISSIONS.FEES_RECORD_FOR_OTHERS]: 'Record Fee Payments for Others',
+  [PERMISSIONS.FEES_APPROVE_PAYMENTS]: 'Approve Fee Payments',
 }

@@ -98,6 +98,11 @@ import StaffListScreen from '../screens/organizations/StaffListScreen';
 import CreateStaffScreen from '../screens/organizations/CreateStaffScreen';
 import StaffDetailScreen from '../screens/organizations/StaffDetailScreen';
 import ManageStaffCooperativesScreen from '../screens/organizations/ManageStaffCooperativesScreen';
+import FeesListScreen from '../screens/fees/FeesListScreen';
+import CreateFeeScreen from '../screens/fees/CreateFeeScreen';
+import FeePaymentsScreen from '../screens/fees/FeePaymentsScreen';
+import RecordFeePaymentScreen from '../screens/fees/RecordFeePaymentScreen';
+import FeePaymentApprovalScreen from '../screens/fees/FeePaymentApprovalScreen';
 
 export type MainTabParamList = {
   HomeTab: undefined;
@@ -240,6 +245,12 @@ export type HomeStackParamList = {
     maxAmount?: number;
     frequency?: string;
   };
+  // Fee screens
+  FeesList: { cooperativeId: string };
+  CreateFee: { cooperativeId: string; feeId?: string };
+  FeePayments: { cooperativeId: string; feeId: string; feeName?: string };
+  RecordFeePayment: { cooperativeId: string; feeId: string; feeName?: string };
+  FeePaymentApproval: { cooperativeId: string; feeId?: string };
 };
 
 const HomeStackNavigator: React.FC = () => {
@@ -323,6 +334,31 @@ const HomeStackNavigator: React.FC = () => {
         name="BulkApproval"
         component={BulkApprovalScreen}
         options={{ title: 'Bulk Approval' }}
+      />
+      <HomeStack.Screen
+        name="FeesList"
+        component={FeesListScreen}
+        options={{ title: 'Fees' }}
+      />
+      <HomeStack.Screen
+        name="CreateFee"
+        component={CreateFeeScreen}
+        options={{ title: 'Create Fee' }}
+      />
+      <HomeStack.Screen
+        name="FeePayments"
+        component={FeePaymentsScreen}
+        options={{ title: 'Fee Payments' }}
+      />
+      <HomeStack.Screen
+        name="RecordFeePayment"
+        component={RecordFeePaymentScreen}
+        options={{ title: 'Record Fee Payment' }}
+      />
+      <HomeStack.Screen
+        name="FeePaymentApproval"
+        component={FeePaymentApprovalScreen}
+        options={{ title: 'Approve Fee Payments' }}
       />
       <HomeStack.Screen
         name="GroupBuyList"
@@ -784,6 +820,31 @@ const CoopsStackNavigator: React.FC = () => {
         name="BulkApproval"
         component={BulkApprovalScreen}
         options={{ title: 'Bulk Approval' }}
+      />
+      <CoopsStack.Screen
+        name="FeesList"
+        component={FeesListScreen}
+        options={{ title: 'Fees' }}
+      />
+      <CoopsStack.Screen
+        name="CreateFee"
+        component={CreateFeeScreen}
+        options={{ title: 'Create Fee' }}
+      />
+      <CoopsStack.Screen
+        name="FeePayments"
+        component={FeePaymentsScreen}
+        options={{ title: 'Fee Payments' }}
+      />
+      <CoopsStack.Screen
+        name="RecordFeePayment"
+        component={RecordFeePaymentScreen}
+        options={{ title: 'Record Fee Payment' }}
+      />
+      <CoopsStack.Screen
+        name="FeePaymentApproval"
+        component={FeePaymentApprovalScreen}
+        options={{ title: 'Approve Fee Payments' }}
       />
       <CoopsStack.Screen
         name="GroupBuyList"

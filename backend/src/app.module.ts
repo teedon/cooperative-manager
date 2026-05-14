@@ -22,6 +22,7 @@ import { AdminUsersModule } from './admin-users/admin-users.module';
 import { AdminCooperativesModule } from './admin-cooperatives/admin-cooperatives.module';
 import { AdminSubscriptionsModule } from './admin-subscriptions/admin-subscriptions.module';
 import { AdminOrganizationsModule } from './admin-organizations/admin-organizations.module';
+import { FeesModule } from './fees/fees.module';
 
 @Module({
   imports: [
@@ -37,6 +38,7 @@ import { AdminOrganizationsModule } from './admin-organizations/admin-organizati
     CooperativesModule,
     ActivitiesModule,
     ContributionsModule,
+    FeesModule,
     LoansModule,
     NotificationsModule,
     SubscriptionsModule,

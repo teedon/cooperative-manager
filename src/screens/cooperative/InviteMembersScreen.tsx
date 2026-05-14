@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -6,10 +6,13 @@ import {
   TouchableOpacity,
   StyleSheet,
   ScrollView,
+  FlatList,
   ActivityIndicator,
   Alert,
   Linking,
   Platform,
+  PermissionsAndroid,
+  Modal,
   Clipboard,
   StatusBar,
 } from 'react-native';
@@ -21,6 +24,7 @@ import { colors, spacing, borderRadius, shadows } from '../../theme';
 import Icon from '../../components/common/Icon';
 import { cooperativeApi } from '../../api/cooperativeApi';
 import { getErrorMessage } from '../../utils/errorHandler';
+import Contacts from 'react-native-contacts';
 
 type InviteMembersScreenNavigationProp = NativeStackNavigationProp<HomeStackParamList, 'InviteMembers'>;
 type InviteMembersScreenRouteProp = RouteProp<HomeStackParamList, 'InviteMembers'>;
@@ -42,6 +46,13 @@ interface PhoneInput {
   value: string;
 }
 
+interface PhonebookContact {
+  id: string;
+  name: string;
+  number: string;
+  normalizedNumber: string;
+}
+
 const InviteMembersScreen: React.FC<Props> = ({ navigation, route }) => {
   const { cooperativeId, cooperativeName } = route.params;
   
@@ -50,7 +61,13 @@ const InviteMembersScreen: React.FC<Props> = ({ navigation, route }) => {
   const [phones, setPhones] = useState<PhoneInput[]>([{ id: '1', value: '' }]);
   const [message, setMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isOpeningContacts, setIsOpeningContacts] = useState(false);
   const [results, setResults] = useState<any>(null);
+  const [showPhonebookModal, setShowPhonebookModal] = useState(false);
+  const [isLoadingPhonebook, setIsLoadingPhonebook] = useState(false);
+  const [phonebookSearch, setPhonebookSearch] = useState('');
+  const [phonebookContacts, setPhonebookContacts] = useState<PhonebookContact[]>([]);
+  const [selectedPhonebookNumbers, setSelectedPhonebookNumbers] = useState<Set<string>>(new Set());
 
   const addEmailField = () => {
     setEmails([...emails, { id: Date.now().toString(), value: '' }]);
@@ -78,6 +95,118 @@ const InviteMembersScreen: React.FC<Props> = ({ navigation, route }) => {
 
   const updatePhone = (id: string, value: string) => {
     setPhones(phones.map(p => p.id === id ? { ...p, value } : p));
+  };
+
+  const normalizePhoneNumber = (value: string) => value.replace(/[^\d+]/g, '');
+
+  const filteredPhonebookContacts = useMemo(() => {
+    const query = phonebookSearch.trim().toLowerCase();
+    if (!query) return phonebookContacts;
+
+    return phonebookContacts.filter((contact) =>
+      contact.name.toLowerCase().includes(query) || contact.number.toLowerCase().includes(query)
+    );
+  }, [phonebookContacts, phonebookSearch]);
+
+  const requestPhonebookPermission = async () => {
+    if (Platform.OS === 'android') {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.READ_CONTACTS,
+        {
+          title: 'Contacts Permission',
+          message: 'Allow access to your contacts to select members for WhatsApp invitations.',
+          buttonPositive: 'Allow',
+          buttonNegative: 'Deny',
+        }
+      );
+      return granted === PermissionsAndroid.RESULTS.GRANTED;
+    }
+
+    const status = await Contacts.requestPermission();
+    return status === 'authorized';
+  };
+
+  const handleOpenPhonebookSelector = async () => {
+    setIsLoadingPhonebook(true);
+    try {
+      const hasPermission = await requestPhonebookPermission();
+      if (!hasPermission) {
+        Alert.alert('Permission Required', 'Please grant contacts permission to select from phonebook.');
+        return;
+      }
+
+      const allContacts = await Contacts.getAll();
+      const flattened: PhonebookContact[] = [];
+      const seen = new Set<string>();
+
+      allContacts.forEach((contact) => {
+        const displayName =
+          contact.displayName ||
+          `${contact.givenName || ''} ${contact.familyName || ''}`.trim() ||
+          'Unnamed Contact';
+
+        contact.phoneNumbers.forEach((phoneNumber, index) => {
+          const normalizedNumber = normalizePhoneNumber(phoneNumber.number || '');
+          if (!normalizedNumber || seen.has(normalizedNumber)) return;
+
+          seen.add(normalizedNumber);
+          flattened.push({
+            id: `${contact.recordID}-${index}`,
+            name: displayName,
+            number: phoneNumber.number,
+            normalizedNumber,
+          });
+        });
+      });
+
+      flattened.sort((a, b) => a.name.localeCompare(b.name));
+      setPhonebookContacts(flattened);
+      setPhonebookSearch('');
+      setSelectedPhonebookNumbers(new Set());
+      setShowPhonebookModal(true);
+    } catch (error: any) {
+      Alert.alert('Error', getErrorMessage(error, 'Failed to load phonebook contacts'));
+    } finally {
+      setIsLoadingPhonebook(false);
+    }
+  };
+
+  const togglePhonebookSelection = (normalizedNumber: string) => {
+    setSelectedPhonebookNumbers((prev) => {
+      const next = new Set(prev);
+      if (next.has(normalizedNumber)) {
+        next.delete(normalizedNumber);
+      } else {
+        next.add(normalizedNumber);
+      }
+      return next;
+    });
+  };
+
+  const addSelectedPhonebookContacts = () => {
+    if (selectedPhonebookNumbers.size === 0) {
+      Alert.alert('No Selection', 'Select at least one contact number to add.');
+      return;
+    }
+
+    const existing = new Set(phones.map((p) => normalizePhoneNumber(p.value)).filter(Boolean));
+    const selectedContacts = phonebookContacts.filter((c) => selectedPhonebookNumbers.has(c.normalizedNumber));
+    const newContacts = selectedContacts.filter((c) => !existing.has(c.normalizedNumber));
+
+    if (newContacts.length === 0) {
+      Alert.alert('No New Numbers', 'All selected contacts are already in the list.');
+      return;
+    }
+
+    const newInputs: PhoneInput[] = newContacts.map((contact) => ({
+      id: `${Date.now()}-${contact.id}`,
+      value: contact.number,
+    }));
+
+    const hasPlaceholderOnly = phones.length === 1 && !phones[0].value.trim();
+    setPhones(hasPlaceholderOnly ? newInputs : [...phones, ...newInputs]);
+    setShowPhonebookModal(false);
+    setSelectedPhonebookNumbers(new Set());
   };
 
   const handleSendEmails = async () => {
@@ -140,6 +269,43 @@ const InviteMembersScreen: React.FC<Props> = ({ navigation, route }) => {
       Alert.alert('Error', error.response?.data?.message || 'Failed to generate WhatsApp links');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const buildContactInviteMessage = async () => {
+    const coopResponse = await cooperativeApi.getById(cooperativeId);
+    const code = coopResponse.data?.code;
+
+    if (!code) {
+      throw new Error('Invite code is unavailable for this cooperative');
+    }
+
+    const customMessage = message.trim() || `Hello! You are invited to join *${cooperativeName}* on CoopManager.`;
+    const deepLink = `coopmanager://join?code=${code}`;
+    const webLink = `https://coopmanager.app/join?code=${code}`;
+
+    return `${customMessage}\n\n*Cooperative Code:* ${code}\n\nOpen the CoopManager app and use this code to join, or click the link below:\n${deepLink}\n\nDon't have the app? Join via web:\n${webLink}`;
+  };
+
+  const handleInviteFromContacts = async () => {
+    setIsOpeningContacts(true);
+    try {
+      const inviteMessage = await buildContactInviteMessage();
+      const encodedMessage = encodeURIComponent(inviteMessage);
+      const whatsappDeepLink = `whatsapp://send?text=${encodedMessage}`;
+      const whatsappWebFallback = `https://wa.me/?text=${encodedMessage}`;
+
+      if (await Linking.canOpenURL(whatsappDeepLink)) {
+        await Linking.openURL(whatsappDeepLink);
+      } else if (await Linking.canOpenURL(whatsappWebFallback)) {
+        await Linking.openURL(whatsappWebFallback);
+      } else {
+        Alert.alert('Error', 'Cannot open WhatsApp. Please make sure WhatsApp is installed.');
+      }
+    } catch (error: any) {
+      Alert.alert('Error', getErrorMessage(error, 'Failed to open WhatsApp contacts'));
+    } finally {
+      setIsOpeningContacts(false);
     }
   };
 
@@ -233,6 +399,42 @@ const InviteMembersScreen: React.FC<Props> = ({ navigation, route }) => {
     <View style={styles.tabContent}>
       <Text style={styles.label}>Phone Numbers</Text>
       <Text style={styles.helperText}>Enter phone numbers with country code (e.g., +1234567890)</Text>
+
+      <TouchableOpacity
+        style={[styles.contactsButton, isOpeningContacts && styles.buttonDisabled]}
+        onPress={handleInviteFromContacts}
+        disabled={isOpeningContacts}
+      >
+        {isOpeningContacts ? (
+          <ActivityIndicator size="small" color={colors.success.main} />
+        ) : (
+          <Icon name="users" size={18} color={colors.success.main} />
+        )}
+        <Text style={styles.contactsButtonText}>
+          {isOpeningContacts ? 'Opening WhatsApp...' : 'Select Contacts in WhatsApp'}
+        </Text>
+      </TouchableOpacity>
+      <Text style={styles.contactsHint}>
+        Opens WhatsApp with your invite message so you can choose contacts directly.
+      </Text>
+
+      <TouchableOpacity
+        style={[styles.phonebookButton, isLoadingPhonebook && styles.buttonDisabled]}
+        onPress={handleOpenPhonebookSelector}
+        disabled={isLoadingPhonebook}
+      >
+        {isLoadingPhonebook ? (
+          <ActivityIndicator size="small" color={colors.primary.main} />
+        ) : (
+          <Icon name="BookUser" size={18} color={colors.primary.main} />
+        )}
+        <Text style={styles.phonebookButtonText}>
+          {isLoadingPhonebook ? 'Loading Phonebook...' : 'Select from Phonebook'}
+        </Text>
+      </TouchableOpacity>
+      <Text style={styles.contactsHint}>
+        Pick contacts from your phonebook and add their phone numbers automatically.
+      </Text>
       
       <View style={styles.inputsList}>
         {phones.map((phone, index) => (
@@ -409,6 +611,81 @@ const InviteMembersScreen: React.FC<Props> = ({ navigation, route }) => {
 
         {renderResults()}
       </ScrollView>
+
+      <Modal
+        visible={showPhonebookModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowPhonebookModal(false)}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Contacts</Text>
+              <TouchableOpacity onPress={() => setShowPhonebookModal(false)}>
+                <Icon name="X" size={22} color={colors.text.secondary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalSearchRow}>
+              <Icon name="Search" size={18} color={colors.text.secondary} />
+              <TextInput
+                style={styles.modalSearchInput}
+                value={phonebookSearch}
+                onChangeText={setPhonebookSearch}
+                placeholder="Search contacts"
+                placeholderTextColor={colors.text.disabled}
+              />
+            </View>
+
+            {filteredPhonebookContacts.length === 0 ? (
+              <View style={styles.modalEmptyState}>
+                <Text style={styles.modalEmptyText}>No contacts found</Text>
+              </View>
+            ) : (
+              <FlatList
+                data={filteredPhonebookContacts}
+                keyExtractor={(item) => item.id}
+                style={styles.modalList}
+                renderItem={({ item }) => {
+                  const selected = selectedPhonebookNumbers.has(item.normalizedNumber);
+                  return (
+                    <TouchableOpacity
+                      style={styles.modalContactRow}
+                      onPress={() => togglePhonebookSelection(item.normalizedNumber)}
+                    >
+                      <View style={styles.modalContactInfo}>
+                        <Text style={styles.modalContactName}>{item.name}</Text>
+                        <Text style={styles.modalContactNumber}>{item.number}</Text>
+                      </View>
+                      <Icon
+                        name={selected ? 'CheckSquare' : 'Square'}
+                        size={20}
+                        color={selected ? colors.primary.main : colors.text.secondary}
+                      />
+                    </TouchableOpacity>
+                  );
+                }}
+              />
+            )}
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={() => setShowPhonebookModal(false)}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalAddButton}
+                onPress={addSelectedPhonebookContacts}
+              >
+                <Text style={styles.modalAddText}>Add Selected ({selectedPhonebookNumbers.size})</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -528,6 +805,149 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: colors.primary.main,
+  },
+  contactsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.success.main,
+    backgroundColor: colors.success.light,
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  contactsButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.success.main,
+  },
+  contactsHint: {
+    fontSize: 12,
+    color: colors.text.secondary,
+    marginBottom: spacing.md,
+  },
+  phonebookButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.primary.main,
+    backgroundColor: colors.primary.light,
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    gap: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  phonebookButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.primary.main,
+  },
+  modalBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'flex-end',
+  },
+  modalCard: {
+    backgroundColor: colors.background.paper,
+    borderTopLeftRadius: borderRadius.lg,
+    borderTopRightRadius: borderRadius.lg,
+    maxHeight: '85%',
+    padding: spacing.lg,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text.primary,
+  },
+  modalSearchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border.light,
+    borderRadius: borderRadius.md,
+    paddingHorizontal: spacing.md,
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  modalSearchInput: {
+    flex: 1,
+    paddingVertical: spacing.sm,
+    color: colors.text.primary,
+    fontSize: 14,
+  },
+  modalList: {
+    maxHeight: 420,
+  },
+  modalContactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border.light,
+    paddingVertical: spacing.sm,
+  },
+  modalContactInfo: {
+    flex: 1,
+    paddingRight: spacing.md,
+  },
+  modalContactName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.text.primary,
+  },
+  modalContactNumber: {
+    fontSize: 13,
+    color: colors.text.secondary,
+    marginTop: 2,
+  },
+  modalEmptyState: {
+    paddingVertical: spacing.xl,
+    alignItems: 'center',
+  },
+  modalEmptyText: {
+    color: colors.text.secondary,
+    fontSize: 14,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  modalCancelButton: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: colors.border.main,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.md,
+  },
+  modalCancelText: {
+    color: colors.text.secondary,
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  modalAddButton: {
+    flex: 1,
+    backgroundColor: colors.primary.main,
+    borderRadius: borderRadius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.md,
+  },
+  modalAddText: {
+    color: colors.primary.contrast,
+    fontWeight: '700',
+    fontSize: 14,
   },
   messageSection: {
     marginTop: spacing.lg,

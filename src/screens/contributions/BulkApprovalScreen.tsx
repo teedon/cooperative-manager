@@ -64,9 +64,7 @@ const BulkApprovalScreen: React.FC<Props> = ({ route, navigation }) => {
       try {
         const response = await contributionApi.getPlans(cooperativeId);
         if (response.success) {
-          // Show all active plans and hide only inactive plans
-          const activePlans = response.data.filter(plan => plan.isActive);
-          setPlans(activePlans);
+          setPlans(response.data);
         }
       } catch (error) {
         console.error('Error loading plans:', error);
@@ -560,9 +558,9 @@ const BulkApprovalScreen: React.FC<Props> = ({ route, navigation }) => {
         ) : plans.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Icon name="file-text" size={64} color={colors.border.main} />
-            <Text style={styles.emptyText}>No active contribution plans found</Text>
+            <Text style={styles.emptyText}>No contribution plans found</Text>
             <Text style={styles.emptySubtext}>
-              Create or activate a contribution plan to use bulk approval
+              Create a contribution plan to use bulk approval
             </Text>
           </View>
         ) : (

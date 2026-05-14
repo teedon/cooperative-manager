@@ -247,6 +247,7 @@ model Cooperative {
   updatedAt          DateTime           @updatedAt
   members            Member[]
   contributionPlans  ContributionPlan[]
+  fees               CooperativeFee[]
   groupBuys          GroupBuy[]
   activities         Activity[]
   notifications      Notification[]     @relation("CooperativeNotifications")
@@ -291,6 +292,7 @@ model Member {
   contributionRecords       ContributionRecord[]
   contributionSubscriptions ContributionSubscription[]
   contributionPayments      ContributionPayment[]
+  feePayments               CooperativeFeePayment[]
   loans                     Loan[]
   loanGuarantees            LoanGuarantor[]            @relation("LoanGuarantors")
   groupBuyOrders            GroupBuyOrder[]
@@ -300,6 +302,49 @@ model Member {
   esusuContributions        EsusuContribution[]
 
   @@unique([cooperativeId, memberCode])
+}
+
+model CooperativeFee {
+  id            String      @id @default(cuid())
+  cooperative   Cooperative @relation(fields: [cooperativeId], references: [id], onDelete: Cascade)
+  cooperativeId String
+  name          String
+  description   String?
+  amount        Int
+  isActive      Boolean     @default(true)
+  createdBy     String
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  payments CooperativeFeePayment[]
+
+  @@index([cooperativeId])
+  @@index([isActive])
+}
+
+model CooperativeFeePayment {
+  id              String         @id @default(cuid())
+  fee             CooperativeFee @relation(fields: [feeId], references: [id], onDelete: Cascade)
+  feeId           String
+  member          Member         @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  memberId        String
+  amount          Int
+  paymentDate     DateTime       @default(now())
+  paymentMethod   String?
+  paymentReference String?
+  receiptUrl      String?
+  notes           String?
+  status          String         @default("pending") // 'pending' | 'approved' | 'rejected'
+  rejectionReason String?
+  recordedBy      String
+  approvedBy      String?
+  approvedAt      DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@index([feeId])
+  @@index([memberId])
+  @@index([status])
 }
 
 model ContributionPlan {

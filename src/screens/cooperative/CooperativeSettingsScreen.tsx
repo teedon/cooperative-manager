@@ -9,12 +9,15 @@ import {
   Alert,
   ActivityIndicator,
   Switch,
+  Image,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
+import { launchImageLibrary } from 'react-native-image-picker';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { HomeStackParamList } from '../../navigation/MainNavigator';
 import { useAppDispatch, useAppSelector } from '../../store/hooks';
 import { updateCooperative, fetchCooperative } from '../../store/slices/cooperativeSlice';
+import { cooperativeApi } from '../../api/cooperativeApi';
 import { colors, spacing, borderRadius, shadows } from '../../theme';
 import Icon from '../../components/common/Icon';
 import { getAllGradientPresets, getGradientConfig } from '../../utils/gradients';
@@ -34,6 +37,7 @@ const CooperativeSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
   const [gradientPreset, setGradientPreset] = useState<GradientPreset>('ocean');
   const [imageUrl, setImageUrl] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   
   const gradientPresets = getAllGradientPresets();
   
@@ -76,6 +80,39 @@ const CooperativeSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
       Alert.alert('Error', err || 'Failed to update cooperative settings');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleUploadLogo = async () => {
+    const result = await launchImageLibrary({
+      mediaType: 'photo',
+      quality: 0.85,
+      selectionLimit: 1,
+    });
+
+    if (result.didCancel) return;
+
+    const selectedAsset = result.assets?.[0];
+    if (!selectedAsset?.uri) {
+      Alert.alert('Error', 'No image selected');
+      return;
+    }
+
+    try {
+      setIsUploadingImage(true);
+      const uploadResponse = await cooperativeApi.uploadLogo({
+        uri: selectedAsset.uri,
+        type: selectedAsset.type || 'image/jpeg',
+        name: selectedAsset.fileName || `logo-${Date.now()}.jpg`,
+      });
+
+      setImageUrl(uploadResponse.data.url);
+      setUseGradient(false);
+      Alert.alert('Success', 'Logo uploaded successfully');
+    } catch (err: any) {
+      Alert.alert('Error', err?.message || 'Failed to upload logo');
+    } finally {
+      setIsUploadingImage(false);
     }
   };
   
@@ -131,10 +168,14 @@ const CooperativeSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
               </View>
             </LinearGradient>
           ) : (
-            <View style={styles.previewImagePlaceholder}>
-              <Icon name="image-outline" size={40} color={colors.text.secondary} />
-              <Text style={styles.previewImageText}>Custom Image</Text>
-            </View>
+            imageUrl ? (
+              <Image source={{ uri: imageUrl }} style={styles.previewImage} resizeMode="cover" />
+            ) : (
+              <View style={styles.previewImagePlaceholder}>
+                <Icon name="image-outline" size={40} color={colors.text.secondary} />
+                <Text style={styles.previewImageText}>Custom Image</Text>
+              </View>
+            )
           )}
         </View>
       </View>
@@ -200,6 +241,37 @@ const CooperativeSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
         ) : (
           <View style={styles.inputGroup}>
+            <Text style={styles.label}>Upload Logo</Text>
+            <View style={styles.logoActionsRow}>
+              <TouchableOpacity
+                style={[styles.uploadLogoButton, isUploadingImage && styles.saveButtonDisabled]}
+                onPress={handleUploadLogo}
+                disabled={isUploadingImage}
+              >
+                {isUploadingImage ? (
+                  <ActivityIndicator size="small" color={colors.primary.main} />
+                ) : (
+                  <Icon name="upload" size={16} color={colors.primary.main} />
+                )}
+                <Text style={styles.uploadLogoButtonText}>
+                  {isUploadingImage ? 'Uploading...' : 'Choose Image'}
+                </Text>
+              </TouchableOpacity>
+
+              {!!imageUrl && (
+                <TouchableOpacity
+                  style={styles.clearLogoButton}
+                  onPress={() => setImageUrl('')}
+                  disabled={isUploadingImage}
+                >
+                  <Text style={styles.clearLogoButtonText}>Remove</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+            <Text style={styles.hint}>
+              Supported formats: PNG, JPG, WEBP, GIF. Max size: 10MB.
+            </Text>
+
             <Text style={styles.label}>Background Image URL</Text>
             <TextInput
               style={styles.input}
@@ -319,6 +391,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  previewImage: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
   previewImageText: {
     marginTop: spacing.sm,
     color: colors.text.secondary,
@@ -371,6 +448,41 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.text.secondary,
     marginTop: spacing.xs,
+  },
+  logoActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  uploadLogoButton: {
+    borderWidth: 1,
+    borderColor: colors.primary.main,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: colors.background.paper,
+  },
+  uploadLogoButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.primary.main,
+  },
+  clearLogoButton: {
+    borderWidth: 1,
+    borderColor: colors.border.main,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.background.default,
+  },
+  clearLogoButtonText: {
+    fontSize: 13,
+    color: colors.text.secondary,
+    fontWeight: '500',
   },
   toggleRow: {
     flexDirection: 'row',

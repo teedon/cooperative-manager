@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Save, Image as ImageIcon, Check } from 'lucide-react'
 import { Button, Card, Input, useToast } from '../components/ui'
@@ -67,6 +67,7 @@ export const CooperativeSettingsPage = () => {
 
   const [isLoading, setIsLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false)
 
   // Form fields
   const [name, setName] = useState('')
@@ -74,6 +75,7 @@ export const CooperativeSettingsPage = () => {
   const [useGradient, setUseGradient] = useState(true)
   const [gradientPreset, setGradientPreset] = useState<GradientPreset>('ocean')
   const [imageUrl, setImageUrl] = useState('')
+  const logoInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     loadCooperative()
@@ -133,6 +135,31 @@ export const CooperativeSettingsPage = () => {
     }
   }
 
+  const handleLogoFileSelected = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file')
+      event.target.value = ''
+      return
+    }
+
+    try {
+      setIsUploadingLogo(true)
+      const response = await cooperativeApi.uploadLogo(file)
+      setImageUrl(response.data.url)
+      setUseGradient(false)
+      toast.success('Logo uploaded successfully')
+    } catch (error: any) {
+      console.error('Failed to upload logo:', error)
+      toast.error(error.response?.data?.message || 'Failed to upload logo')
+    } finally {
+      setIsUploadingLogo(false)
+      event.target.value = ''
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -179,10 +206,14 @@ export const CooperativeSettingsPage = () => {
                   </div>
                 </div>
               ) : (
-                <div className="h-full bg-gray-100 flex flex-col items-center justify-center text-gray-400">
-                  <ImageIcon className="w-10 h-10 mb-2" />
-                  <p className="text-sm">Custom Image</p>
-                </div>
+                imageUrl ? (
+                  <img src={imageUrl} alt="Cooperative logo preview" className="h-full w-full object-cover" />
+                ) : (
+                  <div className="h-full bg-gray-100 flex flex-col items-center justify-center text-gray-400">
+                    <ImageIcon className="w-10 h-10 mb-2" />
+                    <p className="text-sm">Custom Image</p>
+                  </div>
+                )
               )}
             </div>
           </div>
@@ -295,6 +326,40 @@ export const CooperativeSettingsPage = () => {
             {/* Custom Image URL */}
             {!useGradient && (
               <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Upload Logo
+                </label>
+                <div className="flex gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => logoInputRef.current?.click()}
+                    disabled={isUploadingLogo}
+                  >
+                    {isUploadingLogo ? 'Uploading...' : 'Choose Image'}
+                  </Button>
+                  {imageUrl && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setImageUrl('')}
+                      disabled={isUploadingLogo}
+                    >
+                      Remove Image
+                    </Button>
+                  )}
+                </div>
+                <input
+                  ref={logoInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif"
+                  className="hidden"
+                  onChange={handleLogoFileSelected}
+                />
+                <p className="text-xs text-gray-500 mt-2 mb-4">
+                  Supported formats: PNG, JPG, WEBP, GIF. Max size: 10MB.
+                </p>
+
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Background Image URL
                 </label>

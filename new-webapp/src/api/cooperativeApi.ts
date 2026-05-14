@@ -182,6 +182,18 @@ export const cooperativeApi = {
     return response.data
   },
 
+  uploadLogo: async (file: File): Promise<ApiResponse<{ url: string }>> => {
+    const formData = new FormData()
+    formData.append('file', file)
+
+    const response = await apiClient.post<ApiResponse<{ url: string }>>(
+      '/posts/upload-image',
+      formData,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    )
+    return response.data
+  },
+
   sendEmailInvites: async (cooperativeId: string, emails: string[], message?: string): Promise<ApiResponse<{
     cooperativeCode: string
     cooperativeName: string

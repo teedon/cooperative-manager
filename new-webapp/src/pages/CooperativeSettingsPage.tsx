@@ -75,6 +75,11 @@ export const CooperativeSettingsPage = () => {
   const [useGradient, setUseGradient] = useState(true)
   const [gradientPreset, setGradientPreset] = useState<GradientPreset>('ocean')
   const [imageUrl, setImageUrl] = useState('')
+  const [hasCollectionAccount, setHasCollectionAccount] = useState(false)
+  const [collectionBankName, setCollectionBankName] = useState('')
+  const [collectionAccountNumber, setCollectionAccountNumber] = useState('')
+  const [collectionAccountHolderName, setCollectionAccountHolderName] = useState('')
+  const [bankOptions, setBankOptions] = useState<string[]>([])
   const logoInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -86,14 +91,22 @@ export const CooperativeSettingsPage = () => {
 
     try {
       setIsLoading(true)
-      const response = await cooperativeApi.getById(id)
-      const coop = response.data
+      const [cooperativeResponse, bankOptionsResponse] = await Promise.all([
+        cooperativeApi.getById(id),
+        cooperativeApi.getBankOptions(),
+      ])
+      const coop = cooperativeResponse.data
 
       setName(coop.name || '')
       setDescription(coop.description || '')
       setUseGradient(coop.useGradient !== false)
       setGradientPreset((coop.gradientPreset || 'ocean') as GradientPreset)
       setImageUrl(coop.imageUrl || '')
+      setHasCollectionAccount(Boolean(coop.collectionBankName || coop.collectionAccountNumber || coop.collectionAccountHolderName))
+      setCollectionBankName(coop.collectionBankName || '')
+      setCollectionAccountNumber(coop.collectionAccountNumber || '')
+      setCollectionAccountHolderName(coop.collectionAccountHolderName || '')
+      setBankOptions(bankOptionsResponse.data || [])
     } catch (error: any) {
       console.error('Failed to load cooperative:', error)
       toast.error('Failed to load cooperative settings')
@@ -108,6 +121,23 @@ export const CooperativeSettingsPage = () => {
       return
     }
 
+    if (hasCollectionAccount) {
+      if (!collectionBankName) {
+        toast.error('Please select a bank')
+        return
+      }
+
+      if (!/^\d{10}$/.test(collectionAccountNumber)) {
+        toast.error('Account number must be 10 digits')
+        return
+      }
+
+      if (!collectionAccountHolderName.trim()) {
+        toast.error('Account holder name is required')
+        return
+      }
+    }
+
     try {
       setIsSaving(true)
       await cooperativeApi.update(id, {
@@ -116,6 +146,9 @@ export const CooperativeSettingsPage = () => {
         useGradient,
         gradientPreset,
         imageUrl: !useGradient && imageUrl.trim() ? imageUrl.trim() : undefined,
+        collectionBankName: hasCollectionAccount ? collectionBankName : null,
+        collectionAccountNumber: hasCollectionAccount ? collectionAccountNumber : null,
+        collectionAccountHolderName: hasCollectionAccount ? collectionAccountHolderName.trim() : null,
       })
 
       toast.success('Cooperative settings updated successfully')
@@ -371,6 +404,77 @@ export const CooperativeSettingsPage = () => {
                 <p className="text-xs text-gray-500 mt-2">
                   Enter a URL to an image. Recommended size: 800x400 pixels.
                 </p>
+              </div>
+            )}
+          </div>
+        </Card>
+
+        {/* Collection Account */}
+        <Card className="mb-6">
+          <div className="p-6">
+            <div className="flex items-center justify-between gap-4 mb-4">
+              <div>
+                <h2 className="text-lg font-semibold text-gray-900">Collection Account</h2>
+                <p className="text-sm text-gray-500 mt-1">
+                  Add the bank details members should use for cooperative payments.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setHasCollectionAccount(!hasCollectionAccount)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  hasCollectionAccount ? 'bg-blue-600' : 'bg-gray-300'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    hasCollectionAccount ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {hasCollectionAccount ? (
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Bank Name</label>
+                  <select
+                    value={collectionBankName}
+                    onChange={(e) => setCollectionBankName(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
+                  >
+                    <option value="">Select bank</option>
+                    {bankOptions.map((bank) => (
+                      <option key={bank} value={bank}>
+                        {bank}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Account Number</label>
+                  <Input
+                    value={collectionAccountNumber}
+                    onChange={(e) => setCollectionAccountNumber(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                    placeholder="10-digit account number"
+                    inputMode="numeric"
+                    maxLength={10}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Account Holder Name</label>
+                  <Input
+                    value={collectionAccountHolderName}
+                    onChange={(e) => setCollectionAccountHolderName(e.target.value)}
+                    placeholder="Name on the bank account"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 px-4 py-6 text-sm text-gray-500">
+                Collection account is disabled. Turn it on to show bank details to members.
               </div>
             )}
           </div>

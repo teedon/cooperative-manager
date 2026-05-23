@@ -3,6 +3,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 // Note: keeping to bottom-tabs only to avoid adding drawer dependency
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Text, View, StyleSheet, ActivityIndicator } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { colors, spacing } from '../theme';
 import { useAppSelector, useAppDispatch } from '../store/hooks';
 import { fetchCooperatives } from '../store/slices/cooperativeSlice';
@@ -711,25 +712,24 @@ const CooperativeRedirect: React.FC<any> = ({ navigation }) => {
 
   React.useEffect(() => {
     const loadAndNavigate = async () => {
-      // Fetch cooperatives if not loaded
-      if (cooperatives.length === 0) {
-        await dispatch(fetchCooperatives());
+      let allCoops: any[] = cooperatives;
+      if (allCoops.length === 0) {
+        const result = await dispatch(fetchCooperatives());
+        allCoops = (result as any).payload ?? [];
       }
+
+      if (allCoops.length === 0) {
+        navigation.replace('Home');
+        return;
+      }
+
+      const savedId = await AsyncStorage.getItem('last_cooperative_id');
+      const savedCoop = savedId ? allCoops.find((c: any) => c.id === savedId) : null;
+      const target = savedCoop ?? allCoops[allCoops.length - 1];
+      navigation.replace('CooperativeDetail', { cooperativeId: target.id });
     };
     loadAndNavigate();
-  }, [dispatch]);
-
-  React.useEffect(() => {
-    // Navigate to first cooperative when available
-    if (cooperatives.length > 0) {
-      // Get the last joined or first cooperative as default
-      const defaultCoop = cooperatives[cooperatives.length - 1];
-      navigation.replace('CooperativeDetail', { cooperativeId: defaultCoop.id });
-    } else if (cooperatives.length === 0) {
-      // If no cooperatives, navigate to the home screen to join/create
-      navigation.replace('Home');
-    }
-  }, [cooperatives, navigation]);
+  }, []);
 
   return (
     <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.background.default }}>

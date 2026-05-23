@@ -26,6 +26,7 @@ import { fetchSubscription } from '../../store/slices/subscriptionSlice';
 import { colors, spacing, borderRadius, shadows } from '../../theme';
 import Icon from '../../components/common/Icon';
 import { usePermissions } from '../../hooks/usePermissions';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getGradientConfig } from '../../utils/gradients';
 import { GradientPreset } from '../../models';
 import { getErrorMessage } from '../../utils/errorHandler';
@@ -177,6 +178,11 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     loadData();
   }, [loadData]);
 
+  // Persist last selected cooperative so it can be restored on next app open
+  useEffect(() => {
+    AsyncStorage.setItem('last_cooperative_id', cooperativeId).catch(() => {});
+  }, [cooperativeId]);
+
   const onRefresh = async () => {
     setRefreshing(true);
     await loadData();
@@ -235,6 +241,12 @@ const CooperativeDetailScreen: React.FC<Props> = ({ route, navigation }) => {
     // { key: 'groupbuys', label: 'Group Buys' }, // Hidden for now
     { key: 'loans', label: 'Loans' },
   ];
+
+  const hasCollectionAccount = Boolean(
+    currentCooperative?.collectionBankName ||
+      currentCooperative?.collectionAccountNumber ||
+      currentCooperative?.collectionAccountHolderName
+  );
 
   const renderTabs = () => (
     <ScrollView
@@ -1242,6 +1254,20 @@ const getCategoryBadgeStyle = (category: string) => {
             style={styles.cooperativeNameContainer}
             activeOpacity={0.7}
           >
+            {hasCollectionAccount && (
+              <View style={styles.collectionAccountCard}>
+                <Text style={styles.collectionAccountLabel}>Collection Account</Text>
+                <Text style={styles.collectionBankName} numberOfLines={1}>
+                  {currentCooperative.collectionBankName}
+                </Text>
+                <Text style={styles.collectionAccountMeta} numberOfLines={2}>
+                  {currentCooperative.collectionAccountNumber}
+                  {currentCooperative.collectionAccountHolderName
+                    ? ` • ${currentCooperative.collectionAccountHolderName}`
+                    : ''}
+                </Text>
+              </View>
+            )}
             <Text style={styles.headerTitle} numberOfLines={2}>{currentCooperative.name}</Text>
             <Icon name="RefreshCw" size={16} color={colors.text.inverse} style={styles.switchIconBeside} />
           </TouchableOpacity>
@@ -1647,6 +1673,35 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     letterSpacing: 1,
+  },
+  collectionAccountCard: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.18)',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    marginBottom: spacing.xs,
+    maxWidth: '85%',
+  },
+  collectionAccountLabel: {
+    color: 'rgba(255, 255, 255, 0.72)',
+    fontSize: 10,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 2,
+  },
+  collectionBankName: {
+    color: colors.text.inverse,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  collectionAccountMeta: {
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 11,
+    marginTop: 1,
   },
   cooperativeNameContainer: {
     flexDirection: 'row',

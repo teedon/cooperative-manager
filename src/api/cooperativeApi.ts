@@ -8,6 +8,9 @@ export interface UpdateCooperativeData {
   imageUrl?: string;
   useGradient?: boolean;
   gradientPreset?: GradientPreset;
+  collectionBankName?: string | null;
+  collectionAccountNumber?: string | null;
+  collectionAccountHolderName?: string | null;
   status?: string;
 }
 
@@ -57,6 +60,11 @@ export const cooperativeApi = {
 
   update: async (id: string, data: UpdateCooperativeData): Promise<ApiResponse<Cooperative>> => {
     const response = await apiClient.patch<ApiResponse<Cooperative>>(`/cooperatives/${id}`, data);
+    return response.data;
+  },
+
+  getBankOptions: async (): Promise<ApiResponse<string[]>> => {
+    const response = await apiClient.get<ApiResponse<string[]>>('/cooperatives/banks');
     return response.data;
   },
 

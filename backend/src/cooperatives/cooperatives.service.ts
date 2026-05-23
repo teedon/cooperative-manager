@@ -5,6 +5,7 @@ import { UpdateCooperativeDto } from './dto/update-cooperative.dto';
 import { SendInviteDto, SendWhatsAppInviteDto } from './dto/invite.dto';
 import { ActivitiesService } from '../activities/activities.service';
 import { NotificationsService } from '../notifications/notifications.service';
+import { NIGERIAN_BANKS } from './nigerian-banks';
 import { 
   PERMISSIONS, 
   hasPermission, 
@@ -22,6 +23,19 @@ export class CooperativesService {
     private activitiesService: ActivitiesService,
     private notificationsService: NotificationsService,
   ) {}
+
+  private normalizeOptionalText(value?: string | null): string | null | undefined {
+    if (value === undefined) {
+      return undefined;
+    }
+
+    if (value === null) {
+      return null;
+    }
+
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
 
   // Generate a unique 6-character alphanumeric code
   private generateCode(): string {
@@ -141,6 +155,10 @@ export class CooperativesService {
     return coop;
   }
 
+  async getBankOptions() {
+    return NIGERIAN_BANKS;
+  }
+
   async findByCode(code: string) {
     const coop = await this.prisma.cooperative.findUnique({ where: { code: code.toUpperCase() } });
     if (!coop) throw new NotFoundException('Cooperative not found with this code');
@@ -168,6 +186,9 @@ export class CooperativesService {
         imageUrl: dto.imageUrl ?? null,
         useGradient: dto.useGradient ?? true,
         gradientPreset: dto.gradientPreset ?? 'ocean',
+        collectionBankName: this.normalizeOptionalText(dto.collectionBankName) ?? null,
+        collectionAccountNumber: this.normalizeOptionalText(dto.collectionAccountNumber) ?? null,
+        collectionAccountHolderName: this.normalizeOptionalText(dto.collectionAccountHolderName) ?? null,
         status: dto.status ?? 'active',
         createdBy: createdBy ?? null,
         organizationId: organizationId ?? null,
@@ -230,6 +251,15 @@ export class CooperativesService {
         ...(dto.imageUrl !== undefined && { imageUrl: dto.imageUrl }),
         ...(dto.useGradient !== undefined && { useGradient: dto.useGradient }),
         ...(dto.gradientPreset !== undefined && { gradientPreset: dto.gradientPreset }),
+        ...(this.normalizeOptionalText(dto.collectionBankName) !== undefined && {
+          collectionBankName: this.normalizeOptionalText(dto.collectionBankName),
+        }),
+        ...(this.normalizeOptionalText(dto.collectionAccountNumber) !== undefined && {
+          collectionAccountNumber: this.normalizeOptionalText(dto.collectionAccountNumber),
+        }),
+        ...(this.normalizeOptionalText(dto.collectionAccountHolderName) !== undefined && {
+          collectionAccountHolderName: this.normalizeOptionalText(dto.collectionAccountHolderName),
+        }),
         ...(dto.status !== undefined && { status: dto.status }),
       },
     });

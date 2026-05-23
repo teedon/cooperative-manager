@@ -41,6 +41,9 @@ export interface Cooperative {
   imageUrl?: string
   useGradient?: boolean
   gradientPreset?: string
+  collectionBankName?: string | null
+  collectionAccountNumber?: string | null
+  collectionAccountHolderName?: string | null
   status: CooperativeStatus
   memberCount: number
   totalContributions: number

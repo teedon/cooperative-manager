@@ -199,6 +199,12 @@ export const CooperativeDetailsPage: React.FC = () => {
     return matchesSearch && matchesFilter
   })
 
+  const hasCollectionAccount = Boolean(
+    cooperative?.collectionBankName ||
+      cooperative?.collectionAccountNumber ||
+      cooperative?.collectionAccountHolderName
+  )
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-linear-to-br from-gray-50 to-blue-50 flex items-center justify-center">
@@ -263,6 +269,18 @@ export const CooperativeDetailsPage: React.FC = () => {
 
           {/* Cooperative Info */}
           <div>
+            {hasCollectionAccount && (
+              <div className="mb-4 inline-flex flex-col gap-1 rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-white shadow-lg backdrop-blur-sm">
+                <div className="text-xs uppercase tracking-[0.2em] text-white/70">Collection Account</div>
+                <div className="text-sm font-semibold">{cooperative.collectionBankName}</div>
+                <div className="text-sm text-white/90">
+                  {cooperative.collectionAccountNumber}
+                  {cooperative.collectionAccountHolderName
+                    ? ` • ${cooperative.collectionAccountHolderName}`
+                    : ''}
+                </div>
+              </div>
+            )}
             <div className="flex items-center gap-3 mb-3">
               <h1 className="text-4xl font-bold text-white drop-shadow-lg">
                 {cooperative.name}

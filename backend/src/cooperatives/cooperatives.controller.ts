@@ -27,6 +27,20 @@ export class CooperativesController {
     }
   }
 
+  @UseGuards(AuthGuard('jwt'))
+  @Get('banks')
+  async getBankOptions() {
+    try {
+      const data = await this.service.getBankOptions();
+      return { success: true, message: 'Bank options retrieved successfully', data };
+    } catch (error: any) {
+      throw new HttpException(
+        { success: false, message: error.message || 'Failed to fetch bank options', data: null },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
   @Get(':id')
   async findOne(@Param('id') id: string) {
     try {

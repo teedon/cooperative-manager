@@ -20,6 +20,7 @@ import RoleSwitcher from '../../components/RoleSwitcher';
 import PostOnboardingGuidance from '../../components/onboarding/PostOnboardingGuidance';
 import { useUserType } from '../../contexts/UserTypeContext';
 import { useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import logger from '../../utils/logger';
 import { activityApi } from '../../api/activityApi';
 import { loanApi } from '../../api/loanApi';
@@ -332,11 +333,12 @@ const LandingScreen: React.FC = () => {
 
   const navigation: any = useNavigation();
 
-  const handleCooperatives = () => {
+  const handleCooperatives = async () => {
     if (cooperatives.length > 0) {
-      // Navigate to the last joined or first cooperative as default
-      const defaultCoop = cooperatives[cooperatives.length - 1];
-      navigation.navigate('CooperativeDetail', { cooperativeId: defaultCoop.id });
+      const savedId = await AsyncStorage.getItem('last_cooperative_id');
+      const savedCoop = savedId ? cooperatives.find(c => c.id === savedId) : null;
+      const target = savedCoop ?? cooperatives[cooperatives.length - 1];
+      navigation.navigate('CooperativeDetail', { cooperativeId: target.id });
     } else {
       navigation.navigate('Home');
     }
@@ -348,9 +350,12 @@ const LandingScreen: React.FC = () => {
       Alert.alert('No Cooperatives', 'Please join a cooperative first to view guarantor requests.');
     }
   };
-  const handleLoans = () => {
+  const handleLoans = async () => {
     if (cooperatives.length > 0) {
-      navigation.navigate('CooperativeDetail', { cooperativeId: cooperatives[0].id });
+      const savedId = await AsyncStorage.getItem('last_cooperative_id');
+      const savedCoop = savedId ? cooperatives.find(c => c.id === savedId) : null;
+      const target = savedCoop ?? cooperatives[0];
+      navigation.navigate('CooperativeDetail', { cooperativeId: target.id });
     } else {
       navigation.navigate('Home');
     }

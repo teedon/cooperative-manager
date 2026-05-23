@@ -102,6 +102,10 @@ export const GRADIENT_PRESETS = [
 
 export type GradientPreset = (typeof GRADIENT_PRESETS)[number];
 
+export interface NigerianBankOption {
+  name: string;
+}
+
 export interface Cooperative {
   id: string;
   name: string;
@@ -110,6 +114,9 @@ export interface Cooperative {
   imageUrl?: string;
   useGradient?: boolean;
   gradientPreset?: GradientPreset;
+  collectionBankName?: string | null;
+  collectionAccountNumber?: string | null;
+  collectionAccountHolderName?: string | null;
   status: CooperativeStatus;
   memberCount: number;
   totalContributions: number;

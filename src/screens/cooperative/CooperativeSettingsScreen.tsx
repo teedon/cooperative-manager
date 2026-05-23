@@ -10,6 +10,8 @@ import {
   ActivityIndicator,
   Switch,
   Image,
+  Modal,
+  FlatList,
 } from 'react-native';
 import LinearGradient from 'react-native-linear-gradient';
 import { launchImageLibrary } from 'react-native-image-picker';
@@ -36,6 +38,12 @@ const CooperativeSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
   const [useGradient, setUseGradient] = useState(true);
   const [gradientPreset, setGradientPreset] = useState<GradientPreset>('ocean');
   const [imageUrl, setImageUrl] = useState('');
+  const [hasCollectionAccount, setHasCollectionAccount] = useState(false);
+  const [collectionBankName, setCollectionBankName] = useState('');
+  const [collectionAccountNumber, setCollectionAccountNumber] = useState('');
+  const [collectionAccountHolderName, setCollectionAccountHolderName] = useState('');
+  const [bankOptions, setBankOptions] = useState<string[]>([]);
+  const [showBankPicker, setShowBankPicker] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   
@@ -48,13 +56,49 @@ const CooperativeSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
       setUseGradient(currentCooperative.useGradient !== false);
       setGradientPreset((currentCooperative.gradientPreset || 'ocean') as GradientPreset);
       setImageUrl(currentCooperative.imageUrl || '');
+      setHasCollectionAccount(Boolean(currentCooperative.collectionBankName || currentCooperative.collectionAccountNumber || currentCooperative.collectionAccountHolderName));
+      setCollectionBankName(currentCooperative.collectionBankName || '');
+      setCollectionAccountNumber(currentCooperative.collectionAccountNumber || '');
+      setCollectionAccountHolderName(currentCooperative.collectionAccountHolderName || '');
     }
   }, [currentCooperative]);
+
+  useEffect(() => {
+    const loadBankOptions = async () => {
+      try {
+        const response = await cooperativeApi.getBankOptions();
+        if (response.success) {
+          setBankOptions(response.data || []);
+        }
+      } catch (err) {
+        console.error('Failed to load bank options:', err);
+      }
+    };
+
+    loadBankOptions();
+  }, []);
   
   const handleSave = async () => {
     if (!name.trim()) {
       Alert.alert('Error', 'Cooperative name is required');
       return;
+    }
+
+    if (hasCollectionAccount) {
+      if (!collectionBankName) {
+        Alert.alert('Error', 'Please select a bank');
+        return;
+      }
+
+      if (!/^\d{10}$/.test(collectionAccountNumber)) {
+        Alert.alert('Error', 'Account number must be 10 digits');
+        return;
+      }
+
+      if (!collectionAccountHolderName.trim()) {
+        Alert.alert('Error', 'Account holder name is required');
+        return;
+      }
     }
     
     setIsSaving(true);
@@ -67,6 +111,9 @@ const CooperativeSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
           useGradient,
           gradientPreset,
           imageUrl: !useGradient && imageUrl.trim() ? imageUrl.trim() : undefined,
+          collectionBankName: hasCollectionAccount ? collectionBankName : null,
+          collectionAccountNumber: hasCollectionAccount ? collectionAccountNumber : null,
+          collectionAccountHolderName: hasCollectionAccount ? collectionAccountHolderName.trim() : null,
         },
       })).unwrap();
       
@@ -288,6 +335,72 @@ const CooperativeSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
         )}
       </View>
+
+      {/* Collection Account */}
+      <View style={styles.section}>
+        <View style={styles.toggleRow}>
+          <View style={styles.toggleInfo}>
+            <Text style={styles.toggleLabel}>Collection Account</Text>
+            <Text style={styles.toggleDescription}>
+              Show cooperative bank details for member payments.
+            </Text>
+          </View>
+          <Switch
+            value={hasCollectionAccount}
+            onValueChange={setHasCollectionAccount}
+            trackColor={{ false: colors.border.main, true: colors.primary.light }}
+            thumbColor={hasCollectionAccount ? colors.primary.main : '#9CA3AF'}
+          />
+        </View>
+
+        {hasCollectionAccount ? (
+          <View style={styles.collectionFields}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Bank Name</Text>
+              <TouchableOpacity
+                style={styles.bankSelector}
+                onPress={() => setShowBankPicker(true)}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.bankSelectorText, !collectionBankName && styles.bankSelectorPlaceholder]}>
+                  {collectionBankName || 'Select bank'}
+                </Text>
+                <Icon name="ChevronDown" size={18} color={colors.text.secondary} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Account Number</Text>
+              <TextInput
+                style={styles.input}
+                value={collectionAccountNumber}
+                onChangeText={(value) => setCollectionAccountNumber(value.replace(/\D/g, '').slice(0, 10))}
+                placeholder="10-digit account number"
+                placeholderTextColor={colors.text.secondary}
+                keyboardType="number-pad"
+                maxLength={10}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Account Holder Name</Text>
+              <TextInput
+                style={styles.input}
+                value={collectionAccountHolderName}
+                onChangeText={setCollectionAccountHolderName}
+                placeholder="Name on the bank account"
+                placeholderTextColor={colors.text.secondary}
+              />
+            </View>
+          </View>
+        ) : (
+          <View style={styles.collectionDisabledCard}>
+            <Text style={styles.collectionDisabledText}>
+              Collection account is disabled. Turn it on to show bank details to members.
+            </Text>
+          </View>
+        )}
+      </View>
       
       {/* Error Message */}
       {error && (
@@ -321,6 +434,50 @@ const CooperativeSettingsScreen: React.FC<Props> = ({ route, navigation }) => {
           <Text style={styles.cancelButtonText}>Cancel</Text>
         </TouchableOpacity>
       </View>
+
+      <Modal
+        visible={showBankPicker}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowBankPicker(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Bank</Text>
+              <TouchableOpacity onPress={() => setShowBankPicker(false)}>
+                <Icon name="X" size={20} color={colors.text.secondary} />
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={bankOptions}
+              keyExtractor={(item) => item}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[
+                    styles.bankOption,
+                    item === collectionBankName && styles.bankOptionSelected,
+                  ]}
+                  onPress={() => {
+                    setCollectionBankName(item);
+                    setShowBankPicker(false);
+                  }}
+                >
+                  <Text
+                    style={[
+                      styles.bankOptionText,
+                      item === collectionBankName && styles.bankOptionTextSelected,
+                    ]}
+                  >
+                    {item}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              ItemSeparatorComponent={() => <View style={styles.bankOptionSeparator} />}
+            />
+          </View>
+        </View>
+      </Modal>
     </ScrollView>
   );
 };
@@ -504,6 +661,42 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     marginTop: 2,
   },
+  collectionFields: {
+    marginTop: spacing.md,
+    gap: spacing.md,
+  },
+  bankSelector: {
+    backgroundColor: colors.background.default,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderColor: colors.border.light,
+    paddingHorizontal: spacing.md,
+    minHeight: 50,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  bankSelectorText: {
+    fontSize: 16,
+    color: colors.text.primary,
+  },
+  bankSelectorPlaceholder: {
+    color: colors.text.secondary,
+  },
+  collectionDisabledCard: {
+    marginTop: spacing.md,
+    borderRadius: borderRadius.md,
+    borderWidth: 1,
+    borderStyle: 'dashed',
+    borderColor: colors.border.main,
+    backgroundColor: colors.background.default,
+    padding: spacing.md,
+  },
+  collectionDisabledText: {
+    fontSize: 13,
+    color: colors.text.secondary,
+    lineHeight: 19,
+  },
   presetsContainer: {
     marginTop: spacing.sm,
   },
@@ -597,6 +790,49 @@ const styles = StyleSheet.create({
   cancelButtonText: {
     color: colors.text.secondary,
     fontSize: 16,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    maxHeight: '70%',
+    backgroundColor: colors.background.paper,
+    borderTopLeftRadius: borderRadius.xl,
+    borderTopRightRadius: borderRadius.xl,
+    padding: spacing.lg,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text.primary,
+  },
+  bankOption: {
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.sm,
+    borderRadius: borderRadius.md,
+  },
+  bankOptionSelected: {
+    backgroundColor: colors.primary.light,
+  },
+  bankOptionText: {
+    fontSize: 15,
+    color: colors.text.primary,
+  },
+  bankOptionTextSelected: {
+    color: colors.primary.main,
+    fontWeight: '700',
+  },
+  bankOptionSeparator: {
+    height: 1,
+    backgroundColor: colors.border.light,
   },
 });
 

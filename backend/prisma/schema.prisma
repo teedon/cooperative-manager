@@ -233,6 +233,9 @@ model Cooperative {
   imageUrl           String?
   useGradient        Boolean            @default(true)
   gradientPreset     String             @default("ocean")
+  collectionBankName String?
+  collectionAccountNumber String?
+  collectionAccountHolderName String?
   status             String
   createdBy          String?
   memberCount        Int                @default(0)

@@ -182,6 +182,11 @@ export const cooperativeApi = {
     return response.data
   },
 
+  getBankOptions: async (): Promise<ApiResponse<string[]>> => {
+    const response = await apiClient.get<ApiResponse<string[]>>('/cooperatives/banks')
+    return response.data
+  },
+
   uploadLogo: async (file: File): Promise<ApiResponse<{ url: string }>> => {
     const formData = new FormData()
     formData.append('file', file)
